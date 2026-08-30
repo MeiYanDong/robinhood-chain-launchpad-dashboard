@@ -1,9 +1,9 @@
 # RHC Launch Ledger DeBox Bot 详细需求与实施方案
 
-> 文档状态：需求方案 v1.0，已确认产品方向，尚未授权进入编码或真实接入  
+> 文档状态：需求方案 v1.1，本地无凭证原型已实现并通过验收，真实接入仍待授权
 > 编制日期：2026-08-30  
 > 适用项目：RHC Launch Ledger / `launchpad-dashboard`  
-> 当前阶段：阶段 0——需求与验收系统  
+> 当前阶段：阶段 1 已完成；停在 GATE-02，尚未进入真实 DeBox 接入
 > 产品决策来源：[`debox-bot-prd-v0.1.md`](debox-bot-prd-v0.1.md)
 
 ## 0. 文档用途与权威规则
@@ -111,6 +111,7 @@ AI/程序负责：
 | 路由 | Bot 允许使用 | 用途 |
 | --- | --- | --- |
 | `GET /healthz` | 是 | 服务是否存在可用缓存、目标日期、最近运行状态 |
+| `GET /api/meta` | 是 | 应用版本、API 合同主版本、窗口、指标和平台能力清单 |
 | `GET /api/overview?window=1\|7\|30` | 是 | 窗口汇总和平台数据 |
 | `GET /api/platforms/:id` | 是 | 单平台配置、64 日序列、64 日覆盖和实时/累计快照 |
 | `GET /api/coverage` | 是 | 指标定义、口径、平台覆盖和限制 |
@@ -140,7 +141,7 @@ AI/程序负责：
 - 项目已经初始化为 Git 仓库并公开推送至 https://github.com/MeiYanDong/robinhood-chain-launchpad-dashboard；默认分支为 main。
 - GitHub Actions 已运行成功，main 受 required `verify`、线性历史、禁止 force-push/删除等保护；后续实现从功能分支经 PR 合并。
 
-`local_verified`：工程基线完成时 `npm run verify` 通过，34/34 测试通过并执行全源码覆盖率门槛；Actions run 33318710005 成功。这些仍不构成线上版本、生产部署或线上数据回执。
+`local_verified`：工程基线完成时 `npm run verify` 通过，34/34 测试通过并执行全源码覆盖率门槛；Actions run 33318710005 成功。阶段 1 完成时，`npm run verify` 再次通过，122/122 测试通过，全源码 statements/lines 82.52%、branches 83.39%、functions 91.03%，并成功构建。阶段 1 只使用 fixture Ledger、fake DeBox 和 stub LLM；这些仍不构成真实 DeBox、线上版本、生产部署或线上数据回执。
 
 正式实现 Bot 前必须重新获取：
 
