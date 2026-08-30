@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh Robinhood Chain Launchpad at 15:10 Asia/Shanghai
+
+[Timer]
+OnCalendar=*-*-* 07:10:00 UTC
+Persistent=true
+AccuracySec=1m
+Unit=robinhood-chain-launchpad-refresh.service
+
+[Install]
+WantedBy=timers.target

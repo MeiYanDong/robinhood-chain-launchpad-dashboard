@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="description" content="Robinhood Chain 发射台成交量、用户手续费与平台收入。" />
+    <title>Robinhood Chain 发射台</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" type="module"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">跳到主要内容</a>
+    <div class="page-grid" aria-hidden="true"></div>
+
+    <header class="masthead">
+      <a class="brand" href="/" aria-label="Robinhood Chain 发射台首页">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="brand-copy">
+          <strong>ROBINHOOD CHAIN</strong>
+          <small>发射台</small>
+        </span>
+      </a>
+
+      <div class="network-tape" aria-label="数据日期">
+        <span>CHAIN</span><strong>4663</strong>
+        <span>UTC</span><strong id="header-date">—</strong>
+      </div>
+
+      <div class="header-actions">
+        <button class="quiet-button" id="method-button" type="button">数据说明</button>
+        <span class="run-state" id="run-state"><i></i><span>等待数据</span></span>
+        <button class="refresh-button" id="refresh-button" type="button" aria-label="刷新数据">
+          <span>刷新</span><b aria-hidden="true">↻</b>
+        </button>
+      </div>
+    </header>
+
+    <div class="notice-stack" id="notice-stack" role="status" aria-live="polite"></div>
+
+    <main id="main-content">
+      <section class="ledger-section" aria-label="发射台数据">
+        <div class="ledger-controls">
+          <div class="window-switch" aria-label="统计窗口">
+            <button class="is-active" type="button" data-window="1">24H</button>
+            <button type="button" data-window="7">7D</button>
+            <button type="button" data-window="30">30D</button>
+          </div>
+
+          <div class="platform-scope-switch" aria-label="平台范围">
+            <button class="is-active" type="button" data-platform-scope="mainstream">主流</button>
+            <button type="button" data-platform-scope="all">全部</button>
+          </div>
+
+          <label class="search-control">
+            <span aria-hidden="true">⌕</span>
+            <span class="sr-only">搜索平台</span>
+            <input id="platform-search" type="search" placeholder="搜索平台" autocomplete="off" />
+          </label>
+        </div>
+
+        <div class="table-frame desktop-ledger">
+          <table class="ledger-table">
+            <thead>
+              <tr>
+                <th class="rank-column">#</th>
+                <th><button type="button" data-sort="name">平台 <i>↕</i></button></th>
+                <th><button type="button" data-sort="volume_usd">成交量 <i>↓</i></button></th>
+                <th><button type="button" data-sort="fees_usd">用户手续费 <i>↕</i></button></th>
+                <th><button type="button" data-sort="protocol_revenue_usd">平台收入 <i>↕</i></button></th>
+                <th class="open-column"><span class="sr-only">打开详情</span></th>
+              </tr>
+            </thead>
+            <tbody id="ledger-body"></tbody>
+          </table>
+        </div>
+
+        <div class="mobile-ledger" id="mobile-ledger" aria-live="polite"></div>
+
+        <div class="empty-state" id="empty-state" hidden>
+          <strong>没有匹配的平台</strong>
+          <span>换一个搜索词或切换到“全部”。</span>
+        </div>
+      </section>
+    </main>
+
+    <div class="panel-backdrop" id="drawer-backdrop" hidden></div>
+    <aside class="detail-drawer" id="detail-drawer" aria-labelledby="drawer-title" aria-hidden="true" inert>
+      <header class="drawer-header">
+        <div>
+          <span id="drawer-status">平台详情</span>
+          <h2 id="drawer-title">—</h2>
+        </div>
+        <button class="drawer-close" id="drawer-close" type="button" aria-label="关闭详情">×</button>
+      </header>
+
+      <div class="drawer-scroll">
+        <div class="drawer-metrics" id="drawer-metrics"></div>
+
+        <section class="drawer-live-section" id="drawer-live-section" hidden>
+          <div class="drawer-live-head">
+            <h3>24H 与累计</h3>
+            <small id="drawer-live-time">—</small>
+          </div>
+          <div class="drawer-live-stats" id="drawer-live-stats"></div>
+        </section>
+
+        <section class="chart-panel" aria-labelledby="chart-title">
+          <div class="chart-head">
+            <h3 id="chart-title">历史</h3>
+            <div class="chart-tabs" id="chart-tabs"></div>
+          </div>
+          <div class="chart-wrap" id="chart-wrap">
+            <svg id="history-chart" role="img" aria-label="平台历史指标折线图" viewBox="0 0 720 260"></svg>
+            <p class="chart-empty" id="chart-empty" hidden>暂无可验证历史数据。</p>
+          </div>
+        </section>
+
+        <details class="drawer-disclosure">
+          <summary>数据说明</summary>
+          <p class="drawer-scope" id="drawer-scope"></p>
+          <ul id="drawer-notes"></ul>
+        </details>
+
+        <details class="drawer-disclosure">
+          <summary>来源</summary>
+          <div class="source-links" id="drawer-links"></div>
+        </details>
+      </div>
+    </aside>
+
+    <div class="panel-backdrop" id="method-backdrop" hidden></div>
+    <aside class="method-drawer" id="method-drawer" aria-labelledby="method-title" aria-hidden="true" inert>
+      <header class="drawer-header">
+        <div><h2 id="method-title">数据说明</h2></div>
+        <button class="drawer-close" id="method-close" type="button" aria-label="关闭数据说明">×</button>
+      </header>
+
+      <div class="drawer-scroll">
+        <section class="method-section" aria-labelledby="definition-title">
+          <h3 id="definition-title">指标口径</h3>
+          <div class="definition-list" id="definition-list"></div>
+        </section>
+
+        <section class="method-section" aria-labelledby="source-title">
+          <h3 id="source-title">来源状态</h3>
+          <div class="source-list" id="source-list"></div>
+        </section>
+
+        <details class="method-disclosure">
+          <summary>计算与限制</summary>
+          <ul id="caveat-list"></ul>
+        </details>
+
+        <details class="method-disclosure">
+          <summary>30 日覆盖范围</summary>
+          <div class="coverage-scroll">
+            <table class="coverage-table">
+              <thead>
+                <tr>
+                  <th>平台</th>
+                  <th>成交量</th>
+                  <th>手续费</th>
+                  <th>平台收入</th>
+                  <th>可比性</th>
+                </tr>
+              </thead>
+              <tbody id="coverage-body"></tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+    </aside>
+
+    <div class="loading-screen" id="loading-screen">
+      <div class="loader-mark" aria-hidden="true"><i></i><i></i><i></i></div>
+      <span>正在加载数据</span>
+    </div>
+  </body>
+</html>

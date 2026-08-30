@@ -1,0 +1,26 @@
+{
+  "name": "robinhood-chain-launchpad-dashboard",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "description": "Read-only Robinhood Chain launchpad metrics dashboard",
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test test/**/*.test.ts",
+    "verify:live": "tsx src/live-check.ts"
+  },
+  "dependencies": {
+    "wreq-js": "^3.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
