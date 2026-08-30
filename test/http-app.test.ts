@@ -16,6 +16,7 @@ interface TestContext {
 function fakeDashboard(overrides: Partial<DashboardHttpApi> = {}): DashboardHttpApi {
   return {
     health: () => ({ ok: true, service: "fixture" }),
+    meta: () => ({ route: "meta", apiContractVersion: 1 }),
     overview: (windowDays) => ({ route: "overview", windowDays }),
     platformDetail: (platformId) =>
       platformId === "pons" ? { route: "platform", platformId } : null,
@@ -90,6 +91,10 @@ test("HTTP API routes return their business results", async () => {
     const overview = await fetch(`${baseUrl}/api/overview?window=7`);
     assert.equal(overview.status, 200);
     assert.deepEqual(await overview.json(), { route: "overview", windowDays: 7 });
+
+    const meta = await fetch(`${baseUrl}/api/meta`);
+    assert.equal(meta.status, 200);
+    assert.deepEqual(await meta.json(), { route: "meta", apiContractVersion: 1 });
 
     const platform = await fetch(`${baseUrl}/api/platforms/pons`);
     assert.equal(platform.status, 200);
