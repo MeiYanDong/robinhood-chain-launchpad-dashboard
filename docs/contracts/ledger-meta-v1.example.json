@@ -1,0 +1,27 @@
+{
+  "service": "rhc-launch-ledger",
+  "appVersion": "0.4.0",
+  "apiContractVersion": 1,
+  "targetDate": "2026-08-29",
+  "supportedWindows": [1, 7, 30],
+  "coreMetrics": [
+    "volume_usd",
+    "fees_usd",
+    "protocol_revenue_usd",
+    "revenue_usd"
+  ],
+  "platforms": [
+    {
+      "id": "pons",
+      "status": "live",
+      "supportedMetrics": ["volume_usd", "fees_usd", "protocol_revenue_usd", "revenue_usd"],
+      "hasRollingStats": false
+    },
+    {
+      "id": "letscash",
+      "status": "live",
+      "supportedMetrics": ["volume_usd", "fees_usd", "protocol_revenue_usd", "revenue_usd"],
+      "hasRollingStats": true
+    }
+  ]
+}

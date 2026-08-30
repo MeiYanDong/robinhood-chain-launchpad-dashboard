@@ -39,10 +39,9 @@
 
 ### 0.2 当前授权边界
 
-本轮只允许完善需求文档。以下行为不在当前授权内：
+用户已于 2026-08-30 确认创建公开项目并要求按执行清单依次实施。当前授权覆盖工程质量基线、阶段 0 和阶段 1 的本地无凭证原型。以下行为仍不在当前授权内：
 
-- 编写或修改业务代码；
-- 安装 DeBox SDK 或模型依赖；
+- 安装真实 DeBox SDK 或真实模型 SDK；
 - 创建真实 DeBox Bot；
 - 读取、生成或配置 App Key、App Secret；
 - 修改阿里云服务器、systemd、Nginx、域名、TLS 或防火墙；
@@ -130,7 +129,7 @@ AI/程序负责：
 
 ### 2.2 当前版本和部署记录
 
-`repository_record`：
+`repository_record`（已于 2026-08-30 刷新）：
 
 - 本地 `package.json` 版本为 `0.4.0`；
 - README 记录的线上版本仍为 `0.3.0`；
@@ -138,9 +137,10 @@ AI/程序负责：
 - README 记录公网 Dashboard 仍为 HTTP；
 - Node 服务只监听 `127.0.0.1:4175`，Nginx 对外暴露 `4174`；
 - 每日定时刷新与 Dashboard 主服务已经分开；
-- 项目目录不是 Git 仓库，因此本地状态无法绑定到 commit 或默认分支。
+- 项目已经初始化为 Git 仓库并公开推送至 https://github.com/MeiYanDong/robinhood-chain-launchpad-dashboard；默认分支为 main。
+- GitHub Actions 已运行成功，main 受 required `verify`、线性历史、禁止 force-push/删除等保护；后续实现从功能分支经 PR 合并。
 
-`local_verified`：上一轮本地执行 TypeScript 检查和测试，19/19 通过。这不构成线上版本或线上数据回执。
+`local_verified`：工程基线完成时 `npm run verify` 通过，34/34 测试通过并执行全源码覆盖率门槛；Actions run 33318710005 成功。这些仍不构成线上版本、生产部署或线上数据回执。
 
 正式实现 Bot 前必须重新获取：
 
