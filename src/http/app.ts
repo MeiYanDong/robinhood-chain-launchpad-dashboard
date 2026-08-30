@@ -5,6 +5,7 @@ import type { WindowDays } from "../domain/types.js";
 
 export interface DashboardHttpApi {
   health(): { ok: boolean; [key: string]: unknown };
+  meta(): unknown;
   overview(windowDays: WindowDays): unknown;
   platformDetail(platformId: string): unknown | null;
   coverage(): unknown;
@@ -127,6 +128,11 @@ export function createDashboardRequestHandler(
       if (request.method === "GET" && pathname === "/healthz") {
         const health = options.dashboard.health();
         sendJson(response, health.ok ? 200 : 503, health);
+        return;
+      }
+
+      if (request.method === "GET" && pathname === "/api/meta") {
+        sendJson(response, 200, options.dashboard.meta());
         return;
       }
 

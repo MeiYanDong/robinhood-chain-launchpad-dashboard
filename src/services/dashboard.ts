@@ -1,10 +1,12 @@
 import { collectAll } from "../collectors/index.js";
+import { API_CONTRACT_VERSION, APP_VERSION, SUPPORTED_WINDOWS } from "../config/app.js";
 import { PLATFORM_REGISTRY } from "../config/platforms.js";
 import { aggregateMetricWindow, buildOverview } from "../domain/aggregate.js";
 import { CORE_METRICS } from "../domain/types.js";
 import type {
   CollectionBatch,
   MetricName,
+  LedgerMetaResponse,
   PlatformDetailResponse,
   SourceHealth,
   WindowDays,
@@ -203,6 +205,9 @@ export class DashboardService {
 
   coverage() {
     const overview = this.overview(30);
+    const platformConfigs = new Map(
+      this.database.getPlatforms().map((platform) => [platform.id, platform]),
+    );
     return {
       targetDate: overview.targetDate,
       generatedAt: overview.generatedAt,
@@ -228,6 +233,7 @@ export class DashboardService {
         scope: platform.scope,
         notes: platform.notes,
         metrics: platform.metrics,
+        metricPolicies: platformConfigs.get(platform.id)?.metricPolicies ?? {},
       })),
     };
   }
@@ -252,6 +258,28 @@ export class DashboardService {
       targetDate: usableRun?.targetDate ?? null,
       latestRunStatus: latestRun?.status ?? "empty",
       generatedAt: this.now().toISOString(),
+    };
+  }
+
+  meta(): LedgerMetaResponse {
+    const usableRun = this.database.latestUsableRun();
+    return {
+      service: "rhc-launch-ledger",
+      appVersion: APP_VERSION,
+      apiContractVersion: API_CONTRACT_VERSION,
+      targetDate: usableRun?.targetDate ?? null,
+      supportedWindows: SUPPORTED_WINDOWS,
+      coreMetrics: CORE_METRICS,
+      platforms: this.database.getPlatforms().map((platform) => ({
+        id: platform.id,
+        status: platform.status,
+        supportedMetrics: CORE_METRICS.filter(
+          (metric): metric is MetricName => platform.metricPolicies[metric] !== undefined,
+        ),
+        hasRollingStats: this.database
+          .getPlatformStats(platform.id)
+          .some((stat) => stat.period === "rolling_24h"),
+      })),
     };
   }
 }

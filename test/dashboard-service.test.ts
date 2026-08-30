@@ -113,6 +113,11 @@ test("degraded source data remains usable while public messages are sanitized", 
     assert.doesNotMatch(JSON.stringify(sources), /secret upstream|private upstream/);
     assert.equal(service.platformDetail("pons")?.series.volume_usd[0]?.value, 250);
     assert.equal(service.platformDetail("missing"), null);
+    const meta = service.meta();
+    assert.equal(meta.apiContractVersion, 1);
+    assert.deepEqual(meta.supportedWindows, [1, 7, 30]);
+    assert.ok(meta.coreMetrics.includes("protocol_revenue_usd"));
+    assert.equal(meta.platforms.find((platform) => platform.id === "pons")?.hasRollingStats, false);
   });
 });
 

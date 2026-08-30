@@ -144,3 +144,18 @@ export interface PlatformDetailResponse {
   coverage: Record<MetricName, MetricWindowValue>;
   stats: PlatformStat[];
 }
+
+export interface LedgerMetaResponse {
+  service: "rhc-launch-ledger";
+  appVersion: string;
+  apiContractVersion: number;
+  targetDate: string | null;
+  supportedWindows: readonly WindowDays[];
+  coreMetrics: readonly MetricName[];
+  platforms: Array<{
+    id: string;
+    status: PlatformStatus;
+    supportedMetrics: MetricName[];
+    hasRollingStats: boolean;
+  }>;
+}
