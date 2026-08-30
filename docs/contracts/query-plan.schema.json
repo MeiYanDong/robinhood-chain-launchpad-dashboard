@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/MeiYanDong/robinhood-chain-launchpad-dashboard/docs/contracts/query-plan.schema.json",
+  "title": "RHC Launch Ledger QueryPlan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "action",
+    "windowDays",
+    "metric",
+    "platformId",
+    "scope",
+    "explainTopic",
+    "language",
+    "needsClarification",
+    "clarificationReason"
+  ],
+  "properties": {
+    "version": { "const": 1 },
+    "action": { "enum": ["rank", "platform", "explain", "status", "help"] },
+    "windowDays": { "type": ["integer", "null"], "enum": [1, 7, 30, null] },
+    "metric": {
+      "type": ["string", "null"],
+      "enum": ["volume_usd", "fees_usd", "protocol_revenue_usd", "revenue_usd", null]
+    },
+    "platformId": {
+      "type": ["string", "null"],
+      "pattern": "^[a-z0-9-]+$",
+      "maxLength": 64
+    },
+    "scope": { "type": ["string", "null"], "enum": ["live", "all", null] },
+    "explainTopic": {
+      "type": ["string", "null"],
+      "enum": ["metric", "platform", "quality", "coverage", "sources", null]
+    },
+    "language": { "enum": ["zh-CN", "en"] },
+    "needsClarification": { "type": "boolean" },
+    "clarificationReason": {
+      "type": ["string", "null"],
+      "maxLength": 200
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "action": { "const": "rank" } } },
+      "then": {
+        "properties": {
+          "metric": { "enum": ["volume_usd", "fees_usd", "protocol_revenue_usd"] },
+          "platformId": { "type": "null" },
+          "windowDays": { "enum": [1, 7, 30] },
+          "scope": { "enum": ["live", "all"] }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "action": { "enum": ["status", "help"] } } },
+      "then": {
+        "properties": {
+          "windowDays": { "type": "null" },
+          "metric": { "type": "null" },
+          "platformId": { "type": "null" },
+          "scope": { "type": "null" },
+          "explainTopic": { "type": "null" }
+        }
+      }
+    }
+  ]
+}

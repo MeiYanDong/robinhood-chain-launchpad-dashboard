@@ -131,9 +131,10 @@
   - 完成证据：typecheck、test:coverage、build、verify 全部通过。
   - 完成证据：`npm run verify` 退出 0；31/31 测试通过；全源码 statements/lines 70.43%、branches 73.84%、functions 77.11%，且门槛已写入 `test:coverage`。
 
-- [ ] **QUALITY-008｜建立 GitHub Actions CI。**
+- [x] **QUALITY-008｜建立 GitHub Actions CI。**
   - 要求：Node 22、npm ci、格式、lint、类型、覆盖率、测试、build。
   - 完成证据：workflow 文件、Actions 成功 run；未成功运行前只能标 defined。
+  - 完成证据：.github/workflows/ci.yml；Actions run 33318710005 成功；checkout v7.0.1 与 setup-node v7.0.0 按完整 commit SHA 锁定；main 强制要求 `verify`、管理员同样受约束，并禁用 force-push/删除。
 
 - [x] **QUALITY-009｜补齐 HTTP、DashboardService 与 SQLite 关键路径测试。**
   - 覆盖：API、静态文件安全、refresh 合并、stale/partial/no-cache、事务和错误边界。
@@ -151,7 +152,8 @@
   - 完成证据：重要决策、变更记录、每张故事卡的范围/验收/命令/回滚齐全。
   - 完成证据：docs/adr/0001-public-repository-and-secret-boundary.md、docs/adr/0002-read-only-bot-boundary.md、CHANGELOG.md、docs/stories/phase-1.md。
 
-- [ ] **QUALITY-EXIT-01｜确认质量基线全部通过后再进入阶段 0。**
+- [x] **QUALITY-EXIT-01｜确认质量基线全部通过后再进入阶段 0。**
+  - 完成证据：QUALITY-001 至 QUALITY-012 全部有本地或远端回执；后续改动使用 feat/debox-bot-local-prototype 分支并经 PR 门禁合并。
 
 ---
 
@@ -161,57 +163,57 @@
 
 ## 0.1 文档与术语冻结
 
-- [ ] **P0-001｜创建需求追踪矩阵。**
+- [x] **P0-001｜创建需求追踪矩阵。**
   - 依赖：BASE-001。
   - 执行：把 FR-001 至 FR-018、NFR-001 至 NFR-007、AC-01 至 AC-15 映射到本文具体任务与测试。
   - 产物：docs/requirements-traceability.md。
   - 完成证据：不存在“有需求、无实现任务、无测试任务”的孤立条目。
 
-- [ ] **P0-002｜建立唯一术语表。**
+- [x] **P0-002｜建立唯一术语表。**
   - 执行：定义 Ledger、targetDate、requested window、rolling24h、quality、coverage、source health、suite-wide、live、all、stale、partial、unknown。
   - 产物：docs/bot-glossary.md。
   - 完成证据：命令文案、QueryPlan、类型名、测试 fixture 使用相同含义。
 
-- [ ] **P0-003｜冻结协议收入字段命名。**
+- [x] **P0-003｜冻结协议收入字段命名。**
   - 规则：内部唯一字段名为 protocol_revenue_usd；income 只作为用户输入别名；禁止新增 protocol_income_usd。
   - 产物：术语表、QueryPlan Schema 和 fixture 字段说明。
   - 完成证据：全文检索不存在新建的 protocol_income_usd 实现或测试。
   - 关联：FR-005、FR-006、AC-03。
 
-- [ ] **P0-004｜冻结“1d”和“24h”的区别。**
+- [x] **P0-004｜冻结“1d”和“24h”的区别。**
   - 规则：1d 是 Ledger 的日窗口；rolling24h 是独立口径，不能冒充 1d。
   - 产物：docs/bot-glossary.md 中的例子和用户提示词。
   - 完成证据：至少包含“今天数据”和“过去 24 小时”两个反例。
   - 关联：FR-006、AC-05。
 
-- [ ] **P0-005｜冻结 unknown 原因枚举。**
+- [x] **P0-005｜冻结 unknown 原因枚举。**
   - 枚举：NO_OBSERVATION、SOURCE_NOT_REPORTING、SOURCE_FAILED、STALE_WITHOUT_CURRENT_VALUE、SCOPE_NOT_COMPARABLE、VERSION_NOT_AVAILABLE、PLATFORM_NOT_SUPPORTED、CONTRACT_INCOMPATIBLE。
   - 产物：docs/contracts/bot-answer.md。
   - 完成证据：每个枚举都有用户可理解的中文解释和禁止误写为 0 的例子。
   - 关联：FR-005、FR-006、FR-008、AC-04、AC-09。
 
-- [ ] **P0-006｜冻结回答状态枚举与警告优先级。**
+- [x] **P0-006｜冻结回答状态枚举与警告优先级。**
   - 状态：ok、clarification、degraded、unavailable、unsupported。
   - 警告顺序：无可用数据 → API 合同不兼容 → 最近刷新失败且使用旧缓存 → stale → 单来源 failed/degraded → partial/scope_mismatch/suite_wide → derived → 普通提示。
   - 产物：docs/contracts/bot-answer.md。
   - 完成证据：同一回答出现多种问题时有唯一、可测试的排列规则。
   - 关联：FR-013、FR-015。
 
-- [ ] **P0-007｜建立“不能说什么”清单。**
+- [x] **P0-007｜建立“不能说什么”清单。**
   - 内容：不能把 null 说成 0；不能把旧数据说成当前；不能把 range 总量排成 platform 榜；不能把 64 天详情覆盖冒充请求窗口；不能声称测得真实留存；不能给交易指令。
   - 产物：docs/bot-response-guardrails.md。
   - 完成证据：每条禁令至少映射一个自动化测试。
 
 ## 0.2 QueryPlan 与回答合同设计
 
-- [ ] **P0-008｜写出 QueryPlan v1 的 JSON Schema 草案。**
+- [x] **P0-008｜写出 QueryPlan v1 的 JSON Schema 草案。**
   - 字段：version、action、windowDays、metric、platformId、scope、explainTopic、language、needsClarification、clarificationReason。
   - 约束：拒绝 URL、HTTP method、SQL、shell、文件路径和任意工具名字段。
   - 产物：docs/contracts/query-plan.schema.json。
   - 完成证据：合法样例、缺字段样例、未知字段样例、注入样例均有预期结果。
   - 关联：FR-009、AC-08、AC-10。
 
-- [ ] **P0-009｜写出 BotAnswer v1 合同。**
+- [x] **P0-009｜写出 BotAnswer v1 合同。**
   - 字段：status、title、bodyLines[]、warnings[]、suggestedCommands[]、detailUrl、evidence。
   - evidence 字段：targetDate、generatedAt、runStatus、stale。
   - 约束：detailUrl 只能来自配置允许的 HTTPS 基地址；body 不包含内部异常或密钥。
@@ -219,19 +221,19 @@
   - 完成证据：rank、platform、why、status、no_data 各有一个完整样例。
   - 关联：FR-013、FR-014、AC-12。
 
-- [ ] **P0-010｜写出 BotMetricView 合同。**
+- [x] **P0-010｜写出 BotMetricView 合同。**
   - 字段：metric、value、observedDays、windowDays、coverage、latestDate、sources[]、qualities[]、scope、comparability、excludeFromTotals。
   - 产物：docs/contracts/bot-metric-view.md。
   - 完成证据：字段来源能追溯到 /api/overview、/api/platforms/:id、/api/coverage、/api/sources 或计划中的 /api/meta。
 
-- [ ] **P0-011｜写出 Ledger Contract v1 草案。**
+- [x] **P0-011｜写出 Ledger Contract v1 草案。**
   - 内容：固定允许的 GET endpoint、query 参数、contract version、超时、重试、缓存、错误映射。
   - 禁止：POST /api/refresh、任意 URL、重定向、直接数据库访问。
   - 产物：docs/contracts/ledger-bot-contract-v1.md。
   - 完成证据：允许清单和拒绝清单都可直接转成测试。
   - 关联：FR-011、FR-012、AC-10。
 
-- [ ] **P0-012｜设计 /api/meta 响应。**
+- [x] **P0-012｜设计 /api/meta 响应。**
   - 字段：service、appVersion、apiContractVersion、targetDate、supportedWindows、coreMetrics、platforms。
   - platforms 子字段：id、status、supportedMetrics、hasRollingStats。
   - 决策：apiContractVersion 使用整数主版本，Bot 只接受明确兼容版本。
@@ -241,108 +243,110 @@
 
 ## 0.3 Ledger fixture 目录设计
 
-- [ ] **P0-013｜建立 endpoint fixture 清单。**
+- [x] **P0-013｜建立 endpoint fixture 清单。**
   - 范围：healthz、overview 1/7/30、platform detail、coverage、sources、meta。
   - 产物：test/fixtures/ledger/README.md 或等价设计稿；此阶段不要求实现代码。
   - 完成证据：每个 Bot 用例知道需要哪些响应组合。
 
-- [ ] **P0-014｜准备正常数据 fixture 规格。**
+- [x] **P0-014｜准备正常数据 fixture 规格。**
   - 覆盖：多个平台、volume、fees、protocol_revenue_usd、0 值、不同 targetDate、quality 和 coverage。
   - 完成证据：能计算默认 Top 5、7d fees 榜和单平台 30d 查询的唯一预期答案。
 
-- [ ] **P0-015｜准备 null 与不可比较 fixture 规格。**
+- [x] **P0-015｜准备 null 与不可比较 fixture 规格。**
   - 覆盖：null、NO_OBSERVATION、SOURCE_NOT_REPORTING、SCOPE_NOT_COMPARABLE、suite-wide 数值。
   - 完成证据：预期答案明确区分“0”“未知”“全平台口径，不参与单平台排名”。
 
-- [ ] **P0-016｜准备 stale 与 partial fixture 规格。**
+- [x] **P0-016｜准备 stale 与 partial fixture 规格。**
   - 覆盖：targetDate 落后、部分来源失败、数据存在但质量下降、当前值不存在只有旧值。
   - 完成证据：每个样例定义回答状态、警告文案和是否允许展示数值。
 
-- [ ] **P0-017｜准备版本不兼容和 Schema 漂移 fixture 规格。**
+- [x] **P0-017｜准备版本不兼容和 Schema 漂移 fixture 规格。**
   - 覆盖：apiContractVersion 不受支持、字段缺失、字段类型错误、未知额外字段。
   - 完成证据：明确哪些情况 fail closed，哪些情况可忽略额外字段。
 
-- [ ] **P0-018｜准备滚动 24 小时与日窗口冲突 fixture 规格。**
+- [x] **P0-018｜准备滚动 24 小时与日窗口冲突 fixture 规格。**
   - 完成证据：用户说“24h”时不会静默返回 1d；只能澄清或展示被明确标注的 rolling24h。
   - 关联：AC-05。
 
 ## 0.4 Dialogue Lab
 
-- [ ] **P0-019｜为 L-01 排行榜回答制作三种文本方案。**
+- [x] **P0-019｜为 L-01 排行榜回答制作三种文本方案。**
   - 变量：标题、窗口、指标、Top 5 行格式、质量标签、targetDate、推荐命令。
   - 产物：docs/dialogue-lab/L-01-rank.md。
   - 完成证据：三案都不超过目标 1500 字符，并且同一 fixture 数字完全一致。
 
-- [ ] **P0-020｜记录并确认 L-01 最终方案。**
+- [x] **P0-020｜记录并确认 L-01 最终方案。**
   - 记录：选中方案、选择理由、吸收的其他方案元素、拒绝的反模式、对 formatter 的约束。
   - 依赖：P0-019、用户选择。
   - 完成证据：文档中有 confirmed_decision 标记。
 
-- [ ] **P0-021｜为 L-02 单平台回答制作三种文本方案。**
+- [x] **P0-021｜为 L-02 单平台回答制作三种文本方案。**
   - 变量：核心三指标、收入按需展示、质量/覆盖、requested window 与 rolling24h 的区分、详情链接。
   - 产物：docs/dialogue-lab/L-02-platform.md。
 
-- [ ] **P0-022｜记录并确认 L-02 最终方案。**
+- [x] **P0-022｜记录并确认 L-02 最终方案。**
   - 依赖：P0-021、用户选择。
   - 完成证据：文档中有 confirmed_decision 标记和 formatter 规则。
 
-- [ ] **P0-023｜为 L-03 unknown/no-data 回答制作三种文本方案。**
+- [x] **P0-023｜为 L-03 unknown/no-data 回答制作三种文本方案。**
   - 变量：未知原因、人话解释、是否给旧值、下一步建议。
   - 产物：docs/dialogue-lab/L-03-unknown.md。
 
-- [ ] **P0-024｜记录并确认 L-03 最终方案。**
+- [x] **P0-024｜记录并确认 L-03 最终方案。**
   - 依赖：P0-023、用户选择。
   - 完成证据：0、null、无当前值三类不会混淆。
 
-- [ ] **P0-025｜为 L-04 stale/partial 回答制作三种文本方案。**
+- [x] **P0-025｜为 L-04 stale/partial 回答制作三种文本方案。**
   - 变量：警告位置、targetDate、失败来源摘要、是否保留可用数值。
   - 产物：docs/dialogue-lab/L-04-stale.md。
 
-- [ ] **P0-026｜记录并确认 L-04 最终方案。**
+- [x] **P0-026｜记录并确认 L-04 最终方案。**
   - 依赖：P0-025、用户选择。
   - 完成证据：警告优先级和 formatter 规则被固定。
 
-- [ ] **P0-027｜为 L-05 /start 与 /help 制作三种文本方案。**
+- [x] **P0-027｜为 L-05 /start 与 /help 制作三种文本方案。**
   - 变量：Bot 定位、四类命令、自然语言例子、不能交易的边界、数据时效提示。
   - 产物：docs/dialogue-lab/L-05-help.md。
 
-- [ ] **P0-028｜记录并确认 L-05 最终方案。**
+- [x] **P0-028｜记录并确认 L-05 最终方案。**
   - 依赖：P0-027、用户选择。
   - 完成证据：静态文案无需 Ledger 或 LLM，长度不超过 1500 字符。
 
-- [ ] **P0-029｜为 L-06 越界请求制作三种拒绝方案。**
+- [x] **P0-029｜为 L-06 越界请求制作三种拒绝方案。**
   - 场景：买卖建议、签名/交易、访问任意 URL、提示词注入、索取内部配置。
   - 产物：docs/dialogue-lab/L-06-out-of-scope.md。
 
-- [ ] **P0-030｜记录 L-06 推荐方案；如不影响核心实现可按推荐方案继续。**
+- [x] **P0-030｜记录 L-06 推荐方案；如不影响核心实现可按推荐方案继续。**
   - 完成证据：拒绝简短、说明能力边界、提供可执行的只读查询替代。
 
 ## 0.5 阶段 0 验收
 
-- [ ] **P0-031｜完成命令语法表。**
+- [x] **P0-031｜完成命令语法表。**
   - 命令：/start、/help、/rank、/platform、/why、/status。
   - 内容：参数、默认值、别名、非法输入、歧义提示和示例。
   - 产物：docs/contracts/commands-v1.md。
 
-- [ ] **P0-032｜完成十二个用例的输入—处理—输出规格。**
+- [x] **P0-032｜完成十二个用例的输入—处理—输出规格。**
   - 范围：UC-01 至 UC-12。
   - 产物：docs/use-cases.md。
   - 完成证据：每个用例映射到至少一个 fixture 和一个验收测试。
 
-- [ ] **P0-033｜完成安全威胁清单。**
+- [x] **P0-033｜完成安全威胁清单。**
   - 范围：提示词注入、SSRF、refresh 放大、密钥泄露、重复更新、幻觉、旧数据、null、错误排名、隐私日志、SDK 供应链、模型成本。
   - 产物：docs/threat-model.md。
   - 完成证据：每项有预防、检测、失败方式和测试编号。
 
-- [ ] **P0-034｜完成阶段 0 需求评审。**
+- [x] **P0-034｜完成阶段 0 需求评审。**
   - 参与：用户与实现者。
   - 核对：范围、术语、QueryPlan、回答合同、Dialogue Lab、验收矩阵、外部停止门。
   - 完成证据：docs/decisions/requirements-signoff.md。
 
-- [ ] **P0-EXIT-01｜确认 L-01 至 L-05 已有最终方案。**
-- [ ] **P0-EXIT-02｜确认 FR、NFR、AC 均已映射到任务与测试。**
-- [ ] **P0-EXIT-03｜确认所有未决外部动作仍停在对应 GATE 前。**
-- [ ] **P0-EXIT-04｜通过 GATE-01 后再进入阶段 1。**
+- [x] **P0-EXIT-01｜确认 L-01 至 L-05 已有最终方案。**
+- [x] **P0-EXIT-02｜确认 FR、NFR、AC 均已映射到任务与测试。**
+- [x] **P0-EXIT-03｜确认所有未决外部动作仍停在对应 GATE 前。**
+- [x] **P0-EXIT-04｜通过 GATE-01 后再进入阶段 1。**
+
+阶段 0 验证证据：合同 JSON 均可解析；L-01 至 L-05 共 5 个 `confirmed_decision: A`；追踪矩阵唯一计数为 FR 18、NFR 7、AC 15；GATE-02 至 GATE-12 保持未通过。
 
 ---
 
