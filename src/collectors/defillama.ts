@@ -4,12 +4,7 @@ import {
   metricPolicyFor,
   normalizePlatformName,
 } from "../config/platforms.js";
-import type {
-  CollectionBatch,
-  DailyMetric,
-  MetricName,
-  PlatformConfig,
-} from "../domain/types.js";
+import type { CollectionBatch, DailyMetric, MetricName, PlatformConfig } from "../domain/types.js";
 import { fetchJson, finiteNumber, isRecord } from "../utils/http.js";
 import { isDateOnOrBefore, unixSecondsToUtcDate } from "../utils/time.js";
 
@@ -171,7 +166,9 @@ export function extractDefiLlamaMetric(
   }
 
   const protocols = launchpadProtocols(payload);
-  const discoveredIndex = new Set(protocols.map((protocol) => normalizePlatformName(protocol.name)));
+  const discoveredIndex = new Set(
+    protocols.map((protocol) => normalizePlatformName(protocol.name)),
+  );
   const platformById = new Map<string, PlatformConfig>();
 
   for (const protocol of protocols) platformById.set(protocol.platform.id, protocol.platform);
@@ -333,17 +330,12 @@ async function mapWithConcurrency<T, R>(
     }
   }
 
-  await Promise.all(
-    Array.from({ length: Math.min(concurrency, items.length) }, () => worker()),
-  );
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()));
   return results;
 }
 
 function mergeSummaryMetrics(successes: SummarySuccess[]): DailyMetric[] {
-  const grouped = new Map<
-    string,
-    { metric: DailyMetric; protocolNames: Set<string> }
-  >();
+  const grouped = new Map<string, { metric: DailyMetric; protocolNames: Set<string> }>();
 
   for (const success of successes) {
     for (const metric of success.parsed.metrics) {
@@ -446,7 +438,9 @@ async function collectSummaryFallbacks(
   }
 
   for (const definition of DEFILLAMA_SOURCES) {
-    const expected = candidates.filter((candidate) => candidate.definition.metric === definition.metric);
+    const expected = candidates.filter(
+      (candidate) => candidate.definition.metric === definition.metric,
+    );
     if (expected.length === 0) continue;
     const successful = successes.filter(
       (success) => success.candidate.definition.metric === definition.metric,
@@ -459,11 +453,12 @@ async function collectSummaryFallbacks(
       (latest, metric) => (!latest || metric.date > latest ? metric.date : latest),
       null as string | null,
     );
-    const fetchedAt = successful.reduce(
-      (latest, success) =>
-        success.fetched.fetchedAt > latest ? success.fetched.fetchedAt : latest,
-      "",
-    ) || new Date().toISOString();
+    const fetchedAt =
+      successful.reduce(
+        (latest, success) =>
+          success.fetched.fetchedAt > latest ? success.fetched.fetchedAt : latest,
+        "",
+      ) || new Date().toISOString();
     const empty = successful.filter((success) => success.parsed.metrics.length === 0).length;
 
     sourceHealth.push({
@@ -523,7 +518,8 @@ export async function collectDefiLlama(targetDate: string): Promise<CollectionBa
     if (!definition) return;
 
     if (result.status === "rejected") {
-      const message = result.reason instanceof Error ? result.reason.message : String(result.reason);
+      const message =
+        result.reason instanceof Error ? result.reason.message : String(result.reason);
       sourceHealth.push({
         source: definition.source,
         status: "failed",

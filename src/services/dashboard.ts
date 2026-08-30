@@ -1,13 +1,15 @@
-import { PLATFORM_REGISTRY } from "../config/platforms.js";
 import { collectAll } from "../collectors/index.js";
+import { PLATFORM_REGISTRY } from "../config/platforms.js";
 import { aggregateMetricWindow, buildOverview } from "../domain/aggregate.js";
 import { CORE_METRICS } from "../domain/types.js";
 import type {
+  CollectionBatch,
   MetricName,
   PlatformDetailResponse,
+  SourceHealth,
   WindowDays,
 } from "../domain/types.js";
-import { DashboardDatabase } from "../storage/database.js";
+import type { CollectionRun, DashboardDatabase } from "../storage/database.js";
 import { lastClosedUtcDate, shiftUtcDate, windowStart } from "../utils/time.js";
 
 export interface RefreshResult {
@@ -19,30 +21,83 @@ export interface RefreshResult {
   warnings: string[];
 }
 
+export interface DashboardServiceDependencies {
+  collect?: (targetDate: string) => Promise<CollectionBatch>;
+  now?: () => Date;
+  warn?: (event: string, context: Record<string, unknown>) => void;
+}
+
+function errorName(error: unknown): string {
+  return error instanceof Error ? error.name : "UnknownError";
+}
+
+function publicBatchWarnings(batch: CollectionBatch): string[] {
+  const hasFailedSource = batch.sourceHealth.some((source) => source.status === "failed");
+  if (hasFailedSource) return ["One or more sources are currently unavailable."];
+
+  const hasDegradedSource = batch.sourceHealth.some((source) => source.status === "degraded");
+  if (hasDegradedSource) return ["One or more sources returned degraded data."];
+
+  return batch.warnings.length > 0 ? ["One or more source results require attention."] : [];
+}
+
+function publicStoredWarnings(warnings: string[]): string[] {
+  return warnings.length > 0 ? ["One or more source results require attention."] : [];
+}
+
+function publicRun(run: CollectionRun | null): CollectionRun | null {
+  if (!run) return null;
+  return {
+    ...run,
+    warnings: publicStoredWarnings(run.warnings),
+    error: null,
+  };
+}
+
+function publicSourceHealth(source: SourceHealth): SourceHealth {
+  const messages: Record<SourceHealth["status"], string> = {
+    ok: "Source responded successfully.",
+    degraded: "Source returned partial or degraded data.",
+    failed: "Source is currently unavailable.",
+  };
+  return {
+    ...source,
+    message: messages[source.status],
+  };
+}
+
 export class DashboardService {
   private refreshPromise: Promise<RefreshResult> | null = null;
+  private readonly collect: (targetDate: string) => Promise<CollectionBatch>;
+  private readonly now: () => Date;
+  private readonly warn: (event: string, context: Record<string, unknown>) => void;
 
   constructor(
     private readonly database: DashboardDatabase,
     private readonly cacheTtlMinutes: number,
+    dependencies: DashboardServiceDependencies = {},
   ) {
+    this.collect = dependencies.collect ?? collectAll;
+    this.now = dependencies.now ?? (() => new Date());
+    this.warn = dependencies.warn ?? ((event, context) => console.warn(event, context));
     this.database.seedPlatforms(PLATFORM_REGISTRY);
   }
 
   async ensureFresh(): Promise<void> {
     const latest = this.database.latestUsableRun();
     const completedAt = latest?.completedAt ? Date.parse(latest.completedAt) : Number.NaN;
+    const now = this.now();
     const fresh =
       Number.isFinite(completedAt) &&
-      Date.now() - completedAt < this.cacheTtlMinutes * 60_000 &&
-      latest?.targetDate === lastClosedUtcDate();
+      now.valueOf() - completedAt < this.cacheTtlMinutes * 60_000 &&
+      latest?.targetDate === lastClosedUtcDate(now);
     if (fresh) return;
 
     try {
       await this.refresh();
     } catch (error) {
       if (!latest) throw error;
-      console.warn("Refresh failed; serving the last usable cache:", error);
+      this.warn("refresh_failed_using_cache", { errorName: errorName(error) });
     }
   }
 
@@ -56,11 +111,11 @@ export class DashboardService {
   }
 
   private async refreshNow(): Promise<RefreshResult> {
-    const targetDate = lastClosedUtcDate();
+    const targetDate = lastClosedUtcDate(this.now());
     const runId = this.database.startRun(targetDate);
 
     try {
-      const batch = await collectAll(targetDate);
+      const batch = await this.collect(targetDate);
       if (batch.metrics.length === 0) {
         throw new Error("All collectors returned zero canonical metric observations");
       }
@@ -75,11 +130,10 @@ export class DashboardService {
         metricCount: batch.metrics.length,
         statCount: batch.stats.length,
         platformCount: batch.platforms.length,
-        warnings: batch.warnings,
+        warnings: publicBatchWarnings(batch),
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.database.completeRun(runId, "failed", [], message);
+      this.database.completeRun(runId, "failed", [], errorName(error));
       throw error;
     }
   }
@@ -87,15 +141,16 @@ export class DashboardService {
   overview(windowDays: WindowDays) {
     const usableRun = this.database.latestUsableRun();
     const latestRun = this.database.latestRun();
-    const targetDate = usableRun?.targetDate ?? lastClosedUtcDate();
+    const now = this.now();
+    const targetDate = usableRun?.targetDate ?? lastClosedUtcDate(now);
     const platforms = this.database.getPlatforms();
     const metrics = this.database.getMetrics(windowStart(targetDate, windowDays), targetDate);
     const completedAt = usableRun?.completedAt ? Date.parse(usableRun.completedAt) : Number.NaN;
     const stale =
-      !Number.isFinite(completedAt) || Date.now() - completedAt >= this.cacheTtlMinutes * 60_000;
-    const warnings = [...(usableRun?.warnings ?? [])];
+      !Number.isFinite(completedAt) || now.valueOf() - completedAt >= this.cacheTtlMinutes * 60_000;
+    const warnings = publicStoredWarnings(usableRun?.warnings ?? []);
     if (latestRun?.status === "failed" && latestRun.id !== usableRun?.id) {
-      warnings.unshift(`Latest refresh failed: ${latestRun.error ?? "unknown error"}`);
+      warnings.unshift("Latest refresh failed; serving the last usable cache.");
     }
 
     return buildOverview({
@@ -103,7 +158,7 @@ export class DashboardService {
       metrics,
       targetDate,
       windowDays,
-      generatedAt: new Date().toISOString(),
+      generatedAt: now.toISOString(),
       stale,
       runStatus: latestRun?.status ?? "empty",
       warnings,
@@ -114,7 +169,8 @@ export class DashboardService {
     const platform = this.database.getPlatform(platformId);
     if (!platform) return null;
     const run = this.database.latestUsableRun();
-    const targetDate = run?.targetDate ?? lastClosedUtcDate();
+    const now = this.now();
+    const targetDate = run?.targetDate ?? lastClosedUtcDate(now);
     const startDate = shiftUtcDate(targetDate, -63);
     const metrics = this.database.getMetrics(startDate, targetDate, platformId);
     const series = Object.fromEntries(
@@ -138,7 +194,7 @@ export class DashboardService {
     return {
       platform,
       targetDate,
-      generatedAt: new Date().toISOString(),
+      generatedAt: now.toISOString(),
       series,
       coverage,
       stats: this.database.getPlatformStats(platformId),
@@ -180,10 +236,10 @@ export class DashboardService {
     const usableRun = this.database.latestUsableRun();
     const latestRun = this.database.latestRun();
     return {
-      generatedAt: new Date().toISOString(),
-      usableRun,
-      latestRun,
-      sources: this.database.getSourceHealth(),
+      generatedAt: this.now().toISOString(),
+      usableRun: publicRun(usableRun),
+      latestRun: publicRun(latestRun),
+      sources: this.database.getSourceHealth().map(publicSourceHealth),
     };
   }
 
@@ -195,7 +251,7 @@ export class DashboardService {
       service: "rhc-launch-ledger",
       targetDate: usableRun?.targetDate ?? null,
       latestRunStatus: latestRun?.status ?? "empty",
-      generatedAt: new Date().toISOString(),
+      generatedAt: this.now().toISOString(),
     };
   }
 }

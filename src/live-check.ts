@@ -44,17 +44,14 @@ const observations = fetched.map(({ definition, response }) => {
 });
 
 const discovered = new Set(observations.flatMap((observation) => observation.platformNames));
-const expectedGroups = [
-  ["Pons"],
-  ["LetsCash"],
-  ["Flap"],
-  ["StonkBrokers"],
-];
+const expectedGroups = [["Pons"], ["LetsCash"], ["Flap"], ["StonkBrokers"]];
 const missing = expectedGroups
   .filter((aliases) => !aliases.some((alias) => discovered.has(alias)))
   .map((aliases) => aliases[0]);
 if (missing.length > 0) {
-  throw new Error(`Expected launchpads missing from live DefiLlama contract: ${missing.join(", ")}`);
+  throw new Error(
+    `Expected launchpads missing from live DefiLlama contract: ${missing.join(", ")}`,
+  );
 }
 
 const letscash = findRegisteredPlatform("LetsCash");

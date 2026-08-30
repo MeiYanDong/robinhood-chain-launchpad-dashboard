@@ -161,13 +161,18 @@ function renderRunState() {
 
 function metricMeta(metric) {
   if (metric.value === null) return "暂无观测";
-  if (metric.windowDays === 1) return metric.latestDate ? `UTC ${metric.latestDate.slice(5)}` : "已观测";
+  if (metric.windowDays === 1)
+    return metric.latestDate ? `UTC ${metric.latestDate.slice(5)}` : "已观测";
   return `${metric.observedDays}/${metric.windowDays} 日`;
 }
 
 function metricCell(metric) {
   const cell = element("td", "metric-cell");
-  const value = element("span", `metric-value${metric.value === null ? " is-null" : ""}`, formatUsd(metric.value));
+  const value = element(
+    "span",
+    `metric-value${metric.value === null ? " is-null" : ""}`,
+    formatUsd(metric.value),
+  );
   value.title = metric.value === null ? "来源未给出可验证观测" : formatUsd(metric.value, false);
   cell.append(value, element("span", "metric-meta", metricMeta(metric)));
   return cell;
@@ -244,7 +249,10 @@ function renderDesktopRow(platform, index) {
 }
 
 function renderMobileCard(platform, index) {
-  const card = element("article", `platform-card${platform.excludeFromTotals ? " excluded-row" : ""}`);
+  const card = element(
+    "article",
+    `platform-card${platform.excludeFromTotals ? " excluded-row" : ""}`,
+  );
   card.tabIndex = 0;
   card.setAttribute("role", "button");
   card.setAttribute("aria-label", `查看 ${platform.name} 详情`);
@@ -270,7 +278,11 @@ function renderMobileCard(platform, index) {
     const item = element("div", "platform-card__metric");
     item.append(
       element("span", "", METRIC_LABELS[metric]),
-      element("strong", platform.metrics[metric].value === null ? "is-null" : "", formatUsd(platform.metrics[metric].value)),
+      element(
+        "strong",
+        platform.metrics[metric].value === null ? "is-null" : "",
+        formatUsd(platform.metrics[metric].value),
+      ),
     );
     metrics.append(item);
   }
@@ -292,7 +304,7 @@ function renderLedger() {
     mobile.append(renderMobileCard(platform, index));
   });
 
-  $$('[data-sort]').forEach((button) => {
+  $$("[data-sort]").forEach((button) => {
     const indicator = $("i", button);
     if (!indicator) return;
     indicator.textContent =
@@ -309,7 +321,8 @@ function renderOverview() {
 }
 
 function coverageMark(metric) {
-  const className = metric.observedDays === 0 ? "is-empty" : metric.coverage >= 1 ? "is-full" : "is-partial";
+  const className =
+    metric.observedDays === 0 ? "is-empty" : metric.coverage >= 1 ? "is-full" : "is-partial";
   const mark = element("span", `coverage-mark ${className}`);
   mark.textContent = metric.observedDays === 0 ? "—" : `${metric.observedDays}/30`;
   mark.title = `最近 ${metric.windowDays} 个闭合 UTC 日中有 ${metric.observedDays} 日观测`;
@@ -343,7 +356,11 @@ function renderMethod() {
     row.append(
       top,
       element("p", "", source.message),
-      element("small", "", `数据 ${source.latestDataDate ?? "—"} · 抓取 ${formatDateTime(source.fetchedAt)}${latency}`),
+      element(
+        "small",
+        "",
+        `数据 ${source.latestDataDate ?? "—"} · 抓取 ${formatDateTime(source.fetchedAt)}${latency}`,
+      ),
     );
     sourceList.append(row);
   }
@@ -365,7 +382,7 @@ function renderMethod() {
     const scopeCell = element("td");
     const label = platform.excludeFromTotals
       ? "排除总计"
-      : SCOPE_LABELS[platform.comparability] ?? platform.comparability;
+      : (SCOPE_LABELS[platform.comparability] ?? platform.comparability);
     const chip = element("span", `scope-chip scope-chip--${platform.comparability}`, label);
     chip.title = platform.scope;
     scopeCell.append(chip);
@@ -426,10 +443,7 @@ function renderLiveStats(detail) {
   for (const stat of stats) {
     const card = element("article", "drawer-live-stat");
     card.title = stat.derivation || stat.scope;
-    card.append(
-      element("span", "", stat.label),
-      element("strong", "", formatStatValue(stat)),
-    );
+    card.append(element("span", "", stat.label), element("strong", "", formatStatValue(stat)));
     host.append(card);
   }
 }
@@ -438,7 +452,11 @@ function renderChartTabs() {
   const host = $("#chart-tabs");
   host.replaceChildren();
   for (const metric of CORE_METRICS) {
-    const button = element("button", metric === state.detailMetric ? "is-active" : "", METRIC_SHORT[metric]);
+    const button = element(
+      "button",
+      metric === state.detailMetric ? "is-active" : "",
+      METRIC_SHORT[metric],
+    );
     button.type = "button";
     button.title = METRIC_LABELS[metric];
     button.addEventListener("click", () => {
@@ -481,11 +499,18 @@ function renderChart() {
   const rawMaxValue = Math.max(...points.map((point) => point.value));
   const maxValue = rawMaxValue > 0 ? rawMaxValue * 1.08 : 1;
   const x = (time) =>
-    padding.left + (maxTime === minTime ? plotWidth / 2 : ((time - minTime) / (maxTime - minTime)) * plotWidth);
+    padding.left +
+    (maxTime === minTime ? plotWidth / 2 : ((time - minTime) / (maxTime - minTime)) * plotWidth);
   const y = (value) => padding.top + plotHeight - (value / maxValue) * plotHeight;
 
   const defs = svgElement("defs");
-  const gradient = svgElement("linearGradient", { id: "chart-gradient", x1: "0", y1: "0", x2: "0", y2: "1" });
+  const gradient = svgElement("linearGradient", {
+    id: "chart-gradient",
+    x1: "0",
+    y1: "0",
+    x2: "0",
+    y2: "1",
+  });
   gradient.append(
     svgElement("stop", { offset: "0%", "stop-color": "#60e6e4", "stop-opacity": "0.35" }),
     svgElement("stop", { offset: "100%", "stop-color": "#60e6e4", "stop-opacity": "0" }),
@@ -495,7 +520,10 @@ function renderChart() {
 
   const coordinates = points.map((point, index) => [x(timestamps[index]), y(point.value)]);
   const linePath = coordinates
-    .map(([pointX, pointY], index) => `${index === 0 ? "M" : "L"}${pointX.toFixed(2)},${pointY.toFixed(2)}`)
+    .map(
+      ([pointX, pointY], index) =>
+        `${index === 0 ? "M" : "L"}${pointX.toFixed(2)},${pointY.toFixed(2)}`,
+    )
     .join(" ");
   const firstX = coordinates[0][0];
   const lastX = coordinates.at(-1)[0];
@@ -505,7 +533,9 @@ function renderChart() {
   svg.append(svgElement("path", { d: areaPath, class: "chart-area" }));
   svg.append(svgElement("path", { d: linePath, class: "chart-line" }));
   const lastPoint = coordinates.at(-1);
-  svg.append(svgElement("circle", { cx: lastPoint[0], cy: lastPoint[1], r: 4.5, class: "chart-dot" }));
+  svg.append(
+    svgElement("circle", { cx: lastPoint[0], cy: lastPoint[1], r: 4.5, class: "chart-dot" }),
+  );
 
   const maxLabel = svgElement("text", { x: 12, y: padding.top + 4, class: "chart-label" });
   maxLabel.textContent = formatUsd(rawMaxValue);
@@ -581,7 +611,8 @@ function closePanel(drawerSelector, backdropSelector, restoreFocus = true) {
   drawer.setAttribute("aria-hidden", "true");
   setTimeout(() => {
     backdrop.hidden = true;
-    if (!$(".detail-drawer.is-open, .method-drawer.is-open")) document.body.classList.remove("panel-open");
+    if (!$(".detail-drawer.is-open, .method-drawer.is-open"))
+      document.body.classList.remove("panel-open");
     if (restoreFocus) state.lastFocus?.focus?.();
   }, 280);
 }
@@ -596,7 +627,8 @@ async function openDetail(platformId, trigger) {
 
   try {
     state.detail = await api(`/api/platforms/${encodeURIComponent(platformId)}`);
-    state.detailMetric = CORE_METRICS.find((metric) => state.detail.series[metric]?.length) ?? "volume_usd";
+    state.detailMetric =
+      CORE_METRICS.find((metric) => state.detail.series[metric]?.length) ?? "volume_usd";
     renderDetail();
   } catch (error) {
     $("#drawer-title").textContent = "加载失败";
@@ -614,7 +646,9 @@ async function openMethod(trigger) {
   try {
     await loadMethod();
   } catch (error) {
-    $("#definition-list").replaceChildren(element("p", "panel-error", `数据说明加载失败：${error.message}`));
+    $("#definition-list").replaceChildren(
+      element("p", "panel-error", `数据说明加载失败：${error.message}`),
+    );
   }
 }
 
@@ -646,12 +680,14 @@ async function refreshDashboard() {
 }
 
 function bindEvents() {
-  $$('[data-window]').forEach((button) => {
+  $$("[data-window]").forEach((button) => {
     button.addEventListener("click", async () => {
       const windowDays = Number(button.dataset.window);
       if (![1, 7, 30].includes(windowDays) || windowDays === state.windowDays) return;
       state.windowDays = windowDays;
-      $$('[data-window]').forEach((candidate) => candidate.classList.toggle("is-active", candidate === button));
+      $$("[data-window]").forEach((candidate) => {
+        candidate.classList.toggle("is-active", candidate === button);
+      });
       try {
         await loadOverview();
       } catch (error) {
@@ -660,10 +696,12 @@ function bindEvents() {
     });
   });
 
-  $$('[data-platform-scope]').forEach((button) => {
+  $$("[data-platform-scope]").forEach((button) => {
     button.addEventListener("click", () => {
       state.platformScope = button.dataset.platformScope;
-      $$('[data-platform-scope]').forEach((candidate) => candidate.classList.toggle("is-active", candidate === button));
+      $$("[data-platform-scope]").forEach((candidate) => {
+        candidate.classList.toggle("is-active", candidate === button);
+      });
       renderLedger();
     });
   });
@@ -673,7 +711,7 @@ function bindEvents() {
     renderLedger();
   });
 
-  $$('[data-sort]').forEach((button) => {
+  $$("[data-sort]").forEach((button) => {
     button.addEventListener("click", () => {
       const key = button.dataset.sort;
       if (state.sortKey === key) {

@@ -10,10 +10,8 @@ import type {
 import { fetchJson, finiteNumber, isRecord } from "../utils/http.js";
 import { isDateOnOrBefore, parseLooseUtcDate } from "../utils/time.js";
 
-export const LETSCASH_TOKENOMICS_URL =
-  "https://api.letscash.fun/api/tokenomics?surface=current";
-export const LETSCASH_DAILY_SOURCE =
-  "letscash.officialTokenomics+defillama.historicalEthUsd";
+export const LETSCASH_TOKENOMICS_URL = "https://api.letscash.fun/api/tokenomics?surface=current";
+export const LETSCASH_DAILY_SOURCE = "letscash.officialTokenomics+defillama.historicalEthUsd";
 export const DEFILLAMA_ETH_USD_SOURCE = "defillama.historicalEthUsd";
 const ETH_PRICE_COIN = "coingecko:ethereum";
 const PLATFORM_FEE_RATE = 0.003;
@@ -76,11 +74,8 @@ function extractEthUsdByDate(payload: unknown): Map<string, number> {
   for (const candidate of coin.prices) {
     if (!isRecord(candidate)) continue;
     const timestamp = finiteNumber(candidate.timestamp);
-    const milliseconds = timestamp === null
-      ? Number.NaN
-      : timestamp > 10_000_000_000
-        ? timestamp
-        : timestamp * 1_000;
+    const milliseconds =
+      timestamp === null ? Number.NaN : timestamp > 10_000_000_000 ? timestamp : timestamp * 1_000;
     // The price API can return the nearest observation at 23:59:59. Bucket
     // against the nearest UTC midnight instead of truncating it to yesterday.
     const date = Number.isFinite(milliseconds)
@@ -161,10 +156,7 @@ function nestedNumber(payload: Record<string, unknown>, group: string, key: stri
   return isRecord(nested) ? finiteNumber(nested[key]) : null;
 }
 
-export function extractLetsCashStats(
-  payload: unknown,
-  collectedAt: string,
-): PlatformStat[] {
+export function extractLetsCashStats(payload: unknown, collectedAt: string): PlatformStat[] {
   if (!isRecord(payload)) throw new Error("LetsCash tokenomics payload is not an object");
   const stats: PlatformStat[] = [];
 
@@ -219,7 +211,8 @@ export function extractLetsCashStats(
     period: "rolling_24h",
     quality: "derived",
     scope: "Rolling 24-hour platform-retained fee",
-    derivation: "Official rolling volumeEth × 0.3%; no direct rolling platform-revenue field is exposed.",
+    derivation:
+      "Official rolling volumeEth × 0.3%; no direct rolling platform-revenue field is exposed.",
   });
   add({
     key: "volume_all_time_eth",
@@ -383,7 +376,10 @@ export async function collectLetsCash(targetDate: string): Promise<CollectionBat
     warnings.push("LetsCash official tokenomics returned no closed UTC daily rows.");
   } else {
     try {
-      const prices = await fetchJson(ethPriceChartUrl(dailyRows), { timeoutMs: 20_000, retries: 1 });
+      const prices = await fetchJson(ethPriceChartUrl(dailyRows), {
+        timeoutMs: 20_000,
+        retries: 1,
+      });
       const extracted = extractLetsCashMetrics(
         tokenomics.payload,
         prices.payload,

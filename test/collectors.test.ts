@@ -29,9 +29,7 @@ test("Pons V1 and V2 are grouped into one canonical daily metric", () => {
       { name: "Pons V1", category: "Launchpad" },
       { name: "Pons V2", category: "Launchpad" },
     ],
-    totalDataChartBreakdown: [
-      [timestamp("2026-08-22"), { "Pons V1": 12, "Pons V2": 30 }],
-    ],
+    totalDataChartBreakdown: [[timestamp("2026-08-22"), { "Pons V1": 12, "Pons V2": 30 }]],
   };
 
   const parsed = extractDefiLlamaMetric(
@@ -117,9 +115,7 @@ test("protocol summaries cover every discovered launchpad except first-party Ban
         { name: "LetsCash", slug: "letscash", category: "Launchpad" },
         { name: "Bankr", slug: "bankr", category: "Launchpad" },
       ],
-      totalDataChartBreakdown: [
-        [timestamp("2026-08-22"), { "Pons V2": 30 }],
-      ],
+      totalDataChartBreakdown: [[timestamp("2026-08-22"), { "Pons V2": 30 }]],
     },
     "fees_usd",
     "fixture.dailyFees",
@@ -273,12 +269,8 @@ test("LetsCash live snapshot distinguishes direct totals from derived rolling pl
     "2026-08-25T01:00:00.000Z",
   );
 
-  const rollingPlatform = stats.find(
-    (stat) => stat.key === "platform_revenue_rolling_24h_eth",
-  );
-  const allTimePlatform = stats.find(
-    (stat) => stat.key === "platform_revenue_all_time_eth",
-  );
+  const rollingPlatform = stats.find((stat) => stat.key === "platform_revenue_rolling_24h_eth");
+  const allTimePlatform = stats.find((stat) => stat.key === "platform_revenue_all_time_eth");
   assert.equal(rollingPlatform?.value, 0.3);
   assert.equal(rollingPlatform?.quality, "derived");
   assert.equal(allTimePlatform?.value, 7);

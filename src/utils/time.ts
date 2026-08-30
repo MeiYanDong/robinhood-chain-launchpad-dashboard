@@ -5,11 +5,7 @@ export function formatUtcDate(date: Date): string {
 }
 
 export function lastClosedUtcDate(now = new Date()): string {
-  const utcMidnight = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
-  );
+  const utcMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   return formatUtcDate(new Date(utcMidnight - DAY_MS));
 }
 

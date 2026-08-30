@@ -9,19 +9,9 @@ export type CoreMetricName = (typeof CORE_METRICS)[number];
 export type MetricName = CoreMetricName;
 export type WindowDays = 1 | 7 | 30;
 
-export type Comparability =
-  | "comparable"
-  | "partial"
-  | "scope_mismatch"
-  | "suite_wide"
-  | "unknown";
+export type Comparability = "comparable" | "partial" | "scope_mismatch" | "suite_wide" | "unknown";
 
-export type PlatformStatus =
-  | "live"
-  | "tracked"
-  | "activity_only"
-  | "historical"
-  | "unknown";
+export type PlatformStatus = "live" | "tracked" | "activity_only" | "historical" | "unknown";
 
 export type MetricQuality =
   | "reported"

@@ -19,9 +19,10 @@
   - 产物：docs/todo.md。
   - 完成证据：本文档包含阶段、依赖、产物、验收证据、停止门和需求追踪关系。
 
-- [ ] **BASE-004｜每次开始工作前，先确认当前所在阶段和它的前置停止门。**
+- [x] **BASE-004｜每次开始工作前，先确认当前所在阶段和它的前置停止门。**
   - 规则：未通过上一阶段退出条件，不进入下一阶段。
   - 规则：一个任务只有在产物存在、测试通过且证据可回查后才能勾选；“写过代码”“本地看起来能跑”不算完成。
+  - 本次证据：2026-08-30 从“工程质量基线”开始；GATE-01 已通过，GATE-02 至 GATE-12 仍关闭；未触发真实 DeBox、密钥、部署、权限或 Grant 外部操作。
 
 - [ ] **BASE-005｜每次结束工作时更新本文档。**
   - 更新内容：勾选真实完成项；在任务下补充证据路径、命令结果或运行回执；记录阻塞原因；不提前勾选外部操作。
@@ -116,34 +117,39 @@
   - 范围：源码、文档、deploy、测试、package lock 和拟提交文件。
   - 完成证据：docs/evidence/pre-implementation-baseline.md；发布源集合中未发现候选凭证，运行数据库、浏览器会话、输出、构建和日志均已加入 ignore。
 
-- [ ] **QUALITY-004｜初始化本地 Git 并创建清晰的初始提交。**
-  - 完成证据：分支、commit SHA、提交信息和 clean status。
+- [x] **QUALITY-004｜初始化本地 Git 并创建清晰的初始提交。**
+  - 完成证据：main；cac44170b6fce3ab8b086e0107e2935c632ef0f6；chore: establish launch ledger baseline；提交后 clean。
 
-- [ ] **QUALITY-005｜创建公开 GitHub 仓库并推送初始历史。**
-  - 完成证据：仓库 URL、默认分支、远端 SHA 和可见性读回。
+- [x] **QUALITY-005｜创建公开 GitHub 仓库并推送初始历史。**
+  - 完成证据：https://github.com/MeiYanDong/robinhood-chain-launchpad-dashboard；visibility=PUBLIC；default branch=main；远端 SHA=cac44170b6fce3ab8b086e0107e2935c632ef0f6。
 
-- [ ] **QUALITY-006｜建立统一 lint 与格式化工具。**
+- [x] **QUALITY-006｜建立统一 lint 与格式化工具。**
   - 默认：Biome；不并行引入 ESLint 与 Prettier。
-  - 完成证据：format:check 和 lint 可重复执行。
+  - 完成证据：@biomejs/biome 2.5.11 已精确锁定；npm run format:check 与 npm run lint 均退出 0；范围覆盖 TypeScript、测试、public/app.js 与 JSON 配置。
 
-- [ ] **QUALITY-007｜建立源码与测试类型检查、全源码覆盖率和统一 verify 命令。**
+- [x] **QUALITY-007｜建立源码与测试类型检查、全源码覆盖率和统一 verify 命令。**
   - 完成证据：typecheck、test:coverage、build、verify 全部通过。
+  - 完成证据：`npm run verify` 退出 0；31/31 测试通过；全源码 statements/lines 70.43%、branches 73.84%、functions 77.11%，且门槛已写入 `test:coverage`。
 
 - [ ] **QUALITY-008｜建立 GitHub Actions CI。**
   - 要求：Node 22、npm ci、格式、lint、类型、覆盖率、测试、build。
   - 完成证据：workflow 文件、Actions 成功 run；未成功运行前只能标 defined。
 
-- [ ] **QUALITY-009｜补齐 HTTP、DashboardService 与 SQLite 关键路径测试。**
+- [x] **QUALITY-009｜补齐 HTTP、DashboardService 与 SQLite 关键路径测试。**
   - 覆盖：API、静态文件安全、refresh 合并、stale/partial/no-cache、事务和错误边界。
+  - 完成证据：test/http-app.test.ts、test/dashboard-service.test.ts、test/database.test.ts；`npm test` 31/31 通过；关键模块语句覆盖率分别为 HTTP 95.38%、DashboardService 88.32%、SQLite 97.64%。
 
-- [ ] **QUALITY-010｜修复原始异常向客户端泄露并锁定测试。**
+- [x] **QUALITY-010｜修复原始异常向客户端泄露并锁定测试。**
   - 完成证据：用户只看到稳定错误码/安全文案，内部日志保留脱敏分类。
+  - 完成证据：src/http/app.ts 返回 `INTERNAL_ERROR`；DashboardService 对 run/source/warning 脱敏；测试用私有 URL、凭证样式 marker 断言响应和公开状态均不含原文。
 
-- [ ] **QUALITY-011｜建立与现有 systemd 发布方式匹配的只读运行验证。**
+- [x] **QUALITY-011｜建立与现有 systemd 发布方式匹配的只读运行验证。**
   - 完成证据：本地可测试脚本与 runbook；生产执行仍受 GATE-08 控制。
+  - 完成证据：src/ops/runtime-verifier.ts、scripts/verify-runtime.ts、test/runtime-verifier.test.ts、docs/runbooks/runtime-verification.md；只发 3 个固定 GET，34/34 全量测试通过；未在生产执行。
 
-- [ ] **QUALITY-012｜补齐 ADR、CHANGELOG 与 Phase 1 小型故事卡。**
+- [x] **QUALITY-012｜补齐 ADR、CHANGELOG 与 Phase 1 小型故事卡。**
   - 完成证据：重要决策、变更记录、每张故事卡的范围/验收/命令/回滚齐全。
+  - 完成证据：docs/adr/0001-public-repository-and-secret-boundary.md、docs/adr/0002-read-only-bot-boundary.md、CHANGELOG.md、docs/stories/phase-1.md。
 
 - [ ] **QUALITY-EXIT-01｜确认质量基线全部通过后再进入阶段 0。**
 

@@ -11,15 +11,24 @@
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
     "build": "tsc -p tsconfig.json",
-    "check": "tsc -p tsconfig.json --noEmit",
+    "format": "biome format --write src test scripts public/app.js package.json tsconfig.json tsconfig.test.json biome.json",
+    "format:check": "biome format src test scripts public/app.js package.json tsconfig.json tsconfig.test.json biome.json",
+    "lint": "biome lint src test scripts public/app.js package.json tsconfig.json tsconfig.test.json biome.json",
+    "typecheck": "tsc -p tsconfig.test.json --noEmit",
+    "check": "npm run typecheck",
     "test": "tsx --test test/**/*.test.ts",
+    "test:coverage": "c8 --all --include='src/**/*.ts' --exclude='src/live-check.ts' --check-coverage --lines=70 --statements=70 --branches=70 --functions=75 --reporter=text --reporter=json-summary tsx --test test/**/*.test.ts",
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test:coverage && npm run build",
+    "verify:runtime": "tsx scripts/verify-runtime.ts",
     "verify:live": "tsx src/live-check.ts"
   },
   "dependencies": {
     "wreq-js": "^3.2.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.11",
     "@types/node": "^22.15.0",
+    "c8": "12.0.0",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3"
   }

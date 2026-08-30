@@ -4,7 +4,9 @@ import { PLATFORM_REGISTRY } from "../src/config/platforms.js";
 import { buildOverview } from "../src/domain/aggregate.js";
 import type { DailyMetric, PlatformConfig } from "../src/domain/types.js";
 
-function metric(overrides: Partial<DailyMetric> & Pick<DailyMetric, "platformId" | "metric" | "value">): DailyMetric {
+function metric(
+  overrides: Partial<DailyMetric> & Pick<DailyMetric, "platformId" | "metric" | "value">,
+): DailyMetric {
   return {
     date: "2026-08-22",
     source: "fixture",
@@ -70,5 +72,8 @@ test("suite-wide StonkBrokers observations are excluded from tracked totals", ()
 
   assert.equal(overview.summary.fees_usd.value, 100);
   assert.equal(overview.summary.eligiblePlatforms, 1);
-  assert.equal(overview.platforms.find((row) => row.id === "stonkbrokers")?.excludeFromTotals, true);
+  assert.equal(
+    overview.platforms.find((row) => row.id === "stonkbrokers")?.excludeFromTotals,
+    true,
+  );
 });

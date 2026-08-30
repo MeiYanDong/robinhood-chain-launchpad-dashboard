@@ -1,8 +1,4 @@
-import type {
-  MetricName,
-  MetricPolicy,
-  PlatformConfig,
-} from "../domain/types.js";
+import type { MetricName, MetricPolicy, PlatformConfig } from "../domain/types.js";
 
 const LLAMA_METHOD = "https://defillama.com/docs/defi/fees-and-revenue";
 const LLAMA_FEES = "https://defillama.com/fees/chain/Robinhood%20Chain";
@@ -56,8 +52,14 @@ export const PLATFORM_REGISTRY: PlatformConfig[] = [
     metricPolicies: {
       volume_usd: mismatch("Pons V2 bonding-curve volume", "Not the same scope as grouped fees."),
       fees_usd: mismatch("Pons V1 + V2 user-paid fees", "Grouped across two adapter generations."),
-      revenue_usd: mismatch("Pons V1 + V2 retained revenue", "Grouped across two adapter generations."),
-      protocol_revenue_usd: mismatch("Pons V1 + V2 protocol revenue", "Grouped across two adapter generations."),
+      revenue_usd: mismatch(
+        "Pons V1 + V2 retained revenue",
+        "Grouped across two adapter generations.",
+      ),
+      protocol_revenue_usd: mismatch(
+        "Pons V1 + V2 protocol revenue",
+        "Grouped across two adapter generations.",
+      ),
     },
   },
   {
@@ -68,7 +70,8 @@ export const PLATFORM_REGISTRY: PlatformConfig[] = [
     status: "live",
     comparability: "partial",
     excludeFromTotals: false,
-    scope: "Official LetsCash indexed curve activity, with DefiLlama used for USD conversion and fallback.",
+    scope:
+      "Official LetsCash indexed curve activity, with DefiLlama used for USD conversion and fallback.",
     notes: [
       "The first-party API is canonical for overlapping LetsCash daily volume and fee observations.",
       "Official daily rows are ETH-denominated; USD values use the DefiLlama ETH/USD reference at the UTC bucket boundary and are therefore derived.",
@@ -126,8 +129,14 @@ export const PLATFORM_REGISTRY: PlatformConfig[] = [
     metricPolicies: {
       volume_usd: mismatch("Pre-graduation bonding-curve volume", "Stops at graduation."),
       fees_usd: mismatch("Quote-token inflows to fee Safe", "Can include non-trade transfers."),
-      revenue_usd: mismatch("Fee Safe inflows retained by protocol", "Scope does not match curve volume."),
-      protocol_revenue_usd: mismatch("Fee Safe protocol inflows", "Scope does not match curve volume."),
+      revenue_usd: mismatch(
+        "Fee Safe inflows retained by protocol",
+        "Scope does not match curve volume.",
+      ),
+      protocol_revenue_usd: mismatch(
+        "Fee Safe protocol inflows",
+        "Scope does not match curve volume.",
+      ),
     },
   },
   {
@@ -145,10 +154,9 @@ export const PLATFORM_REGISTRY: PlatformConfig[] = [
     ],
     sourceLinks: defaultLinks,
     metricPolicies: Object.fromEntries(
-      (["volume_usd", "fees_usd", "revenue_usd", "protocol_revenue_usd"] as MetricName[]).map((metric) => [
-        metric,
-        suiteWide("StonkBrokers multi-product suite", "Not launchpad-only."),
-      ]),
+      (["volume_usd", "fees_usd", "revenue_usd", "protocol_revenue_usd"] as MetricName[]).map(
+        (metric) => [metric, suiteWide("StonkBrokers multi-product suite", "Not launchpad-only.")],
+      ),
     ),
   },
   {
@@ -165,7 +173,11 @@ export const PLATFORM_REGISTRY: PlatformConfig[] = [
       "No public daily Robinhood Chain split for Bankr protocol revenue; revenue remains unknown.",
     ],
     sourceLinks: [
-      { label: "Bankr public dashboard API", url: "https://api.bankr.bot/public/dashboard", kind: "official" },
+      {
+        label: "Bankr public dashboard API",
+        url: "https://api.bankr.bot/public/dashboard",
+        kind: "official",
+      },
       { label: "Bankr", url: "https://bankr.bot", kind: "official" },
     ],
     metricPolicies: {
@@ -180,7 +192,8 @@ export const PLATFORM_REGISTRY: PlatformConfig[] = [
     status: "live",
     comparability: "partial",
     excludeFromTotals: false,
-    scope: "Official Long hourly USD volume for Robinhood Chain assets attributed by integrator address.",
+    scope:
+      "Official Long hourly USD volume for Robinhood Chain assets attributed by integrator address.",
     notes: [
       "Closed UTC-day volume includes Long assets anchored to Robinhood stock tokens or other Long assets.",
       "Daily user fees and platform revenue remain unknown until versioned dynamic-fee and beneficiary routing can be attributed exactly.",
@@ -259,7 +272,9 @@ export const PLATFORM_REGISTRY: PlatformConfig[] = [
     comparability: "partial",
     excludeFromTotals: false,
     scope: "Trading fees reported by the launchpad adapter.",
-    notes: ["No direct volume series is claimed; fees are not inverted into volume in the canonical dataset."],
+    notes: [
+      "No direct volume series is claimed; fees are not inverted into volume in the canonical dataset.",
+    ],
     sourceLinks: defaultLinks,
     metricPolicies: {
       fees_usd: reported("0.25% launchpad trade fees"),

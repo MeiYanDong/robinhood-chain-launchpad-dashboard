@@ -117,10 +117,13 @@ export function buildOverview(input: {
       observedDays: contributors.length,
       windowDays: eligible.length,
       coverage: eligible.length === 0 ? 0 : contributors.length / eligible.length,
-      latestDate: contributors.reduce((latest, platform) => {
-        const candidate = platform.metrics[metricName].latestDate;
-        return candidate && (!latest || candidate > latest) ? candidate : latest;
-      }, null as string | null),
+      latestDate: contributors.reduce(
+        (latest, platform) => {
+          const candidate = platform.metrics[metricName].latestDate;
+          return candidate && (!latest || candidate > latest) ? candidate : latest;
+        },
+        null as string | null,
+      ),
       sources: [
         ...new Set(contributors.flatMap((platform) => platform.metrics[metricName].sources)),
       ].sort(),

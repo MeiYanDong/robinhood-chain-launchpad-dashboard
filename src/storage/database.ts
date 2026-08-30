@@ -325,9 +325,9 @@ export class DashboardDatabase {
   }
 
   latestRun(): CollectionRun | null {
-    const row = this.db
-      .prepare("SELECT * FROM collection_runs ORDER BY id DESC LIMIT 1")
-      .get() as RunRow | undefined;
+    const row = this.db.prepare("SELECT * FROM collection_runs ORDER BY id DESC LIMIT 1").get() as
+      | RunRow
+      | undefined;
     return row ? this.mapRun(row) : null;
   }
 
@@ -335,7 +335,8 @@ export class DashboardDatabase {
     let warnings: string[] = [];
     try {
       const parsed: unknown = JSON.parse(row.warnings_json);
-      if (Array.isArray(parsed)) warnings = parsed.filter((item): item is string => typeof item === "string");
+      if (Array.isArray(parsed))
+        warnings = parsed.filter((item): item is string => typeof item === "string");
     } catch {
       warnings = ["Stored run warnings could not be parsed."];
     }
@@ -351,7 +352,9 @@ export class DashboardDatabase {
   }
 
   getPlatforms(): PlatformConfig[] {
-    const rows = this.db.prepare("SELECT config_json FROM platforms ORDER BY name").all() as unknown as PlatformRow[];
+    const rows = this.db
+      .prepare("SELECT config_json FROM platforms ORDER BY name")
+      .all() as unknown as PlatformRow[];
     const platforms: PlatformConfig[] = [];
     for (const row of rows) {
       try {
@@ -364,9 +367,9 @@ export class DashboardDatabase {
   }
 
   getPlatform(id: string): PlatformConfig | null {
-    const row = this.db
-      .prepare("SELECT config_json FROM platforms WHERE id = ?")
-      .get(id) as PlatformRow | undefined;
+    const row = this.db.prepare("SELECT config_json FROM platforms WHERE id = ?").get(id) as
+      | PlatformRow
+      | undefined;
     if (!row) return null;
     try {
       return JSON.parse(row.config_json) as PlatformConfig;
@@ -376,23 +379,21 @@ export class DashboardDatabase {
   }
 
   getMetrics(startDate: string, endDate: string, platformId?: string): DailyMetric[] {
-    const rows = (
-      platformId
-        ? this.db
-            .prepare(`
+    const rows = (platformId
+      ? this.db
+          .prepare(`
               SELECT * FROM daily_metrics
               WHERE date >= ? AND date <= ? AND platform_id = ?
               ORDER BY date, platform_id, metric
             `)
-            .all(startDate, endDate, platformId)
-        : this.db
-            .prepare(`
+          .all(startDate, endDate, platformId)
+      : this.db
+          .prepare(`
               SELECT * FROM daily_metrics
               WHERE date >= ? AND date <= ?
               ORDER BY date, platform_id, metric
             `)
-            .all(startDate, endDate)
-    ) as unknown as MetricRow[];
+          .all(startDate, endDate)) as unknown as MetricRow[];
 
     return rows.map((row) => ({
       platformId: row.platform_id,
@@ -445,9 +446,7 @@ export class DashboardDatabase {
   }
 
   getRawObservation(source: string): RawObservation | null {
-    const row = this.db
-      .prepare("SELECT * FROM raw_observations WHERE source = ?")
-      .get(source) as
+    const row = this.db.prepare("SELECT * FROM raw_observations WHERE source = ?").get(source) as
       | { source: string; fetched_at: string; sha256: string; payload_json: string }
       | undefined;
     if (!row) return null;
