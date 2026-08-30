@@ -1,7 +1,7 @@
 # RHC Launch Ledger DeBox Bot｜分阶段执行清单
 
-> 依据：docs/plan.md v1.0 与 docs/debox-bot-prd-v0.1.md  
-> 当前状态：需求拆解完成，尚未获得“开始写业务代码”授权  
+> 依据：docs/plan.md v1.1 与 docs/debox-bot-prd-v0.1.md
+> 当前状态：工程质量基线、阶段 0 和阶段 1 已完成；GATE-02 至 GATE-12 关闭，未进入真实接入
 > 最近更新：2026-08-30  
 > 范围：RHC Launch Ledger 的 DeBox 查询 Bot；先做只读、按需查询、封闭试用，再决定公开发布与 Grant
 
@@ -24,13 +24,15 @@
   - 规则：一个任务只有在产物存在、测试通过且证据可回查后才能勾选；“写过代码”“本地看起来能跑”不算完成。
   - 本次证据：2026-08-30 从“工程质量基线”开始；GATE-01 已通过，GATE-02 至 GATE-12 仍关闭；未触发真实 DeBox、密钥、部署、权限或 Grant 外部操作。
 
-- [ ] **BASE-005｜每次结束工作时更新本文档。**
+- [x] **BASE-005｜每次结束工作时更新本文档。**
   - 更新内容：勾选真实完成项；在任务下补充证据路径、命令结果或运行回执；记录阻塞原因；不提前勾选外部操作。
+  - 本次证据：阶段 1 的 158 项实现/验收/退出检查已依据 `docs/evidence/local-acceptance.md` 回写；阶段 2 及以后和所有未授权 GATE 保持未勾选。
 
-- [ ] **BASE-006｜保持 MVP 硬边界。**
+- [x] **BASE-006｜保持 MVP 硬边界。**
   - 禁止：交易、签名、钱包连接、自动执行、主动推送、被动监听全部群消息、重复采集链上数据、直接读取 Ledger SQLite、调用 POST /api/refresh。
   - 禁止：保存原始消息、DeBox 用户 ID、群 ID、稳定哈希 ID，或宣称无法真实测量的留存/复访数据。
   - 完成证据：架构检查、静态测试和集成测试均没有上述路径。
+  - 本次证据：`test/bot/architecture.test.ts`、`test/bot/privacy.test.ts`、`test/bot/resource-security.test.ts` 与 `npm run fixture:replay` 通过。
 
 ### 状态约定
 
@@ -358,583 +360,591 @@
 
 ## 1.1 开发基线与目录
 
-- [ ] **P1-001｜记录改动前工作区基线。**
+- [x] **P1-001｜记录改动前工作区基线。**
   - 执行：记录 Node/npm 版本、package.json scripts、现有测试结果、关键文件清单和已有未提交/未归档改动。
   - 注意：当前目录不是 Git 仓库时，使用可回查的文件清单与备份点，不伪造 commit 证据。
   - 产物：docs/evidence/pre-implementation-baseline.md。
 
-- [ ] **P1-002｜运行现有测试并保存原始结果。**
+- [x] **P1-002｜运行现有测试并保存原始结果。**
   - 完成标准：现有测试全部通过；若失败，先记录为基线问题，未经授权不顺手修改无关代码。
   - 证据：命令、退出码、测试数量、失败详情。
 
-- [ ] **P1-003｜确认运行时兼容 Node 22.5+。**
+- [x] **P1-003｜确认运行时兼容 Node 22.5+。**
   - 执行：核对 TypeScript、测试框架、Node SQLite 和模块系统。
   - 完成证据：本机版本与 CI/部署目标写入运行说明。
 
-- [ ] **P1-004｜建立 Bot 目录骨架。**
+- [x] **P1-004｜建立 Bot 目录骨架。**
   - 目录：src/bot/debox、intent、ledger、domain、format、privacy、telemetry、health。
   - 约束：只创建模块边界和必要入口，不复制现有 Ledger 采集逻辑。
 
-- [ ] **P1-005｜建立 Bot 测试目录。**
+- [x] **P1-005｜建立 Bot 测试目录。**
   - 目录：test/bot 与 test/fixtures/ledger、test/fixtures/debox。
   - 完成证据：测试发现规则能识别新目录，但不破坏现有测试。
 
-- [ ] **P1-006｜定义 Bot 配置 Schema。**
+- [x] **P1-006｜定义 Bot 配置 Schema。**
   - 范围：Ledger base URL、允许的详情 HTTPS 基地址、轮询 timeout、缓存 TTL、上下文 TTL、遥测保留天数、LLM 开关和预算参数。
   - 约束：无默认真实 Secret；配置错误时 fail closed。
   - 产物：src/bot/config.ts 及配置测试。
 
-- [ ] **P1-007｜定义统一错误类型。**
+- [x] **P1-007｜定义统一错误类型。**
   - 类型：配置错误、合同不兼容、Ledger 超时/不可用、DeBox 认证/限流、QueryPlan 无效、发送失败、用户输入错误。
   - 完成证据：每类错误都有内部分类和不泄露细节的用户态映射。
 
-- [ ] **P1-008｜增加 Bot 专用 package scripts。**
+- [x] **P1-008｜增加 Bot 专用 package scripts。**
   - 目标：类型检查、Bot 单测、Bot 集成测试、fixture replay、本地 fake 启动。
   - 约束：不更改现有 dashboard 默认启动行为。
 
 ## 1.2 Ledger /api/meta 与合同
 
-- [ ] **P1-009｜实现 GET /api/meta。**
+- [x] **P1-009｜实现 GET /api/meta。**
   - 返回：service、appVersion、apiContractVersion、targetDate、supportedWindows、coreMetrics、platforms。
   - 约束：只读、无副作用、不得触发 refresh。
   - 关联：FR-012。
 
-- [ ] **P1-010｜为 /api/meta 增加稳定合同测试。**
+- [x] **P1-010｜为 /api/meta 增加稳定合同测试。**
   - 覆盖：字段存在、类型正确、apiContractVersion 为整数主版本、窗口只有支持值、coreMetrics 使用 protocol_revenue_usd。
 
-- [ ] **P1-011｜验证新增 /api/meta 不改变既有 API。**
+- [x] **P1-011｜验证新增 /api/meta 不改变既有 API。**
   - 范围：/healthz、/api/overview、/api/platforms/:id、/api/coverage、/api/sources、/api/refresh。
   - 完成证据：现有测试无回归；Bot 仍无权调用 refresh。
 
-- [ ] **P1-012｜实现 Ledger 合同 TypeScript 类型。**
+- [x] **P1-012｜实现 Ledger 合同 TypeScript 类型。**
   - 文件：src/bot/ledger/contract.ts。
   - 完成证据：类型覆盖 meta、overview、platform、coverage、sources 和 BotMetricView。
 
-- [ ] **P1-013｜实现 Ledger 响应运行时校验。**
+- [x] **P1-013｜实现 Ledger 响应运行时校验。**
   - 规则：任何外部 JSON 在进入领域层前先校验；缺少关键字段或类型错误时不继续计算。
   - 完成证据：错误 fixture 均返回 CONTRACT_INCOMPATIBLE 或 VERSION_NOT_AVAILABLE。
 
-- [ ] **P1-014｜实现合同版本兼容检查。**
+- [x] **P1-014｜实现合同版本兼容检查。**
   - 行为：不兼容时只允许 /help 与受限 /status；禁止 rank/platform/why 返回看似正常的数据。
   - 关联：FR-012、AC-13。
 
-- [ ] **P1-015｜固化 Ledger endpoint 允许清单。**
+- [x] **P1-015｜固化 Ledger endpoint 允许清单。**
   - 允许：GET /healthz、/api/meta、/api/overview、/api/platforms/:id、/api/coverage、/api/sources。
   - 禁止：POST、/api/refresh、任意绝对 URL、重定向后的新主机。
   - 完成证据：负向测试覆盖所有禁止项。
 
-- [ ] **P1-016｜实现固定 base URL 与路径构造。**
+- [x] **P1-016｜实现固定 base URL 与路径构造。**
   - 规则：调用者只能传受控参数，不能传完整 URL。
   - 安全目标：消除 SSRF 和路径穿越。
 
-- [ ] **P1-017｜实现 Ledger 请求超时。**
+- [x] **P1-017｜实现 Ledger 请求超时。**
   - 默认：3 秒。
   - 行为：超时映射为暂时不可用，不把堆栈或内部 URL发给用户。
 
-- [ ] **P1-018｜实现有限重试。**
+- [x] **P1-018｜实现有限重试。**
   - 规则：连接失败或 5xx 最多重试一次；4xx、Schema 错误和版本不兼容不重试。
   - 完成证据：fake server 记录的请求次数符合规则。
 
-- [ ] **P1-019｜禁止 HTTP 重定向跨越允许边界。**
+- [x] **P1-019｜禁止 HTTP 重定向跨越允许边界。**
   - 行为：关闭自动跟随，或对每次跳转重新做同源校验并默认拒绝。
   - 完成证据：302 到外部主机测试被拒绝。
 
-- [ ] **P1-020｜实现请求合并。**
+- [x] **P1-020｜实现请求合并。**
   - 行为：同一进程内同时请求同一 endpoint 与参数时，共享一个进行中的 Promise。
   - 完成证据：并发测试中 Ledger 只收到一次请求。
 
-- [ ] **P1-021｜实现最多 15 秒的短缓存。**
+- [x] **P1-021｜实现最多 15 秒的短缓存。**
   - 规则：缓存键包含 endpoint 与全部受控参数；不得越过 targetDate/apiContractVersion 边界；必须原样继承 stale/warnings；错误响应不长期缓存。
   - 完成证据：缓存命中测试和过期测试通过。
 
-- [ ] **P1-022｜实现 Ledger 客户端。**
+- [x] **P1-022｜实现 Ledger 客户端。**
   - 文件：src/bot/ledger/client.ts。
   - 完成证据：只能通过合同允许的方法读取 fixture server，且能返回经过校验的对象。
 
-- [ ] **P1-023｜把 Ledger 响应转换为 BotMetricView。**
+- [x] **P1-023｜把 Ledger 响应转换为 BotMetricView。**
   - 规则：保留 null、0、quality、coverage、source health、targetDate 和 scope；不在转换时“补猜”数据。
 
-- [ ] **P1-024｜实现 overview 与 platform detail 的正确合并。**
+- [x] **P1-024｜实现 overview 与 platform detail 的正确合并。**
   - 规则：overview 提供请求窗口指标；detail 只补平台元数据和适用的附加统计。
   - 禁止：把 detail 的 64 天 coverage 当作请求的 1/7/30 天窗口。
   - 关联：FR-006、AC-03。
 
-- [ ] **P1-025｜实现 suite-wide 值隔离。**
+- [x] **P1-025｜实现 suite-wide 值隔离。**
   - 行为：全平台口径可单独展示，但不进入单平台排名和单平台核心指标。
   - 关联：AC-06。
 
-- [ ] **P1-026｜完成 Ledger 合同 fixture。**
+- [x] **P1-026｜完成 Ledger 合同 fixture。**
   - 范围：P0-013 至 P0-018 设计的正常、0、null、partial、stale、no-data、rolling24h、suite-wide、版本错误和 Schema 错误。
 
-- [ ] **P1-027｜完成 Ledger 合同测试。**
+- [x] **P1-027｜完成 Ledger 合同测试。**
   - 文件：test/bot/ledger-contract.test.ts。
   - 完成标准：所有允许、拒绝、超时、重试、重定向、缓存、合并和版本路径有断言。
 
 ## 1.3 输入清洗、命令解析与 QueryPlan
 
-- [ ] **P1-028｜实现输入长度上限。**
+- [x] **P1-028｜实现输入长度上限。**
   - 规则：清洗后最多处理 1000 字符；超长内容返回简短错误，不送入 LLM。
 
-- [ ] **P1-029｜实现 @Bot mention 清理。**
+- [x] **P1-029｜实现 @Bot mention 清理。**
   - 行为：只移除事件确认属于当前 Bot 的 mention；不做模糊替换，不吞掉平台名。
 
-- [ ] **P1-030｜实现文本规范化。**
+- [x] **P1-030｜实现文本规范化。**
   - 范围：首尾空格、连续空白、大小写、全角/半角命令分隔符、中文数字窗口常见写法。
   - 约束：不访问输入中的 URL、附件、卡片或合约地址。
 
-- [ ] **P1-031｜建立平台别名表。**
+- [x] **P1-031｜建立平台别名表。**
   - 文件：src/bot/intent/aliases.ts。
   - 完成证据：每个当前支持平台有 canonical id、显示名和不冲突别名。
 
-- [ ] **P1-032｜处理平台别名歧义。**
+- [x] **P1-032｜处理平台别名歧义。**
   - 行为：多个平台匹配时返回候选并要求澄清，不静默选择。
 
-- [ ] **P1-033｜实现 /start 解析。**
+- [x] **P1-033｜实现 /start 解析。**
   - 行为：返回静态帮助，不访问 Ledger，不调用 LLM。
 
-- [ ] **P1-034｜实现 /help 解析。**
+- [x] **P1-034｜实现 /help 解析。**
   - 行为：返回静态帮助，不访问 Ledger，不调用 LLM。
 
-- [ ] **P1-035｜实现 /rank 命令语法。**
+- [x] **P1-035｜实现 /rank 命令语法。**
   - 参数：[1d|7d|30d] [volume|fees|income] [live|all]。
   - 默认：1d、volume、live。
   - 映射：income → protocol_revenue_usd。
 
-- [ ] **P1-036｜实现 /rank 非法参数反馈。**
+- [x] **P1-036｜实现 /rank 非法参数反馈。**
   - 行为：指出具体错误并给最接近的合法示例；不得用错误参数查询。
 
-- [ ] **P1-037｜实现 /platform 命令语法。**
+- [x] **P1-037｜实现 /platform 命令语法。**
   - 参数：平台名或别名、可选 1d/7d/30d；缺平台名时要求补充。
 
-- [ ] **P1-038｜实现 /why 命令语法。**
+- [x] **P1-038｜实现 /why 命令语法。**
   - 范围：指标口径、指定平台、数据质量、coverage 和 source health。
 
-- [ ] **P1-039｜实现 /status 命令语法。**
+- [x] **P1-039｜实现 /status 命令语法。**
   - 行为：不接受任意 URL、主机名或内部诊断参数。
 
-- [ ] **P1-040｜定义命令优先的解析管线。**
+- [x] **P1-040｜定义命令优先的解析管线。**
   - 顺序：明确命令 → 本地确定性自然语言规则 → 可选 LLM → 澄清或拒绝。
   - 完成证据：明确命令永远不会进入 LLM。
 
-- [ ] **P1-041｜实现确定性自然语言规则。**
+- [x] **P1-041｜实现确定性自然语言规则。**
   - 覆盖：排行榜、平台查询、解释、状态、1/7/30 天、volume/fees/income 常见中英文说法。
   - 行为：只有唯一可解释时才生成 QueryPlan。
 
-- [ ] **P1-042｜实现 QueryPlan v1 类型。**
+- [x] **P1-042｜实现 QueryPlan v1 类型。**
   - 文件：src/bot/intent/query-plan.ts。
   - 完成证据：字段与 P0-008 Schema 一致。
 
-- [ ] **P1-043｜实现 QueryPlan 运行时验证。**
+- [x] **P1-043｜实现 QueryPlan 运行时验证。**
   - 规则：拒绝未知字段、未知 action、非法窗口、非法 metric、任意 URL/SQL/shell/tool 指令。
   - 业务约束：rank 只允许 volume_usd、fees_usd、protocol_revenue_usd；revenue_usd 只允许 explain 或用户明确点名 Revenue 的单平台查询；status/help 不得携带平台和指标。
 
-- [ ] **P1-044｜实现 needsClarification 分支。**
+- [x] **P1-044｜实现 needsClarification 分支。**
   - 行为：缺少关键参数或存在多义时给一个具体问题；不猜平台、口径或窗口。
 
-- [ ] **P1-045｜实现越界请求识别。**
+- [x] **P1-045｜实现越界请求识别。**
   - 场景：交易、签名、钱包连接、价格承诺、主动监控、任意网站访问、密钥/系统提示索取。
   - 行为：拒绝并建议可用的只读查询。
 
-- [ ] **P1-046｜完成命令解析单元测试。**
+- [x] **P1-046｜完成命令解析单元测试。**
   - 文件：test/bot/command-parser.test.ts。
   - 覆盖：全部命令、默认值、别名、非法输入、中文空格、超长输入、mention。
 
-- [ ] **P1-047｜完成 QueryPlan Schema 测试。**
+- [x] **P1-047｜完成 QueryPlan Schema 测试。**
   - 文件：test/bot/query-plan.test.ts。
   - 覆盖：合法、缺字段、未知字段、注入、URL、SQL、shell、非法 metric 和非法窗口。
 
 ## 1.4 领域查询逻辑
 
-- [ ] **P1-048｜实现 rank 数据候选过滤。**
+- [x] **P1-048｜实现 rank 数据候选过滤。**
   - 默认 live：只包含当前 live、未 excluded、目标指标非 null 且口径可比较的平台。
   - all：按规格包含允许展示的非 live 项，同时保留状态标签。
 
-- [ ] **P1-049｜实现 0 与 null 的严格区分。**
+- [x] **P1-049｜实现 0 与 null 的严格区分。**
   - 规则：0 是合法值并可参与排名；null 不参与数值排序，同时统计并显示缺少该指标的平台数量和已知原因。
   - 关联：FR-005、AC-04。
 
-- [ ] **P1-050｜实现确定性排名。**
+- [x] **P1-050｜实现确定性排名。**
   - 排序：指标降序；完全相同时按平台规范名称升序，保证相同输入产生相同顺序。
   - 完成证据：打乱输入顺序后输出不变。
 
-- [ ] **P1-051｜实现 Top 5 截断。**
+- [x] **P1-051｜实现 Top 5 截断。**
   - 行为：默认只返回前五名；不足五名如实返回；不以虚构平台补齐。
 
-- [ ] **P1-052｜实现排名质量标记。**
+- [x] **P1-052｜实现排名质量标记。**
   - 行为：回答顶部显示 targetDate、窗口和 stale；partial、scope_mismatch 紧邻平台名；suite_wide 在 all 模式下进入单独“不可比观察项”，不混入榜单。
 
-- [ ] **P1-053｜实现无可排名数据分支。**
+- [x] **P1-053｜实现无可排名数据分支。**
   - 行为：说明窗口、指标和原因；给出 /status 或其他窗口建议；不返回空榜伪装成功。
 
-- [ ] **P1-054｜完成 rank 单元测试。**
+- [x] **P1-054｜完成 rank 单元测试。**
   - 文件：test/bot/rank.test.ts。
   - 覆盖：默认值、7d fees、income 别名、live/all、0、null、ties、partial、suite-wide、no-data。
 
-- [ ] **P1-055｜实现 platform 查询编排。**
+- [x] **P1-055｜实现 platform 查询编排。**
   - 行为：规范化平台 → 请求 overview 指定窗口 → 请求 platform detail → 合并 → 加 coverage/source health。
 
-- [ ] **P1-056｜实现 platform 核心三指标。**
+- [x] **P1-056｜实现 platform 核心三指标。**
   - 默认展示：volume_usd、fees_usd、protocol_revenue_usd。
   - 限制：revenue_usd 只在用户明确问 Revenue 或 /why 时展示。
   - 完成证据：不会用 null 填 0，不会把不同 scope 混在同一行。
 
-- [ ] **P1-057｜实现 requested window 与 rolling24h 分栏。**
+- [x] **P1-057｜实现 requested window 与 rolling24h 分栏。**
   - 行为：两者同时存在时明确标注；只有 rolling24h 时不能声称是 1d。
 
-- [ ] **P1-058｜实现平台不存在与不支持分支。**
+- [x] **P1-058｜实现平台不存在与不支持分支。**
   - 行为：区分别名未识别、平台存在但当前 Bot 不支持、请求指标不支持。
 
-- [ ] **P1-059｜完成 platform 单元测试。**
+- [x] **P1-059｜完成 platform 单元测试。**
   - 文件：test/bot/platform.test.ts 或等价文件。
   - 覆盖：LetsCash 30d、别名、歧义、不存在、null、partial、rolling24h 和 detail 64d 误用防护。
 
-- [ ] **P1-060｜实现 /why 固定证据模板。**
+- [x] **P1-060｜实现 /why 固定证据模板。**
   - 数据源：metricPolicies、scope/notes/comparability/exclude、quality、sources、coverage。
   - 约束：模板是确定性的，不能让 LLM 自由编造指标口径。
 
-- [ ] **P1-061｜实现 Bankr 收入口径解释。**
+- [x] **P1-061｜实现 Bankr 收入口径解释。**
   - 完成证据：明确收入定义、可比性、缺失原因和来源，不把 income 别名写成内部字段。
 
-- [ ] **P1-062｜实现 Long、LetsCash、StonkBrokers、Pons、Flap 特定解释。**
+- [x] **P1-062｜实现 Long、LetsCash、StonkBrokers、Pons、Flap 特定解释。**
   - 完成证据：每个平台只讲 Ledger 已知规则；缺证据时标为 unknown。
 
-- [ ] **P1-063｜完成 why 单元测试。**
+- [x] **P1-063｜完成 why 单元测试。**
   - 文件：test/bot/explain.test.ts。
   - 覆盖：指标、平台、quality、coverage、source failure 和未知解释主题。
 
-- [ ] **P1-064｜实现 /status 查询编排。**
+- [x] **P1-064｜实现 /status 查询编排。**
   - 数据：healthz、sources、必要时 overview 1d、meta。
   - 输出：targetDate、最新可用运行、stale、可用/失败来源数量与原因、contract version。
 
-- [ ] **P1-065｜实现 /status 内部信息净化。**
+- [x] **P1-065｜实现 /status 内部信息净化。**
   - 禁止输出：内部主机名、端口、文件路径、异常堆栈、Secret、原始请求 ID。
 
-- [ ] **P1-066｜完成 status 单元测试。**
+- [x] **P1-066｜完成 status 单元测试。**
   - 覆盖：全健康、部分失败、Ledger 不可用、stale、合同不兼容、缺 meta。
 
-- [ ] **P1-067｜实现短期对话上下文。**
+- [x] **P1-067｜实现短期对话上下文。**
   - 存储：仅进程内存。
   - 限制：TTL 15 分钟，每个上下文最多保留最近 3 个 QueryPlan。
   - 隔离：私聊与群聊上下文分开，不能交叉引用。
 
-- [ ] **P1-068｜实现上下文过期与容量淘汰。**
+- [x] **P1-068｜实现上下文过期与容量淘汰。**
   - 完成证据：时间推进和第四个计划写入测试可复现。
 
-- [ ] **P1-069｜实现“15 分钟后再问 Long”上下文用例。**
+- [x] **P1-069｜实现“15 分钟后再问 Long”上下文用例。**
   - 行为：有效期内可补全明确省略；过期后要求澄清。
   - 关联：UC-07。
 
-- [ ] **P1-070｜实现领域层统一入口。**
+- [x] **P1-070｜实现领域层统一入口。**
   - 文件：src/bot/domain 下的编排入口。
   - 约束：领域层只接收已验证 QueryPlan 和合同对象，不接收原始消息。
 
 ## 1.5 文本格式化
 
-- [ ] **P1-071｜实现美元数字格式化。**
+- [x] **P1-071｜实现美元数字格式化。**
   - 规则：null 显示未知；0 显示 $0；绝对值小于 $0.01 使用明确小额格式；普通值保留两位并加千分位；大数使用一致 K/M。
 
-- [ ] **P1-072｜实现非美元数量格式化。**
+- [x] **P1-072｜实现非美元数量格式化。**
   - 规则：交易数、用户数等只在合同支持时显示；0 与 null 仍严格区分。
 
-- [ ] **P1-073｜实现 UTC 日期格式化。**
+- [x] **P1-073｜实现 UTC 日期格式化。**
   - 规则：所有 targetDate 以 UTC 日期明确展示，不使用模糊的“今天”替代证据日期。
 
-- [ ] **P1-074｜实现 quality、coverage 和 source health 人话标签。**
+- [x] **P1-074｜实现 quality、coverage 和 source health 人话标签。**
   - 目标：普通用户能理解 reported、derived、partial、scope_mismatch、suite_wide、unknown 和来源健康。
   - coverage：显示 observedDays/windowDays；百分比只能作为辅助。
 
-- [ ] **P1-075｜实现警告优先级。**
+- [x] **P1-075｜实现警告优先级。**
   - 顺序：无可用数据 → API 合同不兼容 → 最近刷新失败且使用旧缓存 → stale → 单来源 failed/degraded → partial/scope_mismatch/suite_wide → derived → 普通提示。
   - 完成证据：多警告快照测试稳定。
 
-- [ ] **P1-076｜实现 rank 文本模板。**
+- [x] **P1-076｜实现 rank 文本模板。**
   - 依赖：P0-020。
   - 目标：标题、窗口、指标、Top 5、警告、targetDate、建议命令均来自结构化数据。
 
-- [ ] **P1-077｜实现 platform 文本模板。**
+- [x] **P1-077｜实现 platform 文本模板。**
   - 依赖：P0-022。
 
-- [ ] **P1-078｜实现 unknown/no-data 文本模板。**
+- [x] **P1-078｜实现 unknown/no-data 文本模板。**
   - 依赖：P0-024。
 
-- [ ] **P1-079｜实现 stale/partial 文本模板。**
+- [x] **P1-079｜实现 stale/partial 文本模板。**
   - 依赖：P0-026。
 
-- [ ] **P1-080｜实现 /start 与 /help 静态文本。**
+- [x] **P1-080｜实现 /start 与 /help 静态文本。**
   - 依赖：P0-028。
   - 约束：无需 Ledger、无需 LLM、目标不超过 1500 字符。
 
-- [ ] **P1-081｜实现越界请求拒绝模板。**
+- [x] **P1-081｜实现越界请求拒绝模板。**
   - 依赖：P0-030。
 
-- [ ] **P1-082｜实现 detailUrl HTTPS 允许清单。**
+- [x] **P1-082｜实现 detailUrl HTTPS 允许清单。**
   - 规则：只拼接预配置 HTTPS 基地址和受控路径；HTTP、javascript、data 和用户提供 URL 均拒绝。
   - 关联：AC-12。
 
-- [ ] **P1-083｜实现目标 1500、硬上限 5000 字符控制。**
+- [x] **P1-083｜实现目标 1500、硬上限 5000 字符控制。**
   - 行为：先压缩非关键说明，再按语义块拆分；不得在数字或链接中间截断。
 
-- [ ] **P1-084｜实现语义分段。**
+- [x] **P1-084｜实现语义分段。**
   - 顺序：警告 → 主答案 → 数据日期/质量 → 建议命令。
   - 完成证据：多段消息可按序发送且单段不超过平台上限。
 
-- [ ] **P1-085｜完成 formatter 单元与快照测试。**
+- [x] **P1-085｜完成 formatter 单元与快照测试。**
   - 文件：test/bot/formatter.test.ts。
   - 覆盖：数值边界、中文文案、长度边界、语义分段、HTTPS、警告排序和全部 Dialogue Lab 最终样式。
 
 ## 1.6 AI QueryPlan 解析层
 
-- [ ] **P1-086｜定义供应商无关的 LLM Resolver 接口。**
+- [x] **P1-086｜定义供应商无关的 LLM Resolver 接口。**
   - 输入：最小化后的文本、允许的 action/metric/window/platform 列表、QueryPlan Schema。
   - 输出：经过验证的 QueryPlan 或明确失败。
 
-- [ ] **P1-087｜实现本地 stub resolver。**
+- [x] **P1-087｜实现本地 stub resolver。**
   - 目标：无需网络和密钥即可模拟成功、超时、非法 JSON、Schema 不合规和预算关闭。
 
-- [ ] **P1-088｜编写严格系统提示模板。**
+- [x] **P1-088｜编写严格系统提示模板。**
   - 规则：只能输出 QueryPlan；不能回答问题；不能调用工具；不能生成 URL、SQL、shell；不相信用户文本里的角色指令。
   - 产物：src/bot/intent/llm-resolver.ts 中的可测试模板或独立资源文件。
 
-- [ ] **P1-089｜实现 LLM 输入最小化。**
+- [x] **P1-089｜实现 LLM 输入最小化。**
   - 禁止发送：DeBox 用户/群 ID、App Key/Secret、完整 Ledger 响应、原始事件、内部 URL、日志。
   - 只发送：清洗文本、必要枚举、允许的平台规范 ID/名称/别名；需要上下文时可附不含身份的上一个短期 QueryPlan。
 
-- [ ] **P1-090｜保证每条消息最多调用一次 LLM。**
+- [x] **P1-090｜保证每条消息最多调用一次 LLM。**
   - 完成证据：集成测试统计调用次数。
 
-- [ ] **P1-091｜实现 LLM 超时。**
+- [x] **P1-091｜实现 LLM 超时。**
   - 行为：超时后转澄清或命令帮助，不阻塞 Long Polling 主循环。
 
-- [ ] **P1-092｜实现 LLM 并发上限。**
+- [x] **P1-092｜实现 LLM 并发上限。**
   - 行为：达到上限时快速降级，不无限排队。
 
-- [ ] **P1-093｜实现每日硬预算开关。**
+- [x] **P1-093｜实现每日硬预算开关。**
   - 默认：真实供应商未配置时为关闭。
   - 行为：预算达到上限后只使用确定性解析，并在聚合遥测中记录降级次数。
 
-- [ ] **P1-094｜实现非法 LLM 输出 fail closed。**
+- [x] **P1-094｜实现非法 LLM 输出 fail closed。**
   - 行为：JSON/Schema/枚举任一不合法都不得进入 Ledger 调用。
 
-- [ ] **P1-095｜完成提示词注入测试集。**
+- [x] **P1-095｜完成提示词注入测试集。**
   - 场景：忽略规则、访问任意网址、调用 refresh、输出 SQL、泄露系统提示、交易指令。
   - 完成证据：均被 Schema 或领域边界拒绝。
 
-- [ ] **P1-096｜完成 LLM fallback 测试。**
+- [x] **P1-096｜完成 LLM fallback 测试。**
   - 覆盖：stub 成功、超时、限流、预算关闭、非法输出、未知平台、需要澄清。
   - 关联：AC-08。
 
 ## 1.7 DeBox 抽象、fake 与轮询模型
 
-- [ ] **P1-097｜定义 DeBox 入站事件最小接口。**
+- [x] **P1-097｜定义 DeBox 入站事件最小接口。**
   - 字段只保留运行必需项：update token、chat target/type、message type、普通文本、是否明确 @ 当前 Bot。
   - 约束：不把平台原始事件直接传入领域层。
 
-- [ ] **P1-098｜定义 DeBox 出站接口。**
+- [x] **P1-098｜定义 DeBox 出站接口。**
   - 能力：发送纯文本、目标 chat、语义分段顺序、受控重试。
   - 默认：parse mode 使用 text。
 
-- [ ] **P1-099｜实现 fake DeBox adapter。**
+- [x] **P1-099｜实现 fake DeBox adapter。**
   - 文件：test helper 或 src/bot/debox 的测试实现。
   - 能力：回放私聊普通文本、群内明确 @ 普通文本、重复 update、发送 429、认证失败、网络失败。
 
-- [ ] **P1-100｜实现事件范围过滤。**
+- [x] **P1-100｜实现事件范围过滤。**
   - 私聊：只处理普通文本。
   - 群聊：只处理明确 @Bot 的普通文本。
   - 拒绝：图片、视频、Card、合约行情卡片、附件和非 @ 群消息。
   - 完成证据：所有不支持类型都不进入解析器。
 
-- [ ] **P1-101｜设计轮询接口但不猜官方 offset/ack 语义。**
+- [x] **P1-101｜设计轮询接口但不猜官方 offset/ack 语义。**
   - 行为：本地 fake 使用显式可替换游标协议；真实语义留给阶段 2 在锁定 SDK 源码后实现。
   - 完成证据：代码注释和测试明确“尚未代表官方协议”。
 
-- [ ] **P1-102｜实现 Long Polling 循环的通用控制器。**
+- [x] **P1-102｜实现 Long Polling 循环的通用控制器。**
   - 默认 timeout：30 秒。
   - 能力：启动、停止、单次拉取、批量处理、背压、可取消等待。
 
-- [ ] **P1-103｜实现有界指数退避与 jitter。**
+- [x] **P1-103｜实现有界指数退避与 jitter。**
   - 场景：连接失败、5xx、429。
   - 约束：有最大等待；成功后重置；认证错误触发熔断而非无限重试。
 
-- [ ] **P1-104｜实现优雅停止。**
+- [x] **P1-104｜实现优雅停止。**
   - 行为：停止接收新更新，等待有界时间处理当前任务，持久化必要的非个人状态，再退出。
 
-- [ ] **P1-105｜设计幂等键接口。**
+- [x] **P1-105｜设计幂等键接口。**
   - 首选：官方 update id/token。
   - fallback：仅在内存中生成短期派生键。
   - 禁止：在日志或遥测中保存 update id、chat id、user id 或其稳定哈希。
 
-- [ ] **P1-106｜区分“已处理”和“发送失败”。**
+- [x] **P1-106｜区分“已处理”和“发送失败”。**
   - 目标：避免重复计算，同时允许按明确策略重发同一答案。
   - 完成证据：测试定义崩溃发生在取数后、发送前、部分分段发送后的行为。
 
-- [ ] **P1-107｜实现出站重试策略。**
+- [x] **P1-107｜实现出站重试策略。**
   - 429：尊重等待并有上限；网络失败有限重试；认证失败熔断；用户错误不重试。
 
-- [ ] **P1-108｜实现分段发送幂等。**
+- [x] **P1-108｜实现分段发送幂等。**
   - 目标：多段消息在重试时不乱序、不无限重复。
 
-- [ ] **P1-109｜完成 poller replay 测试。**
+- [x] **P1-109｜完成 poller replay 测试。**
   - 文件：test/bot/poller-replay.test.ts。
   - 覆盖：正常批次、空批次、重复 update、乱序、429、5xx、认证失败、停止、部分发送失败。
 
 ## 1.8 隐私、遥测与健康检查
 
-- [ ] **P1-110｜实现日志脱敏。**
+- [x] **P1-110｜实现日志脱敏。**
   - 移除：App Key/Secret、Authorization、原始消息、用户/群/update ID、内部 URL 查询参数、完整异常响应。
   - 完成证据：privacy 测试使用诱饵 Secret 和 ID，输出中均不可搜索到。
 
-- [ ] **P1-111｜定义允许记录的聚合遥测 Schema。**
+- [x] **P1-111｜定义允许记录的聚合遥测 Schema。**
   - 字段：date、action、channel、outcome、latency bucket、used_llm、stale、quality count、source fail/count。
   - 禁止：message、user id、chat id、update id、稳定指纹、自由文本。
 
-- [ ] **P1-112｜实现聚合遥测存储。**
+- [x] **P1-112｜实现聚合遥测存储。**
   - 存储：Bot 独立 state，不写 Ledger 主数据库。
   - 行为：同一日期和聚合维度累加计数。
 
-- [ ] **P1-113｜实现可配置 180 天保留。**
+- [x] **P1-113｜实现可配置 180 天保留。**
   - 行为：只删除 Bot 聚合桶；默认 180 天；不影响 Ledger 数据。
 
-- [ ] **P1-114｜禁止伪造 unique user、retention 和 revisit 指标。**
+- [x] **P1-114｜禁止伪造 unique user、retention 和 revisit 指标。**
   - 完成证据：Schema 无法表达稳定用户标识；报告模板明确写“不可测”。
 
-- [ ] **P1-115｜实现可选自愿样本报告的 feature flag 外壳。**
+- [x] **P1-115｜实现可选自愿样本报告的 feature flag 外壳。**
   - 默认：关闭。
   - 约束：阶段 1 不实现上报、不发送外部数据。
   - 关联：FR-017，P2。
 
-- [ ] **P1-116｜实现本地 health server。**
+- [x] **P1-116｜实现本地 health server。**
   - 绑定：localhost。
   - 字段：ok、Bot identity verified、polling status、Ledger reachable、apiContractVersion compatible、last successful poll、last successful reply、LLM enabled/budget fuse、process startedAt、appVersion。
   - 禁止：Secret、消息内容、用户/群 ID。
 
-- [ ] **P1-117｜实现 readiness 与 liveness 区分。**
+- [x] **P1-117｜实现 readiness 与 liveness 区分。**
   - liveness：进程可响应。
   - readiness：配置有效、身份已验证或 fake 就绪、合同兼容、poller 可工作。
 
-- [ ] **P1-118｜完成 privacy 测试。**
+- [x] **P1-118｜完成 privacy 测试。**
   - 文件：test/bot/privacy.test.ts。
   - 覆盖：正常日志、异常、429、认证失败、Ledger Schema 错误、LLM 错误和 health 输出。
 
-- [ ] **P1-119｜完成遥测 Schema 负向测试。**
+- [x] **P1-119｜完成遥测 Schema 负向测试。**
   - 完成证据：尝试写入 message、user id、chat id、自由文本时被拒绝。
 
 ## 1.9 应用编排与进程隔离
 
-- [ ] **P1-120｜实现 Bot 依赖注入入口。**
+- [x] **P1-120｜实现 Bot 依赖注入入口。**
   - 文件：src/bot/index.ts。
   - 组件：config、poller、inbound、parser、resolver、Ledger client、domain、formatter、outbound、telemetry、health。
 
-- [ ] **P1-121｜固定单条消息处理流水线。**
+- [x] **P1-121｜固定单条消息处理流水线。**
   - 顺序：事件范围过滤 → 清洗 → 幂等检查 → 解析 QueryPlan → 合同检查 → 只读取数 → 领域计算 → 确定性格式化 → 发送 → 聚合遥测。
 
-- [ ] **P1-122｜实现失败隔离。**
+- [x] **P1-122｜实现失败隔离。**
   - 目标：单条消息失败不退出 poller；Bot 进程退出不影响 dashboard/API/timer；Ledger 失败不产生伪数据。
 
-- [ ] **P1-123｜实现有界并发与背压。**
+- [x] **P1-123｜实现有界并发与背压。**
   - 完成证据：突发 fake updates 不会无限创建 Promise 或耗尽内存。
 
-- [ ] **P1-124｜禁止 Bot 导入采集器和主数据库写入模块。**
+- [x] **P1-124｜禁止 Bot 导入采集器和主数据库写入模块。**
   - 完成证据：静态依赖测试或架构测试阻止相关 import。
 
-- [ ] **P1-125｜禁止 Bot 调用 /api/refresh。**
+- [x] **P1-125｜禁止 Bot 调用 /api/refresh。**
   - 完成证据：代码搜索、allowlist 测试和 fake server 请求记录三重验证。
 
-- [ ] **P1-126｜实现本地 fake 启动模式。**
+- [x] **P1-126｜实现本地 fake 启动模式。**
   - 行为：fixture Ledger + fake DeBox + stub LLM 一条命令运行，不需要外部账号或 Secret。
 
 ## 1.10 限流、可观测性与统一降级
 
-- [ ] **P1-RATE-001｜实现单聊天内存限流器。**
+- [x] **P1-RATE-001｜实现单聊天内存限流器。**
   - 初始默认：短时突发最多 5 条查询；持续速率最多每 10 秒 1 条。
   - 约束：参数可配置；限流状态只在内存中存在，不落盘、不进入日志或遥测。
 
-- [ ] **P1-RATE-002｜实现全局并发保护。**
+- [x] **P1-RATE-002｜实现全局并发保护。**
   - 范围：消息处理、Ledger 请求、LLM 请求和 DeBox 发送分别有有界并发。
   - 行为：达到上限时明确降级，不无限排队。
 
-- [ ] **P1-RATE-003｜验证 /help 和参数错误不调用 Ledger 或 LLM。**
+- [x] **P1-RATE-003｜验证 /help 和参数错误不调用 Ledger 或 LLM。**
   - 完成证据：fake 调用计数为 0；仍能返回本地静态说明。
 
-- [ ] **P1-RATE-004｜完成限流测试。**
+- [x] **P1-RATE-004｜完成限流测试。**
   - 覆盖：突发第 1～5 条、持续速率、窗口恢复、私聊/群聊隔离、进程重启清空、无身份落盘。
 
-- [ ] **P1-OBS-001｜实现结构化运行日志。**
+- [x] **P1-OBS-001｜实现结构化运行日志。**
   - 最小字段：时间、事件阶段、结果类别、延迟、稳定错误码。
   - 禁止字段：原始文本、外部原始错误字符串、用户/群/update ID、钱包、Secret。
 
-- [ ] **P1-OBS-002｜实现分层故障定位。**
+- [x] **P1-OBS-002｜实现分层故障定位。**
   - 层级：polling、DeBox send、Ledger、LLM、formatter。
   - 完成证据：每层故障都有稳定错误码和聚合计数，不依赖保存原始消息。
 
-- [ ] **P1-ERR-001｜实现用户可见错误矩阵。**
+- [x] **P1-ERR-001｜实现用户可见错误矩阵。**
   - 覆盖：指令参数错误、平台歧义、超出范围、LLM 不可用、Ledger 无可用缓存、Ledger stale、最近刷新失败、单来源失败、DeBox 发送失败、版本不兼容。
   - 规则：有旧缓存时带日期与警告；无 usable run 时不输出任何旧数字。
 
-- [ ] **P1-OUT-001｜锁死回复目标来源。**
+- [x] **P1-OUT-001｜锁死回复目标来源。**
   - 规则：chat_type 与 chat_id 只能来自当前已验证入站事件，用户文本和 LLM 输出不能覆盖。
   - 完成证据：恶意文本尝试指定其他聊天时仍只回复原会话。
 
 ## 1.11 本地验收与质量门
 
-- [ ] **P1-127｜完成端到端集成测试。**
+- [x] **P1-127｜完成端到端集成测试。**
   - 文件：test/bot/integration.test.ts。
   - 路径：fake event → QueryPlan → fixture Ledger → BotAnswer → fake outbound。
 
-- [ ] **P1-128｜验证 AC-01：六个命令均可用。**
+- [x] **P1-128｜验证 AC-01：六个命令均可用。**
   - 证据：/start、/help、/rank、/platform、/why、/status 的集成测试结果。
 
-- [ ] **P1-129｜验证 AC-02：核心查询用例可用。**
+- [x] **P1-129｜验证 AC-02：核心查询用例可用。**
   - 证据：默认 rank、7d fees、LetsCash 30d、Bankr income explain、status。
 
-- [ ] **P1-130｜验证 AC-03：Bot 数字与同一 fixture Ledger 响应精确一致。**
+- [x] **P1-130｜验证 AC-03：Bot 数字与同一 fixture Ledger 响应精确一致。**
   - 规则：只允许格式化，不允许重算出不同业务口径。
 
-- [ ] **P1-131｜验证 AC-04：0、null、quality、coverage 被正确区分。**
+- [x] **P1-131｜验证 AC-04：0、null、quality、coverage 被正确区分。**
 
-- [ ] **P1-132｜验证 AC-05：1d 与 rolling24h 不混淆。**
+- [x] **P1-132｜验证 AC-05：1d 与 rolling24h 不混淆。**
 
-- [ ] **P1-133｜验证 AC-06：suite-wide 值不参加单平台排名。**
+- [x] **P1-133｜验证 AC-06：suite-wide 值不参加单平台排名。**
 
-- [ ] **P1-134｜验证 AC-07：stale 和 partial 醒目标注。**
+- [x] **P1-134｜验证 AC-07：stale 和 partial 醒目标注。**
 
-- [ ] **P1-135｜验证 AC-08：LLM 只做 QueryPlan 且故障可降级。**
+- [x] **P1-135｜验证 AC-08：LLM 只做 QueryPlan 且故障可降级。**
 
-- [ ] **P1-136｜验证 AC-09：重复 update 不重复产生业务副作用。**
+- [x] **P1-136｜验证 AC-09：重复 update 不重复产生业务副作用。**
 
-- [ ] **P1-137｜验证 AC-10：无 refresh、任意 URL、任意 HTTP method 路径。**
+- [x] **P1-137｜验证 AC-10：无 refresh、任意 URL、任意 HTTP method 路径。**
 
-- [ ] **P1-138｜验证 AC-11：日志和遥测无原始消息与稳定 ID。**
+- [x] **P1-138｜验证 AC-11：日志和遥测无原始消息与稳定 ID。**
 
-- [ ] **P1-139｜验证 AC-12：出站详情链接只有 HTTPS allowlist。**
+- [x] **P1-139｜验证 AC-12：出站详情链接只有 HTTPS allowlist。**
 
-- [ ] **P1-140｜验证 AC-13：合同不兼容时只保留 help/status 降级能力。**
+- [x] **P1-140｜验证 AC-13：合同不兼容时只保留 help/status 降级能力。**
 
-- [ ] **P1-141｜验证 AC-14：Bot 故障不影响 dashboard 与 Ledger 定时任务。**
+- [x] **P1-141｜验证 AC-14：Bot 故障不影响 dashboard 与 Ledger 定时任务。**
   - 本地方法：单独终止 Bot，确认 dashboard 测试/API fake 和既有进程模型不受影响。
 
-- [ ] **P1-142｜运行性能基准。**
+- [x] **P1-142｜运行性能基准。**
   - 目标：确定性命令 p95 ≤ 3 秒；AI 路径 p95 ≤ 10 秒；Ledger 单次 timeout 3 秒；常规回答目标 ≤ 1500 字符。
   - 证据：固定 fixture、样本量、机器信息、p50/p95/max。
 
-- [ ] **P1-143｜运行资源压力测试。**
+- [x] **P1-143｜运行资源压力测试。**
   - 范围：突发更新、慢 Ledger、慢 LLM、429、发送失败。
   - 目标：内存、队列和并发保持有界。
 
-- [ ] **P1-144｜运行安全回归测试。**
+- [x] **P1-144｜运行安全回归测试。**
   - 范围：SSRF、路径穿越、prompt injection、Secret 诱饵、日志注入、Schema 绕过、超长文本。
 
-- [ ] **P1-145｜运行完整现有测试与 Bot 测试。**
+- [x] **P1-145｜运行完整现有测试与 Bot 测试。**
   - 证据：命令、退出码、通过/失败数量。
   - 规则：不能只报 Bot 新测试通过而忽略原项目回归。
 
-- [ ] **P1-146｜生成本地验收报告。**
+- [x] **P1-146｜生成本地验收报告。**
   - 产物：docs/evidence/local-acceptance.md。
   - 内容：AC-01 至 AC-14 逐条证据、未通过项、已知限制、测试环境。
 
-- [ ] **P1-EXIT-01｜确认 AC-01 至 AC-14 全部有自动化证据。**
-- [ ] **P1-EXIT-02｜确认没有读取真实 Secret、连接真实 DeBox 或修改服务器。**
-- [ ] **P1-EXIT-03｜确认 dashboard 既有测试无回归。**
-- [ ] **P1-EXIT-04｜确认本地验收报告没有把 fixture 结果写成线上证明。**
+- [x] **P1-EXIT-01｜确认 AC-01 至 AC-14 全部有自动化证据。**
+- [x] **P1-EXIT-02｜确认没有读取真实 Secret、连接真实 DeBox 或修改服务器。**
+- [x] **P1-EXIT-03｜确认 dashboard 既有测试无回归。**
+- [x] **P1-EXIT-04｜确认本地验收报告没有把 fixture 结果写成线上证明。**
+
+阶段 1 退出证据：
+
+- `docs/evidence/local-acceptance.md` 逐项映射 AC-01 至 AC-14；
+- `npm run verify`：退出 0，122/122 测试通过，覆盖率门禁和 build 通过；
+- `npm run test:bot`：88/88；`npm run fixture:replay`：20/20；
+- `npm run benchmark:bot`：本地阈值通过；`npm audit --audit-level=high`：0 vulnerabilities；
+- 所有结果均明确标为 fixture-only/local_verified，不是 DeBox、生产、用户采用或 Grant 回执。
 
 ---
 

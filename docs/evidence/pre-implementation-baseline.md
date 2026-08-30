@@ -94,3 +94,15 @@ Runtime-only material was present locally and is intentionally ignored:
 - .playwright-cli/;
 - dist/;
 - coverage and log output.
+
+## Phase 1 starting point
+
+Evidence date: 2026-08-30
+
+- Branch: `feat/debox-bot-local-prototype`.
+- Starting commit: `e2a7217e340a78deb255de6ecd499aae44404885` (`docs: freeze bot contracts and dialogue`).
+- Local runtime: Node `v25.9.0`, npm `11.12.1`.
+- Declared runtime: Node `>=22.5`; CI target: Node 22.
+- Pre-Bot verified suite: 34/34 tests passed under the existing quality-gate commit.
+- The original single `test/**/*.test.ts` shell pattern became incomplete once `test/bot` existed because the shell expanded only the subdirectory matches. Phase 1 corrected the scripts to include both `test/*.test.ts` and `test/**/*.test.ts`; the corrected full suite then reported 46/46 before the remaining Bot tests were added.
+- No pre-existing user changes were overwritten. Phase 1 began from the committed Phase 0 state on the feature branch.
