@@ -1,8 +1,8 @@
 # RHC Launch Ledger DeBox Bot｜分阶段执行清单
 
 > 依据：docs/plan.md v1.1 与 docs/debox-bot-prd-v0.1.md
-> 当前状态：工程质量基线、阶段 0 和阶段 1 已完成；GATE-02 至 GATE-12 关闭，未进入真实接入
-> 最近更新：2026-08-30  
+> 当前状态：工程质量基线、阶段 0 和阶段 1 已完成；GATE-08 已通过并完成目标主机只读预检，GATE-02 至 GATE-07、GATE-09 至 GATE-12 仍关闭；线上 `/api/meta` 为 404，真实 Bot 尚未部署
+> 最近更新：2026-08-31
 > 范围：RHC Launch Ledger 的 DeBox 查询 Bot；先做只读、按需查询、封闭试用，再决定公开发布与 Grant
 
 ## 0. 使用规则
@@ -62,6 +62,7 @@
   - 影响：不可逆资源占用、公开品牌、一致性。
   - 未通过时：不得创建真实 Bot 或提交审核。
   - 证据：docs/decisions/debox-bot-identity.md。
+  - 当前进度：用户于 2026-08-31 确认显示名称为 `RH Launch Ledger`；头像、简介和支持入口仍待确认，因此本门保持未通过。
 
 - [ ] **GATE-05｜用户明确授权创建不可删除的 DeBox Bot。**
   - 影响：永久占用账号 Bot 配额，属于不可逆外部写入。
@@ -78,10 +79,11 @@
   - 未通过时：不得把真实凭证写入本机服务、服务器或 CI。
   - 证据：仅记录“已在指定 Secret 管理位置配置”和轮换负责人，绝不抄录密钥值。
 
-- [ ] **GATE-08｜用户授权部署独立 Bot 服务到生产或试用服务器。**
+- [x] **GATE-08｜用户授权部署独立 Bot 服务到生产或试用服务器。**
   - 影响：服务器状态、持续费用、线上可用性和回滚责任。
   - 未通过时：只运行本地 fake/stub 测试。
   - 证据：目标主机、服务名、版本、部署窗口、回滚点。
+  - 完成证据：用户于 2026-08-31 选择与 Robinhood Chain Launchpad 同机部署；docs/decisions/rh-launch-ledger-deployment-target.md 与 docs/evidence/rh-launch-ledger-server-preflight-2026-08-31.md。此门只代表部署目标和授权已确认，不代表 Bot 已部署或可用。
 
 - [ ] **GATE-09｜用户批准新增域名、TLS、Nginx 或防火墙配置。**
   - 影响：公开攻击面、基础设施和持续维护。
@@ -956,17 +958,20 @@
 
 ## 2.1 当前官方信息复核与供应链审查
 
-- [ ] **P2-001｜重新核对 DeBox 官方 Bot Guide。**
+- [x] **P2-001｜重新核对 DeBox 官方 Bot Guide。**
   - 原因：平台规则会变化，不能仅依赖 plan.md 的 2026-08-30 快照。
   - 核对：Bot 配额、不可删除性、Long Polling/Webhook 互斥、消息类型、权限、文本长度、链接协议、审核流程。
   - 证据：docs/evidence/debox-official-refresh.md，附官方 URL 和核对日期。
+  - 完成证据：2026-08-31 官方页面复核；配额、不可删除性、Long Polling/Webhook、权限、链接和审核流程与当前设计一致。
 
-- [ ] **P2-002｜重新核对 DeBox One Page API、Node SDK、FAQ 和 Grant 页面。**
+- [x] **P2-002｜重新核对 DeBox One Page API、Node SDK、FAQ 和 Grant 页面。**
   - 完成证据：记录与 plan.md 相同、变化和无法确认的项目；不把第三方文章当官方规则。
+  - 完成证据：docs/evidence/debox-official-refresh.md；账号注册入口、SDK 现状和价格未知项已单独记录。
 
-- [ ] **P2-003｜确认 Long Polling 仍适合封闭试用。**
+- [x] **P2-003｜确认 Long Polling 仍适合封闭试用。**
   - 条件：Webhook 为空；无需公网入站；私聊普通文本和群内明确 @ 普通文本可到达。
   - 若条件变化：暂停并回到产品决策，不自行改成 Webhook。
+  - 完成证据：2026-08-31 官方 Bot Guide/OpenAPI 仍明确 Long Polling 与 Webhook 互斥；文本封测无需公网入站。真实消息到达仍待 Bot 创建后验证。
 
 - [ ] **P2-004｜审查候选 DeBox SDK。**
   - 核对：官方仓库、维护状态、许可证、依赖树、已知漏洞、网络访问、日志行为、类型质量。
@@ -1050,6 +1055,7 @@
   - 核对：service、appVersion、apiContractVersion、targetDate、supportedWindows、coreMetrics、platforms。
   - 规则：不能用本地 package.json 或平台名称存在来推断线上能力。
   - 完成证据：脱敏的当前响应快照、读取时间和 Schema 校验结果。
+  - 当前阻塞：2026-08-31 通过 Cloud Assistant 从 `127.0.0.1:4175` 读回为 HTTP 404；当前生产 release `20260830T035333Z` 不具备该合同，任务保持未完成，不能用本地 `0.4.0` 推断线上能力。
 
 - [ ] **P2-API-002｜读取线上代表性 Ledger 响应。**
   - 范围：overview 1/7/30、至少一个 platform detail、coverage、sources。
@@ -1106,22 +1112,26 @@
   - 路径：/var/lib/rhc-launch-ledger-bot/bot-state.sqlite。
   - 约束：只保存幂等/聚合遥测等允许状态，不保存消息和稳定 ID。
 
-- [ ] **P2-035｜确认 Long Polling 部署不需要公网入站。**
+- [x] **P2-035｜确认 Long Polling 部署不需要公网入站。**
   - 行为：health 仅绑定 localhost；不新增 Nginx、域名和防火墙端口。
   - 若出现公网需求：暂停并走 GATE-09。
+  - 完成证据：docs/evidence/debox-official-refresh.md 与 docs/evidence/rh-launch-ledger-server-preflight-2026-08-31.md；未新增任何公网监听、Nginx 或防火墙规则。
 
 - [ ] **P2-036｜准备 Secret 配置模板。**
   - 模板只含变量名和说明，不含真实值。
   - 完成证据：仓库扫描无真实 Secret。
 
-- [ ] **P2-037｜准备部署前回滚点。**
+- [x] **P2-037｜准备部署前回滚点。**
   - 内容：当前 dashboard/service 状态、包版本、配置备份位置、Bot 服务尚未启用的证据。
+  - 完成证据：docs/evidence/rh-launch-ledger-server-preflight-2026-08-31.md；Bot service/user/path 均不存在，原 release/service/timer 与四项公网读回正常。Bot 尚无配置，因此配置备份位置为不适用。
 
-- [ ] **P2-038｜执行服务器只读预检。**
+- [x] **P2-038｜执行服务器只读预检。**
   - 核对：Node 版本、磁盘、内存、服务管理、Ledger API 本机可达、时钟、日志目录权限。
   - 约束：此步不修改服务器。
+  - 完成证据：docs/evidence/rh-launch-ledger-server-preflight-2026-08-31.md；Cloud Assistant invocation `t-usw6vkiq1vo7uv4` 成功，Node、磁盘、内存、systemd、timer、loopback health 和公网无回归读回均已核验。
 
-- [ ] **P2-039｜通过 GATE-08，确认部署主机、窗口和回滚负责人。**
+- [x] **P2-039｜通过 GATE-08，确认部署主机、窗口和回滚负责人。**
+  - 完成证据：docs/decisions/rh-launch-ledger-deployment-target.md；目标为同机 SWAS，执行窗口在其他真实接入前置满足后，回滚由执行部署的 Codex 操作者负责且不触碰原 Launchpad release。
 
 ## 2.5 部署与封闭试用验收
 
