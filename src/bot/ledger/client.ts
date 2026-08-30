@@ -124,12 +124,15 @@ export class LedgerClient {
   private async fetchAndValidate<T>(path: string, validate: Validator<T>): Promise<T> {
     let lastError: BotError | null = null;
     for (let attempt = 0; attempt < 2; attempt += 1) {
+      const controller = new AbortController();
+      // Keep a referenced timer so a hung fetch cannot let a short-lived process exit first.
+      const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
       try {
         const response = await this.fetcher(new URL(path, this.baseUrl), {
           method: "GET",
           redirect: "manual",
           headers: { accept: "application/json" },
-          signal: AbortSignal.timeout(this.timeoutMs),
+          signal: controller.signal,
         });
         if (response.status >= 500 && attempt === 0) continue;
         if (!response.ok) throw new BotError("LEDGER_HTTP_ERROR", response.status >= 500);
@@ -149,10 +152,13 @@ export class LedgerClient {
           continue;
         }
         const isTimeout =
-          error instanceof DOMException &&
-          (error.name === "TimeoutError" || error.name === "AbortError");
+          controller.signal.aborted ||
+          (error instanceof DOMException &&
+            (error.name === "TimeoutError" || error.name === "AbortError"));
         lastError = new BotError(isTimeout ? "LEDGER_TIMEOUT" : "LEDGER_UNAVAILABLE", true);
         if (attempt === 1) throw lastError;
+      } finally {
+        clearTimeout(timeout);
       }
     }
     throw lastError ?? new BotError("LEDGER_UNAVAILABLE");
