@@ -1,3 +1,4 @@
+import { usableDailyMetric } from "./data-quality.js";
 import { CORE_METRICS } from "./types.js";
 import type {
   DailyMetric,
@@ -26,6 +27,7 @@ export function aggregateMetricWindow(
   metrics: DailyMetric[],
   windowDays: number,
 ): MetricWindowValue {
+  metrics = metrics.filter(usableDailyMetric);
   if (metrics.length === 0) return emptyMetricWindow(windowDays);
 
   const dates = new Set(metrics.map((metric) => metric.date));
