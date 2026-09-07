@@ -58,11 +58,14 @@ const pairFlowCollector = new PairFlowCollector(pairFlowSettings, {
 });
 const pairFlow = new PairFlowService(pairFlowDatabase, pairFlowSettings, pairFlowCollector);
 const pairV2Settings = pairV2SettingsFromEnv();
-const pairV2Database = new PairV2Database(databasePath);
+const monitorDatabasePath = process.env.MONITOR_DATABASE_PATH
+  ? resolve(process.env.MONITOR_DATABASE_PATH)
+  : databasePath;
+const pairV2Database = new PairV2Database(monitorDatabasePath);
 const pairV2Collector = new PairV2Collector(pairV2Settings);
 const pairV2 = new PairV2Service(pairV2Database, pairV2Settings, pairV2Collector);
 const devMonitorSettings = devMonitorSettingsFromEnv();
-const devMonitorDatabase = new DevMonitorDatabase(databasePath);
+const devMonitorDatabase = new DevMonitorDatabase(monitorDatabasePath);
 const devMonitor = new DevMonitorService(devMonitorDatabase, devMonitorSettings, pairV2, {
   pairTokens: pair,
 });

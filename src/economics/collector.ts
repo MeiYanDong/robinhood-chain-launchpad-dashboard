@@ -259,8 +259,51 @@ export async function fetchTokenSuppliesFromRpc(
       }
     }
   }
+  // Batch rejection must not discard a working single-call endpoint. Pin every
+  // fallback eth_call to one block, and check the chain before accepting it.
+  for (const rpcUrl of [...new Set([settings.rpcUrl, ...(settings.rpcFallbackUrls ?? [])])]) {
+    try {
+      const request = async (method: string, params: unknown[], id: number) => {
+        const response = await fetcher(rpcUrl, {
+          method: "POST",
+          headers: { "content-type": "application/json", "user-agent": "rhc-launch-ledger" },
+          body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
+          signal: AbortSignal.timeout(Math.min(settings.requestTimeoutMs, 5_000)),
+        });
+        if (!response.ok) throw new Error("RPC transport unavailable");
+        const result: unknown = await response.json();
+        if (
+          !isRecord(result) ||
+          result.id !== id ||
+          typeof result.result !== "string" ||
+          result.error
+        ) {
+          throw new Error("RPC result invalid");
+        }
+        return result.result;
+      };
+      if (BigInt(await request("eth_chainId", [], 8)) !== 4663n) continue;
+      const block = await request("eth_blockNumber", [], 7);
+      parseRpcHex(block, "block");
+      const results = [{ id: 7, result: block }];
+      for (const item of body.slice(0, 6)) {
+        results.push({
+          id: item.id,
+          result: await request("eth_call", [item.params[0], block], item.id),
+        });
+      }
+      const fetchedAt = new Date().toISOString();
+      return {
+        value: parseTokenSupplies(results, fetchedAt, settings),
+        fetchedAt,
+        latencyMs: Math.round(performance.now() - started),
+      };
+    } catch {
+      // Fail closed and do not expose a credential-bearing URL in errors.
+    }
+  }
   throw new Error(
-    `RPC batch request failed after two attempts: ${lastError?.message ?? "unknown"}`,
+    `RPC supply unavailable after bounded batch and single-call attempts (${lastError?.name ?? "UnknownError"})`,
   );
 }
 
@@ -345,7 +388,7 @@ export class EconomicsCollector {
       buildSourceHealth(
         "robinhood.rpc.tokenSupply",
         "Robinhood Chain 链上供应量",
-        this.settings.rpcUrl,
+        "https://rpc.mainnet.chain.robinhood.com",
         supplyResult,
         observedAt,
       ),

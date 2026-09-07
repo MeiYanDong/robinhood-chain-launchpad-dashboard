@@ -1,3 +1,4 @@
+import { assessDailyMetrics } from "../domain/data-quality.js";
 import { findRegisteredPlatform, metricPolicyFor } from "../config/platforms.js";
 import type { CollectionBatch, DailyMetric, PlatformStat } from "../domain/types.js";
 import { fetchJson, finiteNumber, isRecord } from "../utils/http.js";
@@ -133,7 +134,7 @@ export function extractPonsAnalytics(
   });
 
   return {
-    metrics,
+    metrics: assessDailyMetrics(metrics),
     stats,
     latestDataDate: parseLooseUtcDate(payload.latestDay) ?? metrics.at(-1)?.date ?? null,
   };
@@ -146,7 +147,10 @@ export async function collectPonsAnalytics(targetDate: string): Promise<Collecti
   try {
     const fetched = await fetchJson(PONS_ANALYTICS_URL, { timeoutMs: 20_000, retries: 1 });
     const parsed = extractPonsAnalytics(fetched.payload, targetDate, fetched.fetchedAt);
-    const degraded = parsed.metrics.length === 0 || parsed.latestDataDate !== targetDate;
+    const degraded =
+      parsed.metrics.length === 0 ||
+      parsed.latestDataDate !== targetDate ||
+      parsed.metrics.some((metric) => metric.quality === "unknown");
     return {
       platforms: [platform],
       metrics: parsed.metrics,

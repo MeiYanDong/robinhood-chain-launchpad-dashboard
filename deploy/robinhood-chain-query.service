@@ -1,0 +1,25 @@
+[Unit]
+Description=Robinhood Chain isolated query service
+After=network-online.target robinhood-chain-launchpad.service
+Wants=robinhood-chain-launchpad.service
+
+[Service]
+Type=simple
+User=robinhood-launchpad
+Group=robinhood-launchpad
+WorkingDirectory=/opt/robinhood-chain-launchpad/current
+Environment=QUERY_PORT=4175
+Environment=COLLECTOR_ORIGIN=http://127.0.0.1:4176
+ExecStart=/usr/local/bin/node /opt/robinhood-chain-launchpad/current/dist/query-server.js
+Restart=on-failure
+RestartSec=3
+MemoryMax=192M
+TimeoutStopSec=15
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

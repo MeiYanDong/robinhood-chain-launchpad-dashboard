@@ -405,7 +405,7 @@ export class PairV2Database {
             token.liquidityUsd,
             token.volume24hUsd,
             token.holderCount,
-            JSON.stringify(token),
+            "{}",
           );
         }
       } else if (batch.marketUpdatedAddresses && batch.marketUpdatedAddresses.length > 0) {
@@ -421,7 +421,7 @@ export class PairV2Database {
             token.liquidityUsd,
             token.volume24hUsd,
             token.holderCount,
-            JSON.stringify(token),
+            "{}",
           );
         }
       }

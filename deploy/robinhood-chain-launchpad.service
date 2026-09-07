@@ -10,7 +10,8 @@ Group=robinhood-launchpad
 WorkingDirectory=/opt/robinhood-chain-launchpad/current
 EnvironmentFile=/etc/robinhood-chain-launchpad.env
 Environment=HOST=127.0.0.1
-Environment=PORT=4175
+Environment=PORT=4176
+Environment=MONITOR_DATABASE_PATH=/var/lib/robinhood-chain-launchpad/monitor.sqlite
 Environment=DATA_DIR=/var/lib/robinhood-chain-launchpad
 Environment=CACHE_TTL_MINUTES=1500
 Environment=PAIR_ACTIVE_MCAP_FLOOR_USD=10000

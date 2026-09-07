@@ -17,6 +17,9 @@ export interface EvidenceValue {
   source: string | null;
   asOf: string | null;
   note: string | null;
+  validation?: "usable" | "suspect" | "stale" | "missing";
+  rawValue?: number;
+  dataDate?: string;
 }
 
 export interface EconomicsSourceHealth {
@@ -211,6 +214,12 @@ export interface EconomicsResponse {
   targetDate: string;
   status: "success" | "partial";
   stale: boolean;
+  dataQuality?: {
+    snapshotFresh: boolean;
+    platformDataComplete: boolean;
+    valuationReady: boolean;
+    issues: string[];
+  };
   shareDefinition: "pons_long_pair_closed_utc_day";
   shareReady: boolean;
   shareDenominatorUsd: number | null;

@@ -443,3 +443,18 @@ test("economics service does not calculate share when no same-day denominator ex
     );
   });
 });
+
+test("suspect official zero cannot create a market share while the raw value remains inspectable", async () => {
+  const metrics = allMetrics("2026-09-02");
+  metrics[0] = metric("pons", "volume_usd", "2026-09-02", 0);
+  metrics.push(metric("pons", "volume_usd", "2026-09-01", 919_650_702));
+  await withService(metrics, async ({ service }) => {
+    const snapshot = await service.refresh();
+    const pons = snapshot.platforms.find((row) => row.platformId === "pons");
+    assert.equal(pons?.volumeUsd.value, null);
+    assert.equal(pons?.volumeUsd.rawValue, 0);
+    assert.equal(pons?.volumeUsd.validation, "suspect");
+    assert.equal(snapshot.shareReady, false);
+    assert.equal(snapshot.dataQuality?.platformDataComplete, false);
+  });
+});

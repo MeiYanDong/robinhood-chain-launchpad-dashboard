@@ -6,6 +6,7 @@ export interface EconomicsSettings {
   ponsTokenUrl: string;
   pairTokenUrl: string;
   rpcUrl: string;
+  rpcFallbackUrls?: string[];
   gmgnBinary: string;
   gmgnTimeoutMs: number;
   requestTimeoutMs: number;
@@ -39,6 +40,14 @@ export function economicsSettingsFromEnv(env: NodeJS.ProcessEnv = process.env): 
   return {
     ...DEFAULT_ECONOMICS_SETTINGS,
     rpcUrl: env.ECONOMICS_RPC_URL?.trim() || DEFAULT_ECONOMICS_SETTINGS.rpcUrl,
+    rpcFallbackUrls: [
+      ...new Set(
+        (env.ECONOMICS_RPC_FALLBACK_URLS ?? "")
+          .split(",")
+          .map((url) => url.trim())
+          .filter(Boolean),
+      ),
+    ].slice(0, 2),
     gmgnBinary: env.ECONOMICS_GMGN_BIN?.trim() || DEFAULT_ECONOMICS_SETTINGS.gmgnBinary,
     gmgnTimeoutMs: positiveNumber(
       env.ECONOMICS_GMGN_TIMEOUT_MS,

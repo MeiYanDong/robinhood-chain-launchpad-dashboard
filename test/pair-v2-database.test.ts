@@ -413,3 +413,17 @@ test("PAIR V2 database freezes the first shadow signal and settles each replay h
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("market history stays compact without losing replay numbers or full current token", () => {
+  const database = new PairV2Database(":memory:");
+  try {
+    const value = batch();
+    const runId = database.startRun(value.kind, value.observedAt);
+    database.saveBatch(runId, value);
+    const address = value.tokens[0]?.address ?? "";
+    const history = database.historicalSnapshots([address], "2026-09-05T08:01:00.000Z");
+    assert.equal(history.get(address)?.priceUsd, 0.1);
+  } finally {
+    database.close();
+  }
+});

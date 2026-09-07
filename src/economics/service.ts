@@ -1,3 +1,4 @@
+import { assessDailyMetrics, usableDailyMetric } from "../domain/data-quality.js";
 import type { DailyMetric, MetricName } from "../domain/types.js";
 import type { LongLeaderboardResponse } from "../long-tokens/types.js";
 import type { PairLeaderboardResponse, PairRankingEntry } from "../pair/types.js";
@@ -115,7 +116,16 @@ function metricEvidenceQuality(metric: DailyMetric): EvidenceQuality {
 }
 
 function dailyMetricValue(metric: DailyMetric | null, missingNote: string): EvidenceValue {
-  if (!metric) return unknownValue(missingNote);
+  if (!metric) return { ...unknownValue(missingNote), validation: "missing" };
+  if (!usableDailyMetric(metric))
+    return {
+      ...unknownValue("来源数值待核验，暂不参与份额或估值。"),
+      source: metric.source,
+      asOf: metric.collectedAt,
+      dataDate: metric.date,
+      rawValue: metric.value,
+      validation: "suspect",
+    };
   return value({
     value: metric.value,
     state: metric.quality === "derived" ? "derived" : "observed",
@@ -304,7 +314,9 @@ function protocolTokenRow(input: {
 }
 
 function longLeaderRow(response: LongLeaderboardResponse): TokenEconomicsRow {
-  const leader = response.rankings.market_cap_usd.entries[0] ?? null;
+  const leader = response.snapshot?.stale
+    ? null
+    : (response.rankings.market_cap_usd.entries[0] ?? null);
   if (!leader) {
     const missing = unknownValue("当前没有通过 LongLauncher 归属验证的市值龙头。 ");
     return {
@@ -597,10 +609,12 @@ export class EconomicsService {
     const now = this.now();
     const generatedAt = now.toISOString();
     const lastClosed = lastClosedUtcDate(now);
-    const metrics = this.providers.dashboard.metricsForPlatforms(
-      shiftUtcDate(lastClosed, -120),
-      lastClosed,
-      ECONOMICS_PLATFORMS,
+    const metrics = assessDailyMetrics(
+      this.providers.dashboard.metricsForPlatforms(
+        shiftUtcDate(lastClosed, -120),
+        lastClosed,
+        ECONOMICS_PLATFORMS,
+      ),
     );
     const targetDate = latestComparisonDate(metrics, lastClosed);
     const pairRankings = this.providers.pair.rankings();
@@ -662,6 +676,9 @@ export class EconomicsService {
     const warnings = [
       ...(lagging ? [`闭合日来源最新共同日期为 ${targetDate}。`] : []),
       ...(!share.ready ? ["三平台同日成交量未齐，市场份额暂不计算。"] : []),
+      ...platforms
+        .filter((row) => row.volumeUsd.validation === "suspect")
+        .map((row) => `${row.platformName} 成交量原值待核验，已停止使用。`),
       ...(batch.warnings.length > 0 ? ["部分代币或链上来源暂不可用。"] : []),
     ];
     return {
@@ -671,6 +688,20 @@ export class EconomicsService {
       targetDate,
       status,
       stale: false,
+      dataQuality: {
+        snapshotFresh: true,
+        platformDataComplete: share.ready && !lagging,
+        valuationReady: pairRelativeValuation.state === "available",
+        issues: [
+          ...platforms
+            .filter((row) => row.volumeUsd.value === null)
+            .map((row) => `${row.platformId}:${row.volumeUsd.validation ?? "missing"}`),
+          ...(lagging ? ["closed_day_lagging"] : []),
+          ...pairRelativeValuation.reasons
+            .filter((reason) => reason.severity === "blocking")
+            .map((reason) => reason.code),
+        ],
+      },
       shareDefinition: "pons_long_pair_closed_utc_day",
       shareReady: share.ready,
       shareDenominatorUsd: share.denominator,
@@ -704,8 +735,46 @@ export class EconomicsService {
     const freshValuation = refreshPairRelativeValuationFreshness(valuation, now);
     return {
       ...latest.payload,
+      tokens: latest.payload.tokens.map((token) => {
+        const result = { ...token };
+        for (const field of [
+          "priceUsd",
+          "marketCapUsd",
+          "burnAdjustedMarketCapUsd",
+          "liquidityUsd",
+          "volume24hUsd",
+          "holderCount",
+          "totalSupply",
+          "burnedSupply",
+          "burnedPercent",
+        ] as const) {
+          const evidence = token[field];
+          if (evidence.value === null) continue;
+          const age = now.valueOf() - Date.parse(evidence.asOf ?? "");
+          const limit = field === "holderCount" ? 150 : 30;
+          result[field] =
+            !Number.isFinite(age) || age < -60_000 || age >= limit * 60_000
+              ? {
+                  ...evidence,
+                  value: null,
+                  rawValue: evidence.value,
+                  state: "unknown",
+                  validation: "stale",
+                  note: "该指标观测已过期，历史原值不作为当前值。",
+                }
+              : { ...evidence, validation: "usable" };
+        }
+        return result;
+      }),
       generatedAt: now.toISOString(),
       stale,
+      dataQuality: {
+        platformDataComplete: false,
+        issues: [],
+        ...latest.payload.dataQuality,
+        snapshotFresh: !stale,
+        valuationReady: !stale && freshValuation.state === "available",
+      },
       status: stale ? "partial" : latest.payload.status,
       pairRelativeValuation: stale
         ? invalidateStalePairRelativeValuation(freshValuation)
@@ -772,6 +841,8 @@ export class EconomicsService {
       status: snapshot?.status ?? "empty",
       stale: snapshot?.stale ?? true,
       generatedAt: this.now().toISOString(),
+      observedAt: snapshot?.observedAt ?? null,
+      dataQuality: snapshot?.dataQuality ?? null,
     };
   }
 }

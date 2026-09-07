@@ -155,3 +155,20 @@ test("economics environment settings stay bounded and reject invalid refresh int
     /must be positive/,
   );
 });
+
+test("batch-incompatible RPC falls back to chain-verified single calls at one block", async () => {
+  const blocks: unknown[] = [];
+  const fetcher: typeof fetch = async (_url, init) => {
+    const body = JSON.parse(String(init?.body));
+    if (Array.isArray(body)) return new Response("no batch", { status: 400 });
+    if (body.method === "eth_call") blocks.push(body.params[1]);
+    const result =
+      body.method === "eth_chainId"
+        ? "0x1237"
+        : rpcSupplyPayload().find((row) => row.id === body.id)?.result;
+    return Response.json({ jsonrpc: "2.0", id: body.id, result });
+  };
+  const result = await fetchTokenSuppliesFromRpc(settings, { fetcher, retryDelayMs: 0 });
+  assert.equal(result.value[0]?.burnedSupply, 250);
+  assert.deepEqual(blocks, Array(6).fill("0xabcdef"));
+});

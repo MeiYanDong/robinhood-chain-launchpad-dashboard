@@ -2,7 +2,7 @@
 
 Robinhood Chain 发射台数据看板。首页直接展示平台、成交量、用户手续费与平台收入；口径、来源和覆盖信息按需查看。
 
-仓库代码 `0.14.8` 在独立 PAIR V2 与 DEV 监控之外新增跨代 PAIR Alpha 雷达：官方目录
+仓库代码 `0.15.0` 在独立 PAIR V2 与 DEV 监控之外新增跨代 PAIR Alpha 雷达：官方目录
 全量发现 V1/V2，以 15 秒热候选、60 秒完整目录和 8 秒链上事件三层后台更新；点火、回踩、
 研究候选、过热勿追和风险停止互斥展示。DEV 飞书链路采用精选、限频、过期封存，买入游标
 分段追块且不补发历史队列；生产实际版本仍以 `/api/meta` 的部署后回读为准。完整规则见
@@ -12,8 +12,7 @@ Robinhood Chain 发射台数据看板。首页直接展示平台、成交量、�
 
 服务端核心 DEV 创建者与买入监控见 [`docs/dev-monitor.md`](docs/dev-monitor.md)。PAIR V2 页面主入口
 只展示已核验 PAIR 项目方主发行钱包发出的代币，并把“官方协议代币”与“同钱包发行但未确认背书”
-分开；各 PAIR 代币同时显示官方 `quoteToken` 配对资产，跨平台完整地址库、买入行为与通知
-outbox 仍只留在服务端。
+分开；跨平台完整地址库、买入行为与通知 outbox 仍只留在服务端。
 
 默认首屏是 Pons、Long、PAIR 三强对比：
 
@@ -40,6 +39,7 @@ outbox 仍只留在服务端。
 - 全链、龙头与热度、发射台、PAIR Alpha、PAIR V2、资金闭环、CashCat 日报七个互通入口；
 - PAIR Alpha 跨代候选矩阵、动作通道、多池成交证据和首次信号 5m/30m/2H/6H/24H 回放；
 - PAIR V2 当前 release 的三种模式分布、市场榜、逐笔链上动作、回购桶与来源健康；
+- PAIR 各代币的官方底层配对资产（如 SPY、WETH、USDG 或股票代币），多池按资产地址去重；
 - PAIR V2 的发现、确认、热度、风险、置信度保持独立，不计算综合分；
 - 结构龙头与断崖龙头分列，链级流动性固定使用 GMGN 最大主池；
 - 链活动、费用、成本和跨链注意力四维热度判断；
@@ -299,7 +299,7 @@ npm run dev
   <https://47.251.99.37/pair-v2/>（V2 Alpha 观察台）；原
   <http://47.251.99.37:4174/> 自动跳转到统一入口，原端口 API 继续兼容；
 - 当前生产应用版本与 release 以 `/api/meta` 及部署证据回读为准；
-- `0.14.6` 的 `/pair-alpha/` 跨代 Alpha 雷达已部署；公网读回覆盖 V1/V2、单币详情、
+- `0.14.7` 的 `/pair-alpha/` 跨代 Alpha 雷达已部署；公网读回覆盖 V1/V2、单币详情、
   动作分流与服务器自治更新，当前完整目录、行情与持币覆盖仍按来源状态分别标注；
 - `/pair-v2/` 已由服务内 8 秒链上、60 秒市场双频自治监控，不依赖浏览器或本地 Codex 定时任务；
 - DEV 雷达同样常驻主服务：生产每 11 秒增量追踪 PAIR V2、pons v1/v2、Long 的发行事件和重点
@@ -345,6 +345,8 @@ PAIR V1/V2 跨代发现、`Titties` 单币回读、自治更新、回滚点与 G
 [`docs/evidence/pair-alpha-production-deployment-2026-09-06.md`](docs/evidence/pair-alpha-production-deployment-2026-09-06.md)。
 DEV 通知根因、1,401 条历史队列封存、飞书业务码 `0`、限频策略与 `0.14.1` 回读见
 [`docs/evidence/dev-monitor-attention-production-deployment-2026-09-07.md`](docs/evidence/dev-monitor-attention-production-deployment-2026-09-07.md)。
+最终 1,539 条历史噪声封存、实时追块恢复、SQLite 止血、飞书真实投递与 `0.14.7` 回读见
+[`docs/evidence/dev-monitor-attention-production-deployment-2026-09-07-v2.md`](docs/evidence/dev-monitor-attention-production-deployment-2026-09-07-v2.md)。
 
 部署配置固化在 [`deploy/`](deploy/)；新版本应使用不可变 release 目录并原子切换
 `current` 软链接，保留上一版用于回滚。发布后必须同时验证公网首页、`/healthz`、
@@ -356,7 +358,7 @@ DEV 通知根因、1,401 条历史队列封存、飞书业务码 `0`、限频策
 `/pair-v2/api/dev-monitor/pair-team-launches?limit=20&offset=0`、
 `/pair-v2/api/dev-monitor/pair-launches?tier=all&limit=20&offset=0`、`/cashcat/` 和原
 `https://47.251.99.37/api/latest` 仍返回 `200`，不能只以 systemd 或 Nginx 配置检查作为
-上线成功证据。部署 `0.14.6` 时还必须增加 `/pair-alpha/`、`/pair-alpha/api/pair/alpha` 与
+上线成功证据。部署 `0.14.7` 时还必须增加 `/pair-alpha/`、`/pair-alpha/api/pair/alpha` 与
 `/pair-alpha/api/pair/alpha/health` 的公网回读。
 
 生产 unit 从 root 管理的 `/etc/robinhood-chain-launchpad.env` 读取密钥；该文件应为 `0600`，
@@ -470,3 +472,11 @@ npm run verify:live
 ## 安全边界
 
 这是只读研究工具：不读取钱包、不保存私钥、不签名、不广播交易。当前版本也不声称提供可执行交易优势或完整链上审计总量。
+
+## 查询隔离与数据质量（0.15.0）
+
+生产部署采用独立 query 进程（4175）与 collector（4176），高频监控库单独存放。
+逐指标质量、过期策略、迁移和回滚流程见 [运行手册](docs/runbooks/query-isolation.md)。
+Long 官方平台量无法访问时仍保持未知；本版本不承诺补齐上游未提供的数据。
+本次生产验收、PAIR 配对资产样本与回滚边界见
+[部署证据](docs/evidence/query-isolation-production-deployment-2026-09-07.md)。
