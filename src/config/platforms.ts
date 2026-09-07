@@ -39,18 +39,34 @@ export const PLATFORM_REGISTRY: PlatformConfig[] = [
     id: "pons",
     name: "Pons",
     aliases: ["Pons", "Pons V1", "Pons V2", "pons-v1", "pons-v2"],
-    website: "https://pons.fun",
+    website: "https://www.ponsfamily.com/analytics",
     status: "live",
     comparability: "scope_mismatch",
     excludeFromTotals: false,
     scope: "Canonical group combining Pons V1 and Pons V2 adapters.",
     notes: [
       "V1 and V2 are grouped to prevent duplicate platform rows.",
-      "Volume is primarily V2 curve activity while fees/revenue may include V1 and V2.",
+      "Official Dune-backed analytics is canonical for daily platform volume.",
+      "Fees and revenue can still cover a different V1/V2 mix and remain scope-mismatched.",
     ],
-    sourceLinks: defaultLinks,
+    sourceLinks: [
+      {
+        label: "Pons Analytics",
+        url: "https://www.ponsfamily.com/analytics",
+        kind: "official",
+      },
+      {
+        label: "Pons Docs",
+        url: "https://docs.ponsfamily.com/",
+        kind: "official",
+      },
+      ...defaultLinks,
+    ],
     metricPolicies: {
-      volume_usd: mismatch("Pons V2 bonding-curve volume", "Not the same scope as grouped fees."),
+      volume_usd: reported(
+        "Pons official Dune-backed closed UTC-day launchpad volume",
+        "Volume is comparable by day; grouped fee and revenue adapters remain separate scopes.",
+      ),
       fees_usd: mismatch("Pons V1 + V2 user-paid fees", "Grouped across two adapter generations."),
       revenue_usd: mismatch(
         "Pons V1 + V2 retained revenue",
@@ -59,6 +75,46 @@ export const PLATFORM_REGISTRY: PlatformConfig[] = [
       protocol_revenue_usd: mismatch(
         "Pons V1 + V2 protocol revenue",
         "Grouped across two adapter generations.",
+      ),
+    },
+  },
+  {
+    id: "pair",
+    name: "PAIR",
+    aliases: ["PAIR", "Pair", "Pair Fund", "pair.fund", "pair-fund"],
+    website: "https://pair.fund/stats",
+    status: "live",
+    comparability: "partial",
+    excludeFromTotals: false,
+    scope: "PAIR Dune-backed daily activity across supported Robinhood Chain markets.",
+    notes: [
+      "Official protocol stats is canonical for closed UTC-day volume.",
+      "User fees and protocol revenue can come from a different adapter scope and remain separately labeled.",
+      "PAIR token buyback policy, cumulative burn, and verified executed buybacks are separate facts.",
+    ],
+    sourceLinks: [
+      { label: "PAIR Stats", url: "https://pair.fund/stats", kind: "official" },
+      { label: "PAIR Docs", url: "https://pair.fund/docs", kind: "official" },
+      {
+        label: "PAIR Dune query",
+        url: "https://dune.com/queries/8520127",
+        kind: "methodology",
+      },
+      ...defaultLinks,
+    ],
+    metricPolicies: {
+      volume_usd: reported("PAIR official Dune-backed closed UTC-day volume"),
+      fees_usd: partial(
+        "PAIR user-paid fees reported by the configured fee adapter",
+        "The fee adapter scope must not be inferred from official volume.",
+      ),
+      revenue_usd: partial(
+        "PAIR retained revenue reported by the configured revenue adapter",
+        "Revenue is not audited net profit.",
+      ),
+      protocol_revenue_usd: partial(
+        "PAIR protocol-attributed revenue reported by the configured adapter",
+        "Accrued allocation and treasury receipts are not yet separated by the upstream source.",
       ),
     },
   },

@@ -1,0 +1,11 @@
+[Unit]
+Description=Generate Robinhood Chain Long daily report at 08:12 Asia/Shanghai
+
+[Timer]
+OnCalendar=*-*-* 00:12:00 UTC
+Persistent=true
+AccuracySec=1m
+Unit=robinhood-chain-long-daily.service
+
+[Install]
+WantedBy=timers.target

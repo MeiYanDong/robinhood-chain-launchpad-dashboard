@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh Robinhood Chain PAIR capital-flow ledger every 5 minutes
+
+[Timer]
+OnCalendar=*-*-* *:02,07,12,17,22,27,32,37,42,47,52,57:00 UTC
+Persistent=true
+AccuracySec=20s
+Unit=robinhood-chain-pair-flow-refresh.service
+
+[Install]
+WantedBy=timers.target

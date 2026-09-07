@@ -17,6 +17,11 @@ import {
   extractDefiLlamaSummaryMetric,
   selectSummaryFallbacks,
 } from "../src/collectors/defillama.js";
+import {
+  PAIR_PROTOCOL_DAILY_SOURCE,
+  extractPairProtocolStats,
+} from "../src/collectors/pair-protocol.js";
+import { PONS_DAILY_SOURCE, extractPonsAnalytics } from "../src/collectors/pons-analytics.js";
 import { PLATFORM_REGISTRY } from "../src/config/platforms.js";
 
 function timestamp(date: string): number {
@@ -211,6 +216,73 @@ test("Long closed-day volume only includes assets attributed to the Long integra
   assert.equal(summary.swapCount, 5);
   assert.equal(summary.activeTokenCount, 2);
   assert.equal(summary.hourlyRowCount, 2);
+});
+
+test("Pons official analytics publishes closed-day volume without inheriting fee scope", () => {
+  const parsed = extractPonsAnalytics(
+    {
+      latestDay: "2026-09-02",
+      series: [
+        { timestamp: "2026-09-01T00:00:00.000Z", volumeUsd: 120 },
+        { timestamp: "2026-09-02T00:00:00.000Z", volumeUsd: 240 },
+        { timestamp: "2026-09-03T00:00:00.000Z", volumeUsd: 999 },
+      ],
+      totals: {
+        volumeUsd24h: 240,
+        launches24h: 7,
+        volumeUsdAllTime: 3_000,
+        protocolRevenueUsd: 30,
+        creatorEarningsUsd: 90,
+        launchesAllTime: 70,
+      },
+    },
+    "2026-09-02",
+    "2026-09-03T01:00:00.000Z",
+  );
+
+  assert.deepEqual(
+    parsed.metrics.map((metric) => [metric.date, metric.value, metric.source, metric.quality]),
+    [
+      ["2026-09-01", 120, PONS_DAILY_SOURCE, "reported"],
+      ["2026-09-02", 240, PONS_DAILY_SOURCE, "reported"],
+    ],
+  );
+  assert.equal(parsed.latestDataDate, "2026-09-02");
+  assert.equal(
+    parsed.stats.find((stat) => stat.key === "platform_revenue_all_time_usd")?.value,
+    30,
+  );
+});
+
+test("PAIR official stats excludes unavailable and future rows while preserving valuation warnings", () => {
+  const parsed = extractPairProtocolStats(
+    {
+      source: "dune",
+      latestCompletedDay: "2026-09-02",
+      stale: false,
+      last7Days: [
+        { day: "2026-09-01", available: true, volumeUsd: 50, valuationCoverage: 1 },
+        { day: "2026-09-02", available: true, volumeUsd: 75, valuationCoverage: 0.8 },
+        { day: "2026-09-02", available: false, volumeUsd: 999 },
+        { day: "2026-09-03", available: true, volumeUsd: 999 },
+      ],
+      daily: { volumeUsd: 75, trades: 12, tokenLaunches: 3 },
+      allTime: { volumeUsd: 5_000, trades: 120, tokenLaunches: 30 },
+    },
+    "2026-09-02",
+    "2026-09-03T01:00:00.000Z",
+  );
+
+  assert.deepEqual(
+    parsed.metrics.map((metric) => [metric.date, metric.value, metric.source]),
+    [
+      ["2026-09-01", 50, PAIR_PROTOCOL_DAILY_SOURCE],
+      ["2026-09-02", 75, PAIR_PROTOCOL_DAILY_SOURCE],
+    ],
+  );
+  assert.equal(parsed.latestDataDate, "2026-09-02");
+  assert.equal(parsed.incompleteValuationDays, 1);
+  assert.equal(parsed.stats.find((stat) => stat.key === "trades_all_time")?.value, 120);
 });
 
 test("LetsCash official daily ETH rows become closed-day USD metrics and exclude the current day", () => {

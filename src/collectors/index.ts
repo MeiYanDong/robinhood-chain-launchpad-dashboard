@@ -10,6 +10,8 @@ import { collectBankr } from "./bankr.js";
 import { collectDefiLlama } from "./defillama.js";
 import { collectLetsCash } from "./letscash.js";
 import { collectLong } from "./long.js";
+import { collectPairProtocol } from "./pair-protocol.js";
+import { collectPonsAnalytics } from "./pons-analytics.js";
 
 export function mergeBatches(batches: CollectionBatch[]): CollectionBatch {
   const platformById = new Map<string, PlatformConfig>();
@@ -56,6 +58,8 @@ export async function collectAll(targetDate: string): Promise<CollectionBatch> {
     { id: "bankr.collector", collect: collectBankr },
     { id: "letscash.collector", collect: collectLetsCash },
     { id: "long.collector", collect: collectLong },
+    { id: "pair-protocol.collector", collect: collectPairProtocol },
+    { id: "pons-analytics.collector", collect: collectPonsAnalytics },
   ];
   const settled = await Promise.allSettled(
     collectors.map((collector) => collector.collect(targetDate)),

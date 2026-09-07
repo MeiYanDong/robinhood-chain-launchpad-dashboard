@@ -75,7 +75,9 @@ export class DashboardDatabase {
   constructor(databasePath: string) {
     mkdirSync(dirname(databasePath), { recursive: true });
     this.db = new DatabaseSync(databasePath);
-    this.db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
+    this.db.exec(
+      "PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;",
+    );
     this.migrate();
   }
 
@@ -186,6 +188,7 @@ export class DashboardDatabase {
     status: "success" | "partial" | "failed",
     warnings: string[],
     error: string | null = null,
+    completedAt: string = new Date().toISOString(),
   ): void {
     this.db
       .prepare(`
@@ -193,7 +196,7 @@ export class DashboardDatabase {
         SET completed_at = ?, status = ?, warnings_json = ?, error = ?
         WHERE id = ?
       `)
-      .run(new Date().toISOString(), status, JSON.stringify(warnings), error, runId);
+      .run(completedAt, status, JSON.stringify(warnings), error, runId);
   }
 
   writeBatch(batch: CollectionBatch): void {

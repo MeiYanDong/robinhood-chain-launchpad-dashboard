@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh Robinhood Chain PAIR token rankings every 15 minutes
+
+[Timer]
+OnCalendar=*-*-* *:00,15,30,45:00 UTC
+Persistent=true
+AccuracySec=30s
+Unit=robinhood-chain-pair-refresh.service
+
+[Install]
+WantedBy=timers.target

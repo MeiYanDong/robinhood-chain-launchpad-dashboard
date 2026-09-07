@@ -2,6 +2,27 @@
 
 Robinhood Chain 发射台数据看板。首页直接展示平台、成交量、用户手续费与平台收入；口径、来源和覆盖信息按需查看。
 
+仓库代码 `0.14.8` 在独立 PAIR V2 与 DEV 监控之外新增跨代 PAIR Alpha 雷达：官方目录
+全量发现 V1/V2，以 15 秒热候选、60 秒完整目录和 8 秒链上事件三层后台更新；点火、回踩、
+研究候选、过热勿追和风险停止互斥展示。DEV 飞书链路采用精选、限频、过期封存，买入游标
+分段追块且不补发历史队列；生产实际版本仍以 `/api/meta` 的部署后回读为准。完整规则见
+[`docs/pair-alpha-radar.md`](docs/pair-alpha-radar.md) 与
+[`docs/pair-v2-monitor.md`](docs/pair-v2-monitor.md)；现有“龙头 / 热度 / 估值”规则见
+[`docs/market-intelligence.md`](docs/market-intelligence.md)。
+
+服务端核心 DEV 创建者与买入监控见 [`docs/dev-monitor.md`](docs/dev-monitor.md)。PAIR V2 页面主入口
+只展示已核验 PAIR 项目方主发行钱包发出的代币，并把“官方协议代币”与“同钱包发行但未确认背书”
+分开；各 PAIR 代币同时显示官方 `quoteToken` 配对资产，跨平台完整地址库、买入行为与通知
+outbox 仍只留在服务端。
+
+默认首屏是 Pons、Long、PAIR 三强对比：
+
+- 代币价值：PONS、PAIR 平台币与 Long 当前市值龙头的市值、销毁调整市值、流动性、24H 成交量和持币地址；
+- PAIR 相对估值：用 PONS 价格、双方有效供应量和最近 7 个共同闭合日的平台成交量比计算同倍数锚点，并与 PAIR 实际价格并列；
+- 平台经营：同一闭合 UTC 日的成交量、三平台份额、用户手续费、协议收入应计与实收；
+- 回购核验：公开回购比例、理论预算、累计销毁和逐笔实际执行分列；
+- 回购后留存和净利润缺少成本或实收证据时保持未知，Long 没有回购机制时显示“不适用”。
+
 ## 现在能看什么
 
 默认展示最后一个已经闭合的 UTC 日（T-1），不会把今天尚未结束的部分数据混进日榜。
@@ -16,6 +37,13 @@ Robinhood Chain 发射台数据看板。首页直接展示平台、成交量、�
 
 界面提供：
 
+- 全链、龙头与热度、发射台、PAIR Alpha、PAIR V2、资金闭环、CashCat 日报七个互通入口；
+- PAIR Alpha 跨代候选矩阵、动作通道、多池成交证据和首次信号 5m/30m/2H/6H/24H 回放；
+- PAIR V2 当前 release 的三种模式分布、市场榜、逐笔链上动作、回购桶与来源健康；
+- PAIR V2 的发现、确认、热度、风险、置信度保持独立，不计算综合分；
+- 结构龙头与断崖龙头分列，链级流动性固定使用 GMGN 最大主池；
+- 链活动、费用、成本和跨链注意力四维热度判断；
+- PAIR 与 Long 发射代币的同角色相对市值区间；
 - 24H、7D、30D 平台排名；
 - 默认查看注册表中状态为 `live` 的主流平台，也可切换全部追踪平台；
 - 按平台名搜索、按核心指标排序；
@@ -23,6 +51,21 @@ Robinhood Chain 发射台数据看板。首页直接展示平台、成交量、�
 - LetsCash 官方滚动 24H、累计成交量、手续费、平台收入、创作者收入和参与规模快照；
 - Long 官方滚动 24H 成交量、交易笔数与活跃代币快照；
 - 按需查看 30 日覆盖范围、采集器状态、平台 scope、已知限制和来源链接。
+
+PAIR 代币页另行提供四张相互独立的 Top 5：
+
+- 当前市值；
+- PAIR 全部官方池的流动性深度合计；
+- 滚动 24H 交易量；
+- 持币地址数。
+
+实时榜每 15 分钟更新市场数据，持币地址最多每小时更新一次；每日北京时间 08:10 固化一份
+08:00 快照日报。四个指标不计算综合分，缺失值不进入对应排名。默认只纳入市值至少
+`$10,000`、流动性深度至少 `$1,000` 且市场数据在 60 分钟内更新的代币。
+
+Long 代币页沿用同一组四维 Top 5。它展示 GMGN 当前可见的 `longxyz` 活跃样本，并要求每个
+新入榜候选在 LongLauncher 的 `LaunchCreated` 链上事件中完成归属核验。它不是 Long 历史发射
+全量；实时榜每 15 分钟更新，北京时间 08:12 固化截至 08:00 的日报。
 
 界面取舍记录见 [`docs/ui-principles.md`](docs/ui-principles.md)。
 
@@ -89,13 +132,115 @@ POST https://api.long.xyz/v1/graphql
 
 程序读取 Long 官方 `PoolVolumeHour`，按闭合 UTC 日汇总，再用 `Asset` 中的 Robinhood Chain ID 与 Long integrator 地址核验每个资产确属 Long，避免把共享后端里的其它集成方算入。平台详情同时读取官方 `AuctionPool` 的滚动 24H 成交量、交易笔数和活跃代币数。
 
-官方公开接口会拒绝普通服务端 HTTP 指纹，因此采集器使用低频、只读的浏览器兼容传输访问同一个官方 GraphQL 地址，不需要钱包或 API Key。采集失败时该来源明确降级，不会用旧值冒充当前值。当前阿里云生产出口 `47.251.99.37` 仍被 Long 的 Cloudflare 规则拦截，`0.4.0` 候选版尚未切换为生产版本。
+官方公开接口会拒绝普通服务端 HTTP 指纹，因此采集器使用低频、只读的浏览器兼容传输访问同一个官方 GraphQL 地址，不需要钱包或 API Key。采集失败时该来源明确降级，不会用旧值冒充当前值。`0.6.0` 已部署到阿里云生产实例，但出口 `47.251.99.37` 仍被 Long 的 Cloudflare 规则拦截，因此平台级 Long 指标保持未知；独立的 Long 代币页使用下一节所述的 GMGN 活跃样本与官方 Launcher 链上归属，不拿它回填平台总量。
 
 Long 的交易费在资产创建后可能经历动态费率，且平台受益人路由存在版本差异。当前不能从成交量准确反推出逐日用户手续费和平台收入，所以这两项保持未知，不显示为 `$0`。
 
-### 5. Robinhood Chain RPC：下一阶段，而非本版数字来源
+### 5. Pons、Long、PAIR 三强对比
 
-当前版本不依赖 RPC。后续若要加每日发币数、活跃交易者、交易笔数、毕业数，需要已核验的 factory/router/curve 合约地址、事件 ABI 和 archive RPC，再逐平台建立事件级索引。
+```text
+GET https://www.ponsfamily.com/api/pons-analytics?v=dune-v2
+GET https://pair.fund/api/stats/protocol
+GET https://pair.fund/api/tokens/0x6b1d...66be
+gmgn token info --chain robinhood --address 0x39db...4571 --raw
+POST https://rpc.mainnet.chain.robinhood.com  eth_call
+```
+
+Pons 与 PAIR 的平台成交量优先读取各自官方 Dune-backed 日序列；Long 继续读取经过
+integrator 归属核验的官方日成交量。市场份额只在三家同一个闭合 UTC 日都有成交量时计算，
+分母固定为这三家之和，不把其它平台混入。
+
+PONS 与 PAIR 的来源市值和“价格 ×（总供应量 − 销毁地址余额）”并列展示。销毁地址累计余额
+只能证明销毁结果，不能自动证明资金来自协议手续费；实际回购必须有资金来源、Swap 和销毁或
+锁仓的逐笔闭环证据。设计和口径见
+[`docs/economics-comparison.md`](docs/economics-comparison.md)。
+
+PAIR 资金闭环模块进一步把两条币流拆开：PAIR 从 Locker 直接进入团队地址后销毁，和协议
+报价资产（包括 SPY）进入团队地址、经 Swap 换成 PAIR、再进入死亡地址。转账按区块与日志顺序建立 FIFO 批次账本，
+并与当前链上钱包余额对账；因此“市场买入”“买入后销毁”“已买未销毁”不会由所有用户买入量
+推算。全平台已归集报价资产读取官方金库可领取接口；PAIR/SPY 主池未归集增量来自只读 `eth_call`
+收集模拟，不签名、不广播交易。公开的 90% 回购比例只作为政策预期；在报价资产来源、Swap 和
+销毁三段未逐笔闭合前，已执行的手续费回购金额保持未知。其它池仍留在 LP 仓位内的未归集费用也
+保持未知，不拿理论手续费倒推。
+全平台 24H 成交额只汇总官方接口实际给出成交额的代币，缺失值不补 0，并在覆盖不完整时显示
+“已观测下限”。
+
+PAIR 相对估值中心采用：
+
+```text
+PONS 价格
+×（PONS 有效供应量 ÷ PAIR 有效供应量）
+×（PAIR 最近 7 个共同闭合日平台成交量 ÷ Pons 同窗口平台成交量）
+```
+
+它是“如果 PAIR 获得与 PONS 相同的平台成交量估值倍数”时的比较锚，不是价格预测。至少需要
+5 个共同日，缺失日不补 0；PONS 价格超过 30 分钟时停止给出当前估值。PAIR 实际价格只计算
+偏离，公开的 90% / 80% 手续费分配比例只进入单独情景。页面每 60 秒读取一次缓存，底层估值
+仍随现有 15 分钟经济快照重算，不额外触发上游请求。
+
+### 6. PAIR：官方代币市场数据与 GMGN 持币地址
+
+```text
+GET https://pair.fund/api/tokens?page={page}&limit=50
+gmgn token info --chain robinhood --address {token} --raw
+```
+
+程序遍历 PAIR 官方代币 API 的全部分页，在本地执行经济活跃门槛和确定性排序，不依赖远端
+Top N。市值取 `marketCapUsd`，流动性取全部官方池的 `totalDepthUsd`，24H 交易量优先取
+`combinedVolume24hUsd`。持币地址读取 GMGN 的 `holder_count`；它是地址数，不等于去重后的
+真实人数。
+
+持币来源失败时，程序只在 150 分钟以内使用上次已验证缓存并标为 `partial`；超过窗口后保持
+未知。PAIR 官方 API 或完整分页校验失败时，本次采集失败，界面继续显示上次成功快照并明确
+标记过期。详细设计与运行规则见 [`docs/pair-token-radar.md`](docs/pair-token-radar.md)。
+
+### 7. Long 代币榜：GMGN 活跃样本与 LongLauncher 链上归属
+
+```text
+gmgn market trending --chain robinhood --interval 24h --limit 100 \
+  --platform longxyz --order-by volume --direction desc --raw
+POST https://rpc.mainnet.chain.robinhood.com  eth_getLogs
+```
+
+GMGN 返回当前活跃代币的 `market_cap`、`liquidity`、`volume` 与 `holder_count`，程序在本地对
+四个指标独立排序。榜单候选随后必须命中官方 LongLauncher
+`0x22e99278308b393ea1260859b181ad7e78f5eeed` 的 `LaunchCreated` 事件；核验失败时本轮不发布。
+已确认的归属写入 SQLite，之后不重复查询不可变历史事件。
+
+GMGN 的 `longxyz` 标签是市场发现源，不代表历史发射全量；LongLauncher 事件只负责归属核验，
+不提供当前市值或持币人数。详细合同见
+[`docs/long-token-radar.md`](docs/long-token-radar.md)。
+
+### 8. PAIR V2：release 证明、市场全分页与链上事件
+
+```text
+GET https://pair.fund/api/v5-v2/standard-route/consumer-live?releaseId=...&manifestSha256=...&fresh=1
+GET https://pair.fund/api/tokens?page={page}&limit=50
+POST https://rpc.mainnet.chain.robinhood.com  eth_getLogs / eth_call
+gmgn token info --chain robinhood --address {token} --raw
+```
+
+程序首先校验官方 release attestation 的 `releaseId`、manifest hash 与 ready 状态，然后从部署
+区块开始索引当前 coordinator、vault、buyback executor 与 launchpad 的事件。市场数据完整翻页，
+再与当前 release 的 `ProjectLaunched` 事件按项目地址连接；只出现在旧 release 或仅出现在市场 API
+里的代币不会伪装成当前 release 项目。
+
+页面将以下口径分开：
+
+- 24H 用户手续费、模式份额和协议份额是由官方市场成交额按公开费率计算的估算值；
+- `NativeFeesCollected`、`BuybackExecuted`、`HolderDistributionClaimed`、`Upgraded` 是逐笔链上事实；
+- 回购 bucket 是在确认区块读取的待执行资产余额，按资产分别展示，不能跨资产直接相加成美元；
+- 没有 `BuybackExecuted` 事件时，理论预算不等于已回购；缺失市场、持有人或历史字段保持未知。
+
+服务进程内部每 8 秒回扫带 12 区块重组重叠的链上事件，每 60 秒刷新 release、市场、持有人和
+回购 bucket；不依赖本地 Codex 自动任务。详细数据合同、Alpha 分层和告警规则见
+[`docs/pair-v2-monitor.md`](docs/pair-v2-monitor.md)。
+
+### 9. Robinhood Chain RPC：当前只做已声明模块的只读索引
+
+当前版本用官方 RPC 核验 Long 榜单候选的发射归属，并索引 PAIR V2 当前 release 的已知事件。
+若要加入全链每日发币数、活跃交易者、交易笔数或跨 release 历史总量，仍需要 archive RPC 和
+独立回填作业。
 
 Robinhood 官方说明公共 RPC 有速率限制且不适合生产；历史索引建议使用 archive provider。参考 [Connecting to Robinhood Chain](https://docs.robinhood.com/chain/connecting/)。
 
@@ -145,24 +290,77 @@ npm run dev
 
 ## 当前服务器部署
 
-截至 2026-08-30，生产实例是阿里云轻量应用服务器 `robinhood-chain-radar`
+截至 2026-09-06，生产实例是阿里云轻量应用服务器 `robinhood-chain-radar`
 （`us-west-1`，实例 ID `ceff28ff463440c09d8666b0f081bc7f`）：
 
-- 公网看板：<http://47.251.99.37:4174/>；
-- 当前生产应用版本：`0.3.0`，release `20260830T035333Z`；`0.4.0` Long 候选版尚未切换；
-- Nginx 监听公网 `4174`，反向代理到只监听 `127.0.0.1:4175` 的 Node 服务；
+- 统一 HTTPS 公网入口：<https://47.251.99.37/leaders/>（龙头、热度、相对估值）与
+  <https://47.251.99.37/launchpads/>（发射台经营与代币榜）、
+  <https://47.251.99.37/pair-flow/>（PAIR 资金闭环）与
+  <https://47.251.99.37/pair-v2/>（V2 Alpha 观察台）；原
+  <http://47.251.99.37:4174/> 自动跳转到统一入口，原端口 API 继续兼容；
+- 当前生产应用版本与 release 以 `/api/meta` 及部署证据回读为准；
+- `0.14.6` 的 `/pair-alpha/` 跨代 Alpha 雷达已部署；公网读回覆盖 V1/V2、单币详情、
+  动作分流与服务器自治更新，当前完整目录、行情与持币覆盖仍按来源状态分别标注；
+- `/pair-v2/` 已由服务内 8 秒链上、60 秒市场双频自治监控，不依赖浏览器或本地 Codex 定时任务；
+- DEV 雷达同样常驻主服务：生产每 11 秒增量追踪 PAIR V2、pons v1/v2、Long 的发行事件和重点
+  创建者买入，5 分钟补充项目市场画像；PAIR V2 页面另设“PAIR 项目方发币”，只列已核验
+  主发行钱包的代币，跨平台完整地址与行为账本不通过公网接口公开；
+- Nginx 监听公网 `80`、`443` 和兼容端口 `4174`，反向代理到只监听
+  `127.0.0.1:4175` 的 Node 服务；
 - systemd 主服务：`robinhood-chain-launchpad.service`；
 - 每日刷新定时器：`robinhood-chain-launchpad-refresh.timer`，北京时间 15:10 执行；
+- PAIR 实时榜定时器：`robinhood-chain-pair-refresh.timer`，每 15 分钟执行；
+- PAIR 资金闭环定时器：`robinhood-chain-pair-flow-refresh.timer`，每 5 分钟执行；
+- PAIR 日报定时器：`robinhood-chain-pair-daily.timer`，北京时间 08:10 执行；
+- Long 实时榜定时器：`robinhood-chain-long-refresh.timer`，每 15 分钟执行；
+- Long 日报定时器：`robinhood-chain-long-daily.timer`，北京时间 08:12 执行；
+- 三强对比快照定时器：`robinhood-chain-economics-refresh.timer`，在 PAIR、Long 榜单刷新后
+  错峰每 15 分钟执行；
+- 龙头情报聚合缓存 5 分钟，只读访问同机 `4173` 的全链日度雷达与 `8010` 的 CashCat
+  行情状态，不读取其它服务数据库；
 - 发布目录：`/opt/robinhood-chain-launchpad/current`；
 - 持久化 SQLite：`/var/lib/robinhood-chain-launchpad/launchpad-dashboard.sqlite`；
-- SWAS 与 UFW 均仅新增 `4174/TCP`，原公网 `80` 的链级日度雷达保持不变；
-- 当前是无需登录的只读 HTTP 看板，没有 TLS；公网手动刷新按 IP 限制为平均每分钟 1 次，
+- SWAS 与 UFW 允许公网 `80/TCP`、`443/TCP` 和兼容端口 `4174/TCP`；
+- 当前是无需登录的只读 HTTPS 看板；公网 IP 证书由 Let's Encrypt 签发，
+  `robinhood-chain-certbot-renew.timer` 每天两次检查短期证书续期；公网手动刷新按 IP 限制为平均每分钟 1 次，
   允许 1 次瞬时突发，同一时刻的刷新由服务端合并。
+
+本次 PAIR 上线的公网回读、四维榜首、定时器和回滚证据见
+[`docs/evidence/pair-production-deployment-2026-09-01.md`](docs/evidence/pair-production-deployment-2026-09-01.md)。
+Long 代币页的公网回读、Launcher 核验、浏览器验收和回滚证据见
+[`docs/evidence/long-production-deployment-2026-09-01.md`](docs/evidence/long-production-deployment-2026-09-01.md)。
+三强对比、定时刷新、公网压缩传输和当前来源缺口的部署证据见
+[`docs/evidence/economics-production-deployment-2026-09-03.md`](docs/evidence/economics-production-deployment-2026-09-03.md)。
+代表币当前价格、SQLite 增量迁移和 0.7.1 公网回读证据见
+[`docs/evidence/token-price-production-deployment-2026-09-03.md`](docs/evidence/token-price-production-deployment-2026-09-03.md)。
+统一入口、四个独立判断模型、三服务 release、公网浏览器与运行时回读证据见
+[`docs/evidence/market-intelligence-production-deployment-2026-09-04.md`](docs/evidence/market-intelligence-production-deployment-2026-09-04.md)。
+PAIR 资金闭环逐笔账本、后台自动刷新与 0.10.0 公网回读证据见
+[`docs/evidence/pair-flow-production-deployment-2026-09-05.md`](docs/evidence/pair-flow-production-deployment-2026-09-05.md)。
+PAIR V2 Alpha 观察台、Shadow 回放、服务内自治监控与 0.11.0 公网回读证据见
+[`docs/evidence/pair-v2-production-deployment-2026-09-06.md`](docs/evidence/pair-v2-production-deployment-2026-09-06.md)。
+DEV 创建者发现、重点地址、服务器自治追块、通知测试与 0.12.1 公网回读证据见
+[`docs/evidence/dev-monitor-production-deployment-2026-09-06.md`](docs/evidence/dev-monitor-production-deployment-2026-09-06.md)。
+PAIR V1/V2 跨代发现、`Titties` 单币回读、自治更新、回滚点与 GitHub 边界见
+[`docs/evidence/pair-alpha-production-deployment-2026-09-06.md`](docs/evidence/pair-alpha-production-deployment-2026-09-06.md)。
+DEV 通知根因、1,401 条历史队列封存、飞书业务码 `0`、限频策略与 `0.14.1` 回读见
+[`docs/evidence/dev-monitor-attention-production-deployment-2026-09-07.md`](docs/evidence/dev-monitor-attention-production-deployment-2026-09-07.md)。
 
 部署配置固化在 [`deploy/`](deploy/)；新版本应使用不可变 release 目录并原子切换
 `current` 软链接，保留上一版用于回滚。发布后必须同时验证公网首页、`/healthz`、
-`/api/overview?window=30`、`/api/sources`，以及原 `http://47.251.99.37/api/latest`
-仍返回 `200`，不能只以 systemd 或 Nginx 配置检查作为上线成功证据。
+`/api/overview?window=30`、`/api/sources`、`/api/pair/health`、`/api/pair/rankings`、
+`/api/long/health`、`/api/long/rankings`、`/api/economics/health`、`/api/economics`，
+`/api/intelligence/health`、`/api/intelligence`，以及公网 `/leaders/`、`/launchpads/`、
+`/pair-flow/`、`/pair-flow/api/pair/flow/events`、`/pair-v2/`、`/pair-v2/api/pair/v2/health`、
+`/pair-v2/api/pair/v2`、`/pair-v2/api/dev-monitor/health`、
+`/pair-v2/api/dev-monitor/pair-team-launches?limit=20&offset=0`、
+`/pair-v2/api/dev-monitor/pair-launches?tier=all&limit=20&offset=0`、`/cashcat/` 和原
+`https://47.251.99.37/api/latest` 仍返回 `200`，不能只以 systemd 或 Nginx 配置检查作为
+上线成功证据。部署 `0.14.6` 时还必须增加 `/pair-alpha/`、`/pair-alpha/api/pair/alpha` 与
+`/pair-alpha/api/pair/alpha/health` 的公网回读。
+
+生产 unit 从 root 管理的 `/etc/robinhood-chain-launchpad.env` 读取密钥；该文件应为 `0600`，
+至少配置 `GMGN_API_KEY`。只复制 GMGN 的只读 API Key，不要把钱包或交易私钥部署到看板服务器。
 
 可选环境变量：
 
@@ -172,6 +370,49 @@ npm run dev
 | `HOST` | `127.0.0.1` | 监听地址 |
 | `DATA_DIR` | `./data` | SQLite 缓存目录 |
 | `CACHE_TTL_MINUTES` | `15` | 自动刷新 TTL |
+| `PAIR_ACTIVE_MCAP_FLOOR_USD` | `10000` | PAIR 入榜最低市值 |
+| `PAIR_ACTIVE_DEPTH_FLOOR_USD` | `1000` | PAIR 入榜最低流动性深度 |
+| `PAIR_MARKET_FRESHNESS_MINUTES` | `60` | PAIR 市场数据最大允许年龄 |
+| `PAIR_REFRESH_TTL_MINUTES` | `15` | PAIR 实时榜自动刷新 TTL |
+| `PAIR_HOLDER_TTL_MINUTES` | `60` | 持币地址刷新间隔 |
+| `PAIR_HOLDER_MAX_STALE_MINUTES` | `150` | 失败时可使用的持币地址缓存上限 |
+| `PAIR_GMGN_BIN` | `gmgn-cli` | GMGN CLI 可执行文件路径；生产 unit 指向项目内固定版本 |
+| `PAIR_FLOW_REFRESH_TTL_MINUTES` | `5` | PAIR 资金闭环快照与逐笔事件最短刷新间隔 |
+| `PAIR_FLOW_STALE_AFTER_MINUTES` | `20` | PAIR 资金闭环快照过期阈值 |
+| `PAIR_V2_RPC_URL` | Robinhood Chain 官方 RPC | PAIR V2 只读事件与 bucket 查询；可由 `PAIR_FLOW_RPC_URL` 兜底 |
+| `PAIR_V2_CHAIN_POLL_SECONDS` | `8` | 服务进程内链上确认事件轮询间隔 |
+| `PAIR_ALPHA_HOT_MARKET_POLL_SECONDS` | `15` | PAIR Alpha 活跃候选的短周期池行情更新间隔 |
+| `PAIR_V2_MARKET_POLL_SECONDS` | `60` | release、市场、持有人与 bucket 完整刷新间隔 |
+| `PAIR_V2_DEXSCREENER_API_BASE_URL` | `https://api.dexscreener.com/latest/dex` | 按 PAIR 官方 poolId 读取 5m/1H/6H 行情与流动性 |
+| `PAIR_V2_STALE_AFTER_SECONDS` | `150` | PAIR V2 快照过期阈值 |
+| `PAIR_V2_HOLDER_BATCH_SIZE` | `9` | 每轮最多补采的 GMGN 持币地址项目数，避免阻塞分钟行情 |
+| `PAIR_ALPHA_LEGACY_CANDIDATE_LIMIT` | `240` | 每轮纳入短周期行情的 V1 活跃候选上限 |
+| `PAIR_ALPHA_HOT_CANDIDATE_LIMIT` | `72` | 15 秒热行情通道的候选上限 |
+| `PAIR_ALPHA_RECENT_HOURS` | `72` | 新发行代币自动进入行情候选的时间窗 |
+| `PAIR_ALPHA_MIN_VOLUME_24H_USD` | `250` | 历史代币进入行情候选的最低官方 24H 成交额 |
+| `PAIR_ALPHA_MIN_MARKET_CAP_USD` | `8000` | 历史代币进入行情候选的最低官方市值 |
+| `PAIR_V2_GMGN_BIN` | `gmgn-cli` | V2 持币地址读取所用固定 CLI 路径 |
+| `PAIR_V2_FEISHU_WEBHOOK_URL` | 无，默认关闭 | 仅接受官方 HTTPS Feishu/Lark webhook；只在服务端环境文件配置 |
+| `DEV_MONITOR_ENABLED` | `false` | 启用服务端 DEV 发行与买入监听；生产 unit 显式设为 `true` |
+| `DEV_MONITOR_RPC_URL` | Robinhood Chain 官方 RPC | DEV 雷达只读日志、交易与 receipt 来源；可由 `PAIR_V2_RPC_URL` 兜底 |
+| `DEV_MONITOR_POLL_SECONDS` | `8` | 确认后链上发行与重点地址买入轮询间隔 |
+| `DEV_MONITOR_RPC_MIN_INTERVAL_MS` | `750` | DEV 公共 RPC 请求的最小间隔，降低 429 与来源争抢 |
+| `DEV_MONITOR_MARKET_POLL_SECONDS` | `300` | DexScreener 项目画像补充间隔 |
+| `DEV_MONITOR_CONFIRMATIONS` | `2` | 事件和买入至少等待的确认数 |
+| `DEV_MONITOR_BOOTSTRAP_BLOCKS` | `250000` | pons / Long 首次近期创建者发现窗口；不代表平台全历史 |
+| `DEV_MONITOR_BUY_CATCHUP_BLOCKS_PER_POLL` | `2000` | 买入游标落后时每轮最多追赶区块数；未追到链头前不推送历史买入 |
+| `DEV_MONITOR_BUY_MAX_RECOVERABLE_LAG_BLOCKS` | `10000` | 超过该落后量时记录覆盖缺口并恢复实时游标，历史区间不进入通知 |
+| `DEV_MONITOR_FEISHU_WEBHOOK_URL` | 无，默认关闭 | DEV 告警专用官方 HTTPS Webhook；只保存在服务器环境文件中 |
+| `LONG_ACTIVE_MCAP_FLOOR_USD` | `10000` | Long 入榜最低市值 |
+| `LONG_ACTIVE_DEPTH_FLOOR_USD` | `1000` | Long 入榜最低流动性 |
+| `LONG_REFRESH_TTL_MINUTES` | `15` | Long 实时榜自动刷新 TTL |
+| `LONG_GMGN_BIN` | `gmgn-cli` | Long 活跃样本使用的固定 GMGN CLI 路径 |
+| `LONG_RPC_URL` | Robinhood Chain 官方 RPC | LongLauncher 归属核验 RPC |
+| `ECONOMICS_GMGN_BIN` | `gmgn-cli` | PONS 市场数据使用的固定 GMGN CLI 路径 |
+| `ECONOMICS_RPC_URL` | Robinhood Chain 官方 RPC | PONS/PAIR 供应量与累计销毁余额读取 |
+| `ECONOMICS_REFRESH_TTL_MINUTES` | `15` | 三强对比快照刷新 TTL |
+| `ECONOMICS_STALE_AFTER_MINUTES` | `45` | 三强对比快照过期阈值 |
+| `GMGN_API_KEY` | 无，生产必填 | GMGN 只读代币信息 API Key；通过受保护的 systemd 环境文件注入 |
 
 ## API
 
@@ -183,6 +424,35 @@ npm run dev
 | `GET /api/coverage` | 指标定义、警告、30 日覆盖矩阵 |
 | `GET /api/sources` | 采集运行与来源健康 |
 | `POST /api/refresh` | 手动触发只读刷新 |
+| `GET /api/pair/health` | PAIR 模块及最近快照状态 |
+| `GET /api/pair/rankings` | PAIR 四项实时 Top 5 |
+| `GET /api/pair/reports/latest` | 最近一份 08:00 日报 |
+| `GET /api/pair/sources` | PAIR 指标定义与来源状态 |
+| `POST /api/pair/refresh` | 手动触发 PAIR 只读刷新 |
+| `POST /api/pair/reports/generate` | 内网定时任务固化日报；Nginx 不对公网开放 |
+| `GET /api/pair/flow` | PAIR/SPY 成交、回购、销毁、待处理余额与证据等级 |
+| `GET /api/pair/flow/health` | PAIR 资金闭环模块及最近快照状态 |
+| `POST /api/pair/flow/refresh` | 手动刷新资金闭环的只读链上与索引来源 |
+| `GET /api/pair/v2` | PAIR V2 当前 canonical release 的聚合快照 |
+| `GET /api/pair/v2/health` | 后台监控、最近区块、过期状态与告警队列 |
+| `GET /api/pair/v2/events?limit=100` | 当前 release 最近逐笔链上事件 |
+| `GET /api/pair/v2/tokens/:address` | 单个 V2 项目的市场、模式、资金与 Alpha 分层 |
+| `POST /api/pair/v2/refresh` | 受限手动触发完整只读刷新；日常更新不依赖它 |
+| `GET /api/pair/alpha` | PAIR V1/V2 跨代候选、互斥动作、成交证据与 Shadow 回放 |
+| `GET /api/pair/alpha/health` | 复用同一自治采集器的健康、热行情与完整目录轮询状态 |
+| `GET /api/pair/alpha/tokens/:address` | 单币身份、生命周期、动作原因和多池成交证据 |
+| `POST /api/pair/alpha/refresh` | 受限手动触发完整只读刷新；日常更新不依赖它 |
+| `GET /api/dev-monitor/health` | DEV 雷达聚合健康、确认区块、来源状态与通知队列；不返回地址明细 |
+| `GET /api/long/health` | Long 模块及最近快照状态 |
+| `GET /api/long/rankings` | Long 四项实时 Top 5 |
+| `GET /api/long/reports/latest` | 最近一份 Long 08:00 日报 |
+| `GET /api/long/sources` | Long 指标定义与来源状态 |
+| `POST /api/long/refresh` | 手动触发 Long 只读刷新 |
+| `POST /api/long/reports/generate` | 内网定时任务固化 Long 日报；Nginx 不对公网开放 |
+| `GET /api/economics/health` | 三强对比模块及最近快照状态 |
+| `GET /api/economics` | Pons、Long、PAIR 代币价值、平台经营与回购核验 |
+| `GET /api/economics/sources` | 口径定义、限制与来源状态 |
+| `POST /api/economics/refresh` | 刷新平台、代币与链上来源后重建三强对比 |
 
 刷新失败但 SQLite 中存在上次成功数据时，服务会明确显示 stale/degraded 并继续提供旧缓存；不会把失败当成功。采集器并发运行，但同键冲突由中央优先级表确定，结果不依赖采集器数组顺序。
 
@@ -195,7 +465,7 @@ npm run build
 npm run verify:live
 ```
 
-测试覆盖 Pons 合并、协议级 summary 的 Robinhood Chain 筛选、UTC 当前日排除、`null ≠ 0`、Bankr 官方 volume、LetsCash 官方日序列/实时快照、Long integrator 归属与闭合日筛选、确定性来源优先级，以及 StonkBrokers 不进入 tracked totals。`verify:live` 会读取实时 DefiLlama overview、协议级 summary、Bankr、LetsCash 和 Long 官方响应，检查关键字段与预期主流平台是否仍存在。
+测试覆盖 Pons 合并、协议级 summary 的 Robinhood Chain 筛选、UTC 当前日排除、`null ≠ 0`、Bankr 官方 volume、LetsCash 官方日序列/实时快照、Long integrator 归属与闭合日筛选、确定性来源优先级、StonkBrokers 不进入 tracked totals，以及 PAIR 全分页发现、Long 活跃样本与 Launcher 核验、经济活跃门槛、四榜独立排序、同日市场份额、回购证据状态、缓存降级和 08:00 日报对比。PAIR V2/Alpha 另覆盖 release 校验、V1/V2 身份分层、canonical 多池聚合、ABI 解码、短重组替换、估算与链上事实分离、过热勿追、首次信号回放、状态跃迁告警和公开路由权限。DEV 雷达覆盖各平台事件字段、来源独立游标、质量分层、receipt 买入核验、首次基线抑制、通知去重与失败重试。`verify:runtime` 当前检查 19 个运行合同；因此只能在服务器完成同版本部署后作为上线回执。
 
 ## 安全边界
 

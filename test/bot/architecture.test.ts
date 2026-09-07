@@ -49,7 +49,7 @@ test("dashboard default process remains independent from the optional Bot proces
   assert.equal(packageJson.scripts["bot:fake"], "tsx scripts/run-bot-fake.ts");
   assert.doesNotMatch(source("src/server.ts"), /bot\//);
   assert.doesNotMatch(source("src/bot/index.ts"), /server\.js|collectors|storage\/database/);
-  assert.deepEqual(Object.keys(packageJson.dependencies), ["wreq-js"]);
+  assert.deepEqual(Object.keys(packageJson.dependencies), ["gmgn-cli", "wreq-js"]);
 });
 
 test("persistent Bot state schema cannot express messages, stable identity, retention, or revisit", () => {

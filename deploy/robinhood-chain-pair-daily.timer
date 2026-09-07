@@ -1,0 +1,11 @@
+[Unit]
+Description=Generate Robinhood Chain PAIR daily report at 08:10 Asia/Shanghai
+
+[Timer]
+OnCalendar=*-*-* 00:10:00 UTC
+Persistent=true
+AccuracySec=1m
+Unit=robinhood-chain-pair-daily.service
+
+[Install]
+WantedBy=timers.target
