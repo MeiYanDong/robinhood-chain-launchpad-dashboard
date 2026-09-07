@@ -1,5 +1,9 @@
 import { DEFAULT_DEV_MONITOR_SETTINGS, type DevMonitorSettings } from "./config.js";
 import type { DevMonitorAlertOutboxRow, DevMonitorDatabase } from "./database.js";
+import {
+  isDevMonitorAlertEligible,
+  type DevMonitorNotificationEligibility,
+} from "./notification-policy.js";
 import type {
   DevMonitorActivity,
   DevMonitorAlert,
@@ -48,6 +52,7 @@ export function planDevMonitorAlerts(input: {
   currentProfiles: DevMonitorProfile[];
   insertedProjects: DevMonitorProject[];
   insertedActivities: DevMonitorActivity[];
+  notificationEligibility: DevMonitorNotificationEligibility;
   createdAt: string;
 }): DevMonitorAlert[] {
   if (!input.baselineComplete) return [];
@@ -60,24 +65,25 @@ export function planDevMonitorAlerts(input: {
     const newProfile = current.get(project.creator);
     if (!attentionWorthy(oldProfile) || !attentionWorthy(newProfile)) continue;
     const symbol = project.symbol ?? shortAddress(project.address);
-    alerts.push({
+    const alert: DevMonitorAlert = {
       dedupeKey: `developer_launch:${project.launchId}`,
       severity: "warning",
       type: "developer_launch",
       title: `${newProfile.label} 新发币`,
       message: [
-        `DEV：${project.creator}`,
+        `链上创建者（官方发行事件核验）：${project.creator}`,
         `平台：${platformLabel(project.platform)}`,
         `代币：${symbol} · ${project.address}`,
-        `监听级别：${newProfile.tier === "proven" ? "已验证活跃" : "重复做出有效项目"}`,
-        `归属证据：${project.attribution === "canonical_event" ? "官方 Factory / Coordinator 事件" : "Long 官方事件 + 交易发送者（中等置信）"}`,
+        "身份边界：链上项目创建者，不等同于已核验的现实身份",
+        "归属证据：官方 Factory / Coordinator 事件中的 indexed creator",
         `交易：${EXPLORER_BASE_URL}/tx/${project.transactionHash}`,
       ].join("\n"),
       developer: project.creator,
       project: project.address,
       transactionHash: project.transactionHash,
       createdAt: project.launchedAt ?? input.createdAt,
-    });
+    };
+    if (isDevMonitorAlertEligible(alert, input.notificationEligibility)) alerts.push(alert);
   }
 
   for (const activity of input.insertedActivities) {
@@ -86,7 +92,8 @@ export function planDevMonitorAlerts(input: {
       activity.type !== "buy" ||
       activity.confidence !== "high" ||
       activity.targetPlatform === null ||
-      !attentionWorthy(developer)
+      !attentionWorthy(developer) ||
+      !input.notificationEligibility.verifiedCreators.has(activity.developer.toLowerCase())
     ) {
       continue;
     }
@@ -94,9 +101,9 @@ export function planDevMonitorAlerts(input: {
       dedupeKey: `developer_buy:${activity.id}`,
       severity: "warning",
       type: "developer_buy",
-      title: "重点 DEV 出现真实买入",
+      title: "已核验项目创建者出现真实买入",
       message: [
-        `DEV：${activity.developer}`,
+        `链上创建者（官方发行事件核验）：${activity.developer}`,
         `买入：${amount(activity.targetAmount)} ${activity.target.symbol} · ${activity.target.address}`,
         `${activity.quote.address === "native" ? "交易发送上限" : "净支付"}：${amount(activity.quoteAmount)} ${activity.quote.symbol}`,
         `平台归属：${activity.targetPlatform ? platformLabel(activity.targetPlatform) : "未归属到已核验发射台"}`,

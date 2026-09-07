@@ -10,6 +10,10 @@ import {
 import type { DevMonitorSettings } from "./config.js";
 import type { DevMonitorDatabase } from "./database.js";
 import {
+  buildDevMonitorNotificationEligibility,
+  UNVERIFIED_PROJECT_CREATOR_REASON,
+} from "./notification-policy.js";
+import {
   isPairOfficialProtocolToken,
   isPairPrimaryIssuer,
   PAIR_OFFICIAL_PROTOCOL_TOKEN,
@@ -269,6 +273,7 @@ export class DevMonitorService {
     }
 
     const projects = this.database.projects();
+    const notificationEligibility = buildDevMonitorNotificationEligibility(projects);
     const profiles = deriveDevProfiles(projects, observedAt);
     this.database.saveProfiles(profiles);
     const watched = activeProfiles(profiles, this.settings.watchedDeveloperLimit);
@@ -374,10 +379,16 @@ export class DevMonitorService {
         currentProfiles: profiles,
         insertedProjects: alertableProjects,
         insertedActivities: alertableActivities,
+        notificationEligibility,
         createdAt: observedAt,
       });
       this.database.enqueueAlerts(alerts, this.settings.alertDeveloperCooldownMinutes);
     }
+    this.database.suppressIneligibleUnsentAlerts(
+      notificationEligibility,
+      observedAt,
+      UNVERIFIED_PROJECT_CREATOR_REASON,
+    );
     await this.notifier.flush(this.database);
     if (!baselineComplete) this.database.setBaselineComplete(observedAt);
 
