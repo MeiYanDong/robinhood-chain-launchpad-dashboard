@@ -590,6 +590,278 @@ main {
   color: #ff9a96;
 }
 
+#valuation-deviation.is-premium {
+  color: var(--coral);
+}
+
+#valuation-deviation.is-discount {
+  color: var(--cyan);
+}
+
+.valuation-calculation {
+  border-bottom: 1px solid var(--line);
+  background:
+    linear-gradient(100deg, rgba(99, 212, 228, 0.025), transparent 48%),
+    rgba(6, 11, 9, 0.28);
+}
+
+.valuation-calculation__head {
+  display: flex;
+  min-height: 62px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.valuation-calculation__head > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.valuation-calculation__head span,
+.valuation-scenario > div span {
+  color: var(--paper-muted);
+  font-size: 0.6875rem;
+}
+
+.valuation-calculation__head strong,
+.valuation-scenario > div strong {
+  color: var(--paper);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.valuation-window-state {
+  max-width: 62%;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--paper-muted);
+  font-family: var(--mono);
+  font-size: 0.65625rem;
+  line-height: 1.45;
+  text-align: right;
+}
+
+.valuation-window-state.is-current {
+  border-color: rgba(131, 237, 176, 0.2);
+  color: var(--acid);
+}
+
+.valuation-window-state.is-delayed,
+.valuation-window-state.is-unavailable {
+  border-color: rgba(241, 197, 105, 0.24);
+  color: var(--amber);
+}
+
+.valuation-formula {
+  margin: 0;
+  padding: 14px 16px 5px;
+  color: var(--paper-muted);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+.valuation-equation {
+  display: block;
+  margin: 7px 16px 15px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  border: 1px solid rgba(131, 237, 176, 0.18);
+  border-radius: var(--radius-sm);
+  background: rgba(131, 237, 176, 0.045);
+  color: var(--acid);
+  font-family: var(--mono);
+  font-size: clamp(0.6875rem, 1vw, 0.8125rem);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.valuation-calculation__detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.7fr);
+  border-top: 1px solid var(--line);
+}
+
+.valuation-input-table-wrap {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.valuation-input-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.valuation-input-table caption {
+  padding: 11px 16px 7px;
+  color: var(--paper-muted);
+  font-size: 0.6875rem;
+  text-align: left;
+}
+
+.valuation-input-table th,
+.valuation-input-table td {
+  height: auto;
+  padding: 10px 16px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.valuation-input-table thead th {
+  padding-block: 7px;
+  color: #718079;
+  font-size: 0.65625rem;
+  font-weight: 500;
+}
+
+.valuation-input-table thead th:first-child {
+  width: 31%;
+}
+
+.valuation-input-table tr > :last-child {
+  border-right: 0;
+}
+
+.valuation-input-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.valuation-input-table tbody th {
+  color: var(--paper);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.valuation-input-table tbody th small {
+  display: block;
+  margin-top: 0.2rem;
+  color: #718079;
+  font-size: 0.625rem;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.valuation-input-table td > strong {
+  display: block;
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.valuation-input-table td > strong.is-unavailable {
+  color: #75827c;
+}
+
+.valuation-input-meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+  color: #718079;
+  font-family: var(--mono);
+  font-size: 0.59375rem;
+  line-height: 1.35;
+}
+
+.valuation-input-source {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--paper-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.valuation-input-meta .evidence-badge {
+  min-height: 18px;
+  padding: 0.12rem 0.35rem;
+  font-size: 0.5625rem;
+}
+
+.valuation-input-meta .evidence-badge--quiet {
+  width: auto;
+  min-width: 0;
+  height: auto;
+  min-height: 18px;
+  padding: 0.12rem 0.35rem;
+  overflow: visible;
+  border: 1px solid currentColor;
+  background: transparent;
+  font-size: 0.5625rem;
+  opacity: 0.78;
+}
+
+.valuation-input-meta .evidence-badge--quiet:hover {
+  opacity: 1;
+  scale: none;
+}
+
+.valuation-input-time {
+  color: #64716b;
+}
+
+.valuation-scenario {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 0.8rem;
+  padding: 14px 16px;
+  border-left: 1px solid var(--line);
+}
+
+.valuation-scenario > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.valuation-scenario output {
+  color: var(--cyan);
+  font-family: var(--mono);
+  font-size: 0.71875rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.55;
+}
+
+.valuation-scenario > small {
+  color: #718079;
+  font-size: 0.625rem;
+  line-height: 1.45;
+}
+
+.valuation-reasons {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.valuation-reasons li {
+  padding-left: 0.65rem;
+  border-left: 2px solid var(--line-strong);
+  color: var(--paper-muted);
+  font-size: 0.625rem;
+  line-height: 1.45;
+}
+
+.valuation-reasons li.is-blocking {
+  border-left-color: var(--coral);
+  color: #d99b96;
+}
+
+.valuation-reasons li.is-note {
+  border-left-color: var(--amber);
+}
+
 .valuation-chart-panel {
   min-height: 238px;
   padding: 14px 16px 8px;
@@ -3027,6 +3299,34 @@ td,
     border-right: 0;
   }
 
+  .valuation-calculation__head {
+    align-items: flex-start;
+    flex-direction: column;
+    padding-inline: 12px;
+  }
+
+  .valuation-window-state {
+    max-width: none;
+    text-align: left;
+  }
+
+  .valuation-formula {
+    padding-inline: 12px;
+  }
+
+  .valuation-equation {
+    margin-inline: 12px;
+  }
+
+  .valuation-calculation__detail {
+    grid-template-columns: 1fr;
+  }
+
+  .valuation-scenario {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
   .valuation-chart-panel {
     min-height: 210px;
     padding-inline: 12px;
@@ -3451,6 +3751,36 @@ td,
   .valuation-state {
     max-width: 42%;
     text-align: right;
+  }
+
+  .valuation-calculation__head,
+  .valuation-scenario {
+    padding-inline: 10px;
+  }
+
+  .valuation-formula {
+    padding: 12px 10px 4px;
+  }
+
+  .valuation-equation {
+    margin: 7px 10px 12px;
+    padding: 10px;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  .valuation-input-table caption,
+  .valuation-input-table th,
+  .valuation-input-table td {
+    padding-inline: 9px;
+  }
+
+  .valuation-input-table thead th:first-child {
+    width: 36%;
+  }
+
+  .valuation-input-time {
+    display: none;
   }
 
   .valuation-metric > span {
