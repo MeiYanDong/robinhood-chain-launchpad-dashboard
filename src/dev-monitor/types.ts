@@ -103,6 +103,7 @@ export interface DevMonitorAlert {
 
 export interface DevMonitorAlertSummary {
   configured: boolean;
+  policy: "pair_team_wallet_only";
   pending: number;
   failed: number;
   suppressed: number;

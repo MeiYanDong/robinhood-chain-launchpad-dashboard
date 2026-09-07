@@ -223,6 +223,7 @@ export async function verifyRuntime(
     !isRecord(devMonitor.payload.counts) ||
     !isRecord(devMonitor.payload.alerts) ||
     devMonitor.payload.alerts.configured !== true ||
+    devMonitor.payload.alerts.policy !== "pair_team_wallet_only" ||
     !Array.isArray(devMonitor.payload.sources)
   ) {
     throw new RuntimeVerificationError(

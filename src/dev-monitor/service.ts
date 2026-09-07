@@ -11,7 +11,7 @@ import type { DevMonitorSettings } from "./config.js";
 import type { DevMonitorDatabase } from "./database.js";
 import {
   buildDevMonitorNotificationEligibility,
-  UNVERIFIED_PROJECT_CREATOR_REASON,
+  NON_PAIR_TEAM_NOTIFICATION_REASON,
 } from "./notification-policy.js";
 import {
   isPairOfficialProtocolToken,
@@ -387,7 +387,7 @@ export class DevMonitorService {
     this.database.suppressIneligibleUnsentAlerts(
       notificationEligibility,
       observedAt,
-      UNVERIFIED_PROJECT_CREATOR_REASON,
+      NON_PAIR_TEAM_NOTIFICATION_REASON,
     );
     await this.notifier.flush(this.database);
     if (!baselineComplete) this.database.setBaselineComplete(observedAt);

@@ -19,7 +19,8 @@ import {
 import { DevMonitorDatabase } from "../src/dev-monitor/database.js";
 import {
   buildDevMonitorNotificationEligibility,
-  VERIFIED_PROJECT_CREATOR_POLICY,
+  NON_PAIR_TEAM_NOTIFICATION_REASON,
+  PAIR_TEAM_ONLY_NOTIFICATION_POLICY,
 } from "../src/dev-monitor/notification-policy.js";
 import { PAIR_OFFICIAL_PROTOCOL_TOKEN, PAIR_PRIMARY_ISSUER } from "../src/dev-monitor/pair-team.js";
 import { DevMonitorService } from "../src/dev-monitor/service.js";
@@ -31,7 +32,7 @@ import type {
 import type { PairV2Rpc, PairV2RpcLog } from "../src/pair-v2/rpc.js";
 import type { PairV2DashboardResponse } from "../src/pair-v2/types.js";
 
-const DEV = "0x1111111111111111111111111111111111111111";
+const DEV = PAIR_PRIMARY_ISSUER.address;
 const TOKEN = "0x2222222222222222222222222222222222222222";
 const ROUTER = "0x3333333333333333333333333333333333333333";
 const TX_HASH = `0x${"a".repeat(64)}`;
@@ -445,17 +446,13 @@ test("alerts suppress baselines and initial buys but send selected launches and 
     }),
     [],
   );
-  const candidate = profile({ tier: "candidate" });
   const alerts = planDevMonitorAlerts({
     baselineComplete: true,
-    previousProfiles: [candidate, profile({ address: ROUTER })],
+    previousProfiles: [profile(), profile({ address: ROUTER })],
     currentProfiles: [profile(), profile({ address: ROUTER })],
-    insertedProjects: [project({ creator: ROUTER })],
+    insertedProjects: [project()],
     insertedActivities: [activity(), activity({ id: "initial", type: "initial_buy" })],
-    notificationEligibility: buildDevMonitorNotificationEligibility([
-      project(),
-      project({ creator: ROUTER }),
-    ]),
+    notificationEligibility: buildDevMonitorNotificationEligibility([project()]),
     createdAt: "2026-09-06T00:03:00.000Z",
   });
   assert.deepEqual(
@@ -495,26 +492,26 @@ test("attention policy excludes repeat factories, spammy proven creators, and un
   );
 });
 
-test("notification policy rejects inferred senders and performance labels without creator proof", () => {
-  const inferredLongProject = project({
-    platform: "long",
-    attribution: "canonical_event_transaction_sender",
-    attributionConfidence: "medium",
+test("notification policy rejects every non-PAIR-team wallet regardless of creator proof", () => {
+  const nonTeamProject = project({
+    creator: ROUTER,
+    attribution: "canonical_event",
+    attributionConfidence: "high",
   });
   const alerts = planDevMonitorAlerts({
     baselineComplete: true,
-    previousProfiles: [profile()],
-    currentProfiles: [profile()],
-    insertedProjects: [inferredLongProject],
-    insertedActivities: [activity()],
-    notificationEligibility: buildDevMonitorNotificationEligibility([inferredLongProject]),
+    previousProfiles: [profile({ address: ROUTER })],
+    currentProfiles: [profile({ address: ROUTER })],
+    insertedProjects: [nonTeamProject],
+    insertedActivities: [activity({ developer: ROUTER })],
+    notificationEligibility: buildDevMonitorNotificationEligibility([nonTeamProject]),
     createdAt: "2026-09-06T00:03:00.000Z",
   });
-  assert.equal(VERIFIED_PROJECT_CREATOR_POLICY, "verified_project_creators_only");
+  assert.equal(PAIR_TEAM_ONLY_NOTIFICATION_POLICY, "pair_team_wallet_only");
   assert.deepEqual(alerts, []);
 });
 
-test("outbox preserves facts while suppressing alerts without exact creator evidence", () => {
+test("outbox preserves facts while suppressing non-PAIR-team alerts", () => {
   const directory = mkdtempSync(join(tmpdir(), "dev-monitor-creator-policy-"));
   const database = new DevMonitorDatabase(join(directory, "test.sqlite"));
   const inferredCreator = ROUTER;
@@ -591,7 +588,7 @@ test("outbox preserves facts while suppressing alerts without exact creator evid
       database.suppressIneligibleUnsentAlerts(
         eligibility,
         "2026-09-06T00:01:00.000Z",
-        "unverified_project_creator_policy",
+        NON_PAIR_TEAM_NOTIFICATION_REASON,
       ),
       3,
     );
@@ -710,6 +707,7 @@ test("outbox applies developer cooldown, expiry, batching, and an hourly attenti
     assert.match(bodies[0]?.content?.text ?? "", /2 条精选信号/);
     assert.deepEqual(database.alertSummary(true), {
       configured: true,
+      policy: "pair_team_wallet_only",
       pending: 1,
       failed: 0,
       suppressed: 1,
@@ -761,6 +759,7 @@ test("existing outbox databases migrate without losing historical rows", () => {
     assert.equal(database.suppressUnsentAlerts("2026-09-07T00:00:00.000Z", "legacy_backlog"), 1);
     assert.deepEqual(database.alertSummary(false), {
       configured: false,
+      policy: "pair_team_wallet_only",
       pending: 0,
       failed: 0,
       suppressed: 1,
