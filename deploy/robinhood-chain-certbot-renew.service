@@ -1,0 +1,9 @@
+[Unit]
+Description=Renew the Robinhood Chain Radar public IP TLS certificate
+After=network-online.target nginx.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/snap/bin/certbot renew --cert-name 47.251.99.37
+ExecStartPost=/usr/bin/systemctl reload nginx

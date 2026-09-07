@@ -101,6 +101,13 @@ function targetDate(payload: Record<string, unknown>): string | null {
   return typeof payload.targetDate === "string" ? payload.targetDate : null;
 }
 
+const PAIR_RANKING_KEYS = [
+  "market_cap_usd",
+  "liquidity_depth_usd",
+  "volume_24h_usd",
+  "holder_count",
+] as const;
+
 export async function verifyRuntime(
   baseUrl: string,
   options: RuntimeVerifierOptions = {},
@@ -140,6 +147,244 @@ export async function verifyRuntime(
     );
   }
 
+  const pairHealth = await readJson(base, "/api/pair/health", fetcher, timeoutMs);
+  if (pairHealth.payload.ok !== true || pairHealth.payload.service !== "rhc-pair-token-radar") {
+    throw new RuntimeVerificationError("RUNTIME_NOT_READY", "PAIR token radar has no usable cache");
+  }
+
+  const pairRankings = await readJson(base, "/api/pair/rankings", fetcher, timeoutMs);
+  const pairSnapshot = pairRankings.payload.snapshot;
+  const rankings = pairRankings.payload.rankings;
+  if (
+    pairRankings.payload.service !== "rhc-pair-token-radar" ||
+    !isRecord(pairSnapshot) ||
+    !isRecord(rankings) ||
+    !PAIR_RANKING_KEYS.every(
+      (key) => isRecord(rankings[key]) && Array.isArray(rankings[key].entries),
+    )
+  ) {
+    throw new RuntimeVerificationError(
+      "RUNTIME_CONTRACT_ERROR",
+      "PAIR rankings response did not match the expected contract",
+    );
+  }
+
+  const pairFlow = await readJson(base, "/api/pair/flow", fetcher, timeoutMs);
+  if (
+    pairFlow.payload.service !== "rhc-pair-flow" ||
+    !isRecord(pairFlow.payload.window) ||
+    !isRecord(pairFlow.payload.volume) ||
+    !isRecord(pairFlow.payload.burn) ||
+    !isRecord(pairFlow.payload.buyback) ||
+    !isRecord(pairFlow.payload.pressure) ||
+    !Array.isArray(pairFlow.payload.sources)
+  ) {
+    throw new RuntimeVerificationError(
+      "RUNTIME_CONTRACT_ERROR",
+      "PAIR flow response did not match the expected contract",
+    );
+  }
+
+  const pairV2Health = await readJson(base, "/api/pair/v2/health", fetcher, timeoutMs);
+  if (
+    pairV2Health.payload.ok !== true ||
+    pairV2Health.payload.service !== "rhc-pair-v2-monitor" ||
+    pairV2Health.payload.backgroundMonitor !== true
+  ) {
+    throw new RuntimeVerificationError(
+      "RUNTIME_NOT_READY",
+      "PAIR V2 autonomous monitor has no usable cache",
+    );
+  }
+
+  const pairV2 = await readJson(base, "/api/pair/v2", fetcher, timeoutMs);
+  if (
+    pairV2.payload.service !== "rhc-pair-v2-monitor" ||
+    !isRecord(pairV2.payload.release) ||
+    pairV2.payload.release.canonical !== true ||
+    !isRecord(pairV2.payload.overview) ||
+    !isRecord(pairV2.payload.monitoring) ||
+    !Array.isArray(pairV2.payload.tokens) ||
+    !Array.isArray(pairV2.payload.events) ||
+    !Array.isArray(pairV2.payload.sources)
+  ) {
+    throw new RuntimeVerificationError(
+      "RUNTIME_CONTRACT_ERROR",
+      "PAIR V2 response did not match the expected contract",
+    );
+  }
+
+  const devMonitor = await readJson(base, "/api/dev-monitor/health", fetcher, timeoutMs);
+  if (
+    devMonitor.payload.service !== "rhc-dev-monitor" ||
+    devMonitor.payload.enabled !== true ||
+    devMonitor.payload.baselineComplete !== true ||
+    !["success", "partial"].includes(String(devMonitor.payload.status)) ||
+    !isRecord(devMonitor.payload.counts) ||
+    !isRecord(devMonitor.payload.alerts) ||
+    devMonitor.payload.alerts.configured !== true ||
+    !Array.isArray(devMonitor.payload.sources)
+  ) {
+    throw new RuntimeVerificationError(
+      "RUNTIME_NOT_READY",
+      "DEV creator monitor has not completed its server-side baseline",
+    );
+  }
+
+  const pairDevLaunches = await readJson(
+    base,
+    "/api/dev-monitor/pair-launches?tier=all&limit=20&offset=0",
+    fetcher,
+    timeoutMs,
+  );
+  if (
+    pairDevLaunches.payload.service !== "rhc-dev-monitor" ||
+    pairDevLaunches.payload.scope !== "pair_v2_public_launches" ||
+    !isRecord(pairDevLaunches.payload.counts) ||
+    typeof pairDevLaunches.payload.total !== "number" ||
+    !Array.isArray(pairDevLaunches.payload.items)
+  ) {
+    throw new RuntimeVerificationError(
+      "RUNTIME_CONTRACT_ERROR",
+      "PAIR DEV launch feed did not match the expected public contract",
+    );
+  }
+
+  const pairTeamLaunches = await readJson(
+    base,
+    "/api/dev-monitor/pair-team-launches?limit=20&offset=0",
+    fetcher,
+    timeoutMs,
+  );
+  if (
+    pairTeamLaunches.payload.service !== "rhc-dev-monitor" ||
+    pairTeamLaunches.payload.scope !== "pair_official_team_launches" ||
+    !isRecord(pairTeamLaunches.payload.issuer) ||
+    pairTeamLaunches.payload.issuer.verification !== "verified_primary_issuer" ||
+    !isRecord(pairTeamLaunches.payload.counts) ||
+    typeof pairTeamLaunches.payload.total !== "number" ||
+    !Array.isArray(pairTeamLaunches.payload.items)
+  ) {
+    throw new RuntimeVerificationError(
+      "RUNTIME_CONTRACT_ERROR",
+      "PAIR project-team launch feed did not match the expected public contract",
+    );
+  }
+
+  const longHealth = await readJson(base, "/api/long/health", fetcher, timeoutMs);
+  if (longHealth.payload.ok !== true || longHealth.payload.service !== "rhc-long-token-radar") {
+    throw new RuntimeVerificationError("RUNTIME_NOT_READY", "Long token radar has no usable cache");
+  }
+
+  const longRankings = await readJson(base, "/api/long/rankings", fetcher, timeoutMs);
+  const longSnapshot = longRankings.payload.snapshot;
+  const longRankingRows = longRankings.payload.rankings;
+  if (
+    longRankings.payload.service !== "rhc-long-token-radar" ||
+    !isRecord(longSnapshot) ||
+    !isRecord(longRankingRows) ||
+    !PAIR_RANKING_KEYS.every(
+      (key) => isRecord(longRankingRows[key]) && Array.isArray(longRankingRows[key].entries),
+    )
+  ) {
+    throw new RuntimeVerificationError(
+      "RUNTIME_CONTRACT_ERROR",
+      "Long rankings response did not match the expected contract",
+    );
+  }
+
+  const economicsHealth = await readJson(base, "/api/economics/health", fetcher, timeoutMs);
+  if (
+    economicsHealth.payload.ok !== true ||
+    economicsHealth.payload.service !== "rhc-launchpad-economics"
+  ) {
+    throw new RuntimeVerificationError(
+      "RUNTIME_NOT_READY",
+      "Launchpad economics comparison has no usable cache",
+    );
+  }
+
+  const economics = await readJson(base, "/api/economics", fetcher, timeoutMs);
+  const economicsPlatforms = economics.payload.platforms;
+  const economicsTokens = economics.payload.tokens;
+  if (
+    economics.payload.service !== "rhc-launchpad-economics" ||
+    typeof economics.payload.targetDate !== "string" ||
+    !Array.isArray(economicsTokens) ||
+    !Array.isArray(economicsPlatforms) ||
+    !Array.isArray(economics.payload.buybacks) ||
+    !isRecord(economics.payload.pairRelativeValuation) ||
+    !["pons", "long", "pair"].every((platformId) =>
+      economicsPlatforms.some((row) => isRecord(row) && row.platformId === platformId),
+    ) ||
+    !["pons", "long", "pair"].every((platformId) =>
+      economicsTokens.some(
+        (row) => isRecord(row) && row.platformId === platformId && isRecord(row.priceUsd),
+      ),
+    )
+  ) {
+    throw new RuntimeVerificationError(
+      "RUNTIME_CONTRACT_ERROR",
+      "Economics response did not match the expected contract",
+    );
+  }
+
+  const valuation = await readJson(base, "/api/economics/valuation", fetcher, timeoutMs);
+  if (
+    valuation.payload.modelVersion !== "pons-volume-parity-v1" ||
+    !["available", "unavailable"].includes(String(valuation.payload.state)) ||
+    !isRecord(valuation.payload.inputs) ||
+    !Array.isArray(valuation.payload.commonDates)
+  ) {
+    throw new RuntimeVerificationError(
+      "RUNTIME_CONTRACT_ERROR",
+      "PAIR relative valuation did not match the expected contract",
+    );
+  }
+
+  const valuationHistory = await readJson(
+    base,
+    "/api/economics/valuation/history",
+    fetcher,
+    timeoutMs,
+  );
+  if (
+    valuationHistory.payload.service !== "rhc-launchpad-economics" ||
+    valuationHistory.payload.window !== "7d" ||
+    !Array.isArray(valuationHistory.payload.points)
+  ) {
+    throw new RuntimeVerificationError(
+      "RUNTIME_CONTRACT_ERROR",
+      "PAIR relative valuation history did not match the expected contract",
+    );
+  }
+
+  const intelligenceHealth = await readJson(base, "/api/intelligence/health", fetcher, timeoutMs);
+  if (
+    intelligenceHealth.payload.ok !== true ||
+    intelligenceHealth.payload.service !== "rhc-market-intelligence"
+  ) {
+    throw new RuntimeVerificationError(
+      "RUNTIME_NOT_READY",
+      "Market intelligence has no usable cache",
+    );
+  }
+
+  const intelligence = await readJson(base, "/api/intelligence", fetcher, timeoutMs);
+  if (
+    intelligence.payload.service !== "rhc-market-intelligence" ||
+    !isRecord(intelligence.payload.leader) ||
+    !isRecord(intelligence.payload.chainHeat) ||
+    !isRecord(intelligence.payload.tokenHeat) ||
+    !isRecord(intelligence.payload.relativeValuation) ||
+    !Array.isArray(intelligence.payload.sources)
+  ) {
+    throw new RuntimeVerificationError(
+      "RUNTIME_CONTRACT_ERROR",
+      "Market intelligence response did not match the expected contract",
+    );
+  }
+
   return {
     ok: true,
     checkedAt: now().toISOString(),
@@ -161,6 +406,117 @@ export async function verifyRuntime(
         status: sources.status,
         targetDate: null,
         itemCount: sources.payload.sources.length,
+      },
+      {
+        path: "/api/pair/health",
+        status: pairHealth.status,
+        targetDate: null,
+        itemCount: null,
+      },
+      {
+        path: "/api/pair/rankings",
+        status: pairRankings.status,
+        targetDate: null,
+        itemCount:
+          typeof pairSnapshot.eligibleCount === "number" ? pairSnapshot.eligibleCount : null,
+      },
+      {
+        path: "/api/pair/flow",
+        status: pairFlow.status,
+        targetDate:
+          isRecord(pairFlow.payload.window) &&
+          typeof pairFlow.payload.window.calendarDate === "string"
+            ? pairFlow.payload.window.calendarDate
+            : null,
+        itemCount: pairFlow.payload.sources.length,
+      },
+      {
+        path: "/api/pair/v2/health",
+        status: pairV2Health.status,
+        targetDate: null,
+        itemCount: null,
+      },
+      {
+        path: "/api/pair/v2",
+        status: pairV2.status,
+        targetDate: null,
+        itemCount: pairV2.payload.tokens.length,
+      },
+      {
+        path: "/api/dev-monitor/health",
+        status: devMonitor.status,
+        targetDate: null,
+        itemCount:
+          typeof devMonitor.payload.counts.watched === "number"
+            ? devMonitor.payload.counts.watched
+            : null,
+      },
+      {
+        path: "/api/dev-monitor/pair-launches?tier=all&limit=20&offset=0",
+        status: pairDevLaunches.status,
+        targetDate: null,
+        itemCount: pairDevLaunches.payload.items.length,
+      },
+      {
+        path: "/api/dev-monitor/pair-team-launches?limit=20&offset=0",
+        status: pairTeamLaunches.status,
+        targetDate: null,
+        itemCount: pairTeamLaunches.payload.items.length,
+      },
+      {
+        path: "/api/long/health",
+        status: longHealth.status,
+        targetDate: null,
+        itemCount: null,
+      },
+      {
+        path: "/api/long/rankings",
+        status: longRankings.status,
+        targetDate: null,
+        itemCount:
+          typeof longSnapshot.eligibleCount === "number" ? longSnapshot.eligibleCount : null,
+      },
+      {
+        path: "/api/economics/health",
+        status: economicsHealth.status,
+        targetDate: targetDate(economicsHealth.payload),
+        itemCount: null,
+      },
+      {
+        path: "/api/economics",
+        status: economics.status,
+        targetDate: targetDate(economics.payload),
+        itemCount: economicsPlatforms.length,
+      },
+      {
+        path: "/api/economics/valuation",
+        status: valuation.status,
+        targetDate:
+          typeof valuation.payload.platformWindowEnd === "string"
+            ? valuation.payload.platformWindowEnd
+            : null,
+        itemCount:
+          typeof valuation.payload.commonDayCount === "number"
+            ? valuation.payload.commonDayCount
+            : null,
+      },
+      {
+        path: "/api/economics/valuation/history",
+        status: valuationHistory.status,
+        targetDate: null,
+        itemCount: valuationHistory.payload.points.length,
+      },
+      {
+        path: "/api/intelligence/health",
+        status: intelligenceHealth.status,
+        targetDate: null,
+        itemCount: null,
+      },
+      {
+        path: "/api/intelligence",
+        status: intelligence.status,
+        targetDate: null,
+        itemCount: intelligence.payload.sources.length,
       },
     ],
   };

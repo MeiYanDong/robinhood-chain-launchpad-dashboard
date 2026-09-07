@@ -36,6 +36,20 @@ export const SOURCE_PRIORITY_RULES: SourcePriorityRule[] = [
     metrics: ["volume_usd"],
   },
   {
+    id: "pair-first-party-volume",
+    priority: 400,
+    sourcePrefix: "pair.officialStats.",
+    platformId: "pair",
+    metrics: ["volume_usd"],
+  },
+  {
+    id: "pons-first-party-volume",
+    priority: 400,
+    sourcePrefix: "pons.officialAnalytics.",
+    platformId: "pons",
+    metrics: ["volume_usd"],
+  },
+  {
     id: "defillama-protocol-summary",
     priority: 200,
     sourcePrefix: "defillama.summary.",

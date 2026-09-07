@@ -1,0 +1,11 @@
+[Unit]
+Description=Rebuild Robinhood Chain launchpad economics snapshot every 15 minutes
+
+[Timer]
+OnCalendar=*-*-* *:10,25,40,55:00 UTC
+Persistent=true
+AccuracySec=30s
+Unit=robinhood-chain-economics-refresh.service
+
+[Install]
+WantedBy=timers.target

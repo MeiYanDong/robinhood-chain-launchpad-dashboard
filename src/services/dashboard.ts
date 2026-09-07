@@ -5,6 +5,7 @@ import { aggregateMetricWindow, buildOverview } from "../domain/aggregate.js";
 import { CORE_METRICS } from "../domain/types.js";
 import type {
   CollectionBatch,
+  DailyMetric,
   MetricName,
   LedgerMetaResponse,
   PlatformDetailResponse,
@@ -125,7 +126,7 @@ export class DashboardService {
       const status = batch.sourceHealth.some((source) => source.status !== "ok")
         ? "partial"
         : "success";
-      this.database.completeRun(runId, status, batch.warnings);
+      this.database.completeRun(runId, status, batch.warnings, null, this.now().toISOString());
       return {
         targetDate,
         status,
@@ -135,7 +136,7 @@ export class DashboardService {
         warnings: publicBatchWarnings(batch),
       };
     } catch (error) {
-      this.database.completeRun(runId, "failed", [], errorName(error));
+      this.database.completeRun(runId, "failed", [], errorName(error), this.now().toISOString());
       throw error;
     }
   }
@@ -201,6 +202,17 @@ export class DashboardService {
       coverage,
       stats: this.database.getPlatformStats(platformId),
     };
+  }
+
+  metricsForPlatforms(
+    startDate: string,
+    endDate: string,
+    platformIds: readonly string[],
+  ): DailyMetric[] {
+    const allowed = new Set(platformIds);
+    return this.database
+      .getMetrics(startDate, endDate)
+      .filter((metric) => allowed.has(metric.platformId));
   }
 
   coverage() {

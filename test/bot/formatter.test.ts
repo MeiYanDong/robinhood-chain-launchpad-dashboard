@@ -83,7 +83,7 @@ test("rank answer snapshot is grounded in fixture numbers and exposes suite-wide
 
   assert.equal(answer.title, "最近 1 个完整 UTC 日｜成交量 Top 4");
   assert.deepEqual(answer.bodyLines, [
-    "1. Pons — $5.00K（口径范围不同）",
+    "1. Pons — $5.00K（来源直接报告）",
     "2. LetsCash — $3.00K（推导值）",
     "3. Long — $3.00K（来源直接报告）",
     "4. Bankr — $0（来源直接报告）",
@@ -92,7 +92,7 @@ test("rank answer snapshot is grounded in fixture numbers and exposes suite-wide
   ]);
   assert.deepEqual(
     answer.warnings.map((item) => item.code),
-    ["SCOPE_MISMATCH", "DERIVED"],
+    ["DERIVED"],
   );
   assert.equal(answer.evidence?.targetDate, "2026-08-29");
 });

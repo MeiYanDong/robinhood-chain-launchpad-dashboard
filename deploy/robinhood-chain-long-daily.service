@@ -1,0 +1,20 @@
+[Unit]
+Description=Generate Robinhood Chain Long daily report
+After=network-online.target robinhood-chain-launchpad.service
+Wants=network-online.target
+Requires=robinhood-chain-launchpad.service
+
+[Service]
+Type=oneshot
+User=robinhood-launchpad
+Group=robinhood-launchpad
+ExecStart=/usr/bin/curl --fail-with-body --silent --show-error --connect-timeout 5 --max-time 30 --request POST http://127.0.0.1:4175/api/long/reports/generate
+TimeoutStartSec=40
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
