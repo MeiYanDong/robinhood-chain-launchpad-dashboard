@@ -36,6 +36,17 @@ const EVIDENCE_LABELS = {
   unknown: "未核验",
   not_applicable: "不适用",
 };
+const VALUATION_FORMULA_LABELS = {
+  "PONS price × (PONS effective supply ÷ PAIR effective supply) × (PAIR common-day volume ÷ PONS common-day volume)":
+    "PONS 价格 ×（PONS 有效供应量 ÷ PAIR 有效供应量）×（PAIR 7日平台量 ÷ PONS 7日平台量）",
+};
+const VALUATION_SOURCE_LABELS = {
+  "gmgn.ponsTokenInfo": "GMGN",
+  "pair.officialTokenApi": "PAIR 官方 API",
+  "robinhood.rpc.tokenSupply": "Robinhood RPC",
+  "pons.officialAnalytics.dailyVolume": "Pons 官方统计",
+  "pair.officialStats.dailyVolume": "PAIR 官方统计",
+};
 const FLOW_TIER_LABELS = {
   confirmed: "已核验",
   policy_expected: "政策预期",
@@ -260,6 +271,16 @@ function formatTokenAmount(value, symbol = "") {
     maximumFractionDigits: absolute >= 1_000_000 ? 3 : absolute >= 1 ? 3 : 6,
   }).format(value);
   return symbol ? `${formatted} ${symbol}` : formatted;
+}
+
+function formatValuationQuantity(value, unit = "token") {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
+  return new Intl.NumberFormat("en-US", {
+    ...(unit === "usd" ? { style: "currency", currency: "USD" } : {}),
+    notation: Math.abs(value) >= 1_000 ? "compact" : "standard",
+    compactDisplay: "short",
+    maximumFractionDigits: 3,
+  }).format(value);
 }
 
 function formatPercent(value) {
@@ -1231,6 +1252,154 @@ function renderValuationHistory() {
   svg.append(maxLabel, minLabel, startLabel, endLabel);
 }
 
+function valuationFormulaLabel(formula) {
+  if (!formula) return "—";
+  return VALUATION_FORMULA_LABELS[formula] ?? formula;
+}
+
+function valuationSourceLabel(source) {
+  if (!source) return "未注明来源";
+  return source
+    .split("+")
+    .map((part) => VALUATION_SOURCE_LABELS[part] ?? part)
+    .join(" + ");
+}
+
+function renderValuationInput(valueSelector, metaSelector, evidence, formatter) {
+  const valueNode = $(valueSelector);
+  const metaNode = $(metaSelector);
+  const available = Number.isFinite(evidence?.value);
+  valueNode.textContent = available ? formatter(evidence.value) : "—";
+  valueNode.classList.toggle("is-unavailable", !available);
+  metaNode.replaceChildren();
+
+  if (!evidence) {
+    metaNode.textContent = "未核验";
+    return;
+  }
+
+  const source = element("span", "valuation-input-source", valuationSourceLabel(evidence.source));
+  source.title = evidence.source ?? "未注明来源";
+  metaNode.append(source, evidenceBadge(evidence));
+  if (evidence.asOf) {
+    const observedAt = element("time", "valuation-input-time", formatDateTime(evidence.asOf));
+    observedAt.dateTime = evidence.asOf;
+    metaNode.append(observedAt);
+  }
+  metaNode.title = evidence.note ?? "";
+}
+
+function latestClosedUtcDate(observedAt) {
+  const observed = new Date(observedAt);
+  if (Number.isNaN(observed.valueOf())) return null;
+  const startOfObservedDay = Date.UTC(
+    observed.getUTCFullYear(),
+    observed.getUTCMonth(),
+    observed.getUTCDate(),
+  );
+  return new Date(startOfObservedDay - 86_400_000).toISOString().slice(0, 10);
+}
+
+function closedDayLag(windowEnd, observedAt) {
+  const latestClosed = latestClosedUtcDate(observedAt);
+  if (!windowEnd || !latestClosed) return null;
+  const windowTime = Date.parse(`${windowEnd}T00:00:00Z`);
+  const latestTime = Date.parse(`${latestClosed}T00:00:00Z`);
+  if (!Number.isFinite(windowTime) || !Number.isFinite(latestTime)) return null;
+  return Math.max(0, Math.round((latestTime - windowTime) / 86_400_000));
+}
+
+function renderValuationWindow(valuation) {
+  const target = $("#valuation-window-state");
+  target.classList.remove("is-current", "is-delayed", "is-unavailable");
+  if (!valuation?.platformWindowStart || !valuation?.platformWindowEnd) {
+    const dayCount = Number.isFinite(valuation?.commonDayCount) ? valuation.commonDayCount : 0;
+    const minimum = Number.isFinite(valuation?.minimumCommonDays) ? valuation.minimumCommonDays : 5;
+    target.textContent = `共同窗口不可用 · ${dayCount}/${minimum} 日`;
+    target.classList.add("is-unavailable");
+    return;
+  }
+
+  const lag = closedDayLag(valuation.platformWindowEnd, valuation.observedAt);
+  const history = Number.isFinite(valuation.totalCommonDayCount)
+    ? ` · 可比历史 ${valuation.totalCommonDayCount} 日`
+    : "";
+  const lagLabel =
+    lag === null ? "" : lag === 0 ? " · 已覆盖最近闭合日" : ` · 落后最近闭合日 ${lag} 日`;
+  target.textContent = `共同窗口 ${valuation.platformWindowStart}—${valuation.platformWindowEnd} · ${valuation.commonDayCount} 日${history}${lagLabel}`;
+  target.classList.add(lag === null ? "is-unavailable" : lag > 0 ? "is-delayed" : "is-current");
+}
+
+function renderValuationCalculation(valuation) {
+  const inputs = valuation?.inputs;
+  const formula = $("#valuation-formula-definition");
+  formula.textContent = valuationFormulaLabel(valuation?.formula);
+  formula.title = valuation?.formula ?? "等待模型数据";
+  renderValuationWindow(valuation);
+
+  renderValuationInput(
+    "#valuation-input-pons-price",
+    "#valuation-input-pons-price-meta",
+    inputs?.ponsPriceUsd,
+    formatTokenPrice,
+  );
+  renderValuationInput(
+    "#valuation-input-pair-price",
+    "#valuation-input-pair-price-meta",
+    inputs?.pairActualPriceUsd,
+    formatTokenPrice,
+  );
+  renderValuationInput(
+    "#valuation-input-pons-supply",
+    "#valuation-input-pons-supply-meta",
+    inputs?.ponsEffectiveSupply,
+    (value) => formatValuationQuantity(value),
+  );
+  renderValuationInput(
+    "#valuation-input-pair-supply",
+    "#valuation-input-pair-supply-meta",
+    inputs?.pairEffectiveSupply,
+    (value) => formatValuationQuantity(value),
+  );
+  renderValuationInput(
+    "#valuation-input-pons-volume",
+    "#valuation-input-pons-volume-meta",
+    inputs?.ponsPlatformVolumeUsd,
+    (value) => formatValuationQuantity(value, "usd"),
+  );
+  renderValuationInput(
+    "#valuation-input-pair-volume",
+    "#valuation-input-pair-volume-meta",
+    inputs?.pairPlatformVolumeUsd,
+    (value) => formatValuationQuantity(value, "usd"),
+  );
+
+  const substitution = [
+    formatTokenPrice(inputs?.ponsPriceUsd?.value),
+    `(${formatValuationQuantity(inputs?.ponsEffectiveSupply?.value)} ÷ ${formatValuationQuantity(inputs?.pairEffectiveSupply?.value)})`,
+    `(${formatValuationQuantity(inputs?.pairPlatformVolumeUsd?.value, "usd")} ÷ ${formatValuationQuantity(inputs?.ponsPlatformVolumeUsd?.value, "usd")})`,
+  ].join(" × ");
+  $("#valuation-equation-substitution").textContent =
+    `${substitution} = ${formatTokenPrice(valuation?.estimateUsd)}`;
+
+  const ponsPolicy = valuation?.policyScenario?.ponsFeeAllocationPercent;
+  const pairPolicy = valuation?.policyScenario?.pairFeeAllocationPercent;
+  const policyEquation = $("#valuation-policy-equation");
+  policyEquation.textContent =
+    Number.isFinite(ponsPolicy) && Number.isFinite(pairPolicy)
+      ? `${formatTokenPrice(valuation?.estimateUsd)} × (PAIR ${formatCount(pairPolicy)}% ÷ PONS ${formatCount(ponsPolicy)}%) = ${formatTokenPrice(valuation?.policyScenario?.estimateUsd)}`
+      : "—";
+
+  const reasons = $("#valuation-reasons");
+  const reasonItems = valuation?.reasons ?? [];
+  reasons.replaceChildren(
+    ...reasonItems.map((item) =>
+      element("li", item.severity === "blocking" ? "is-blocking" : "is-note", item.message),
+    ),
+  );
+  reasons.hidden = reasonItems.length === 0;
+}
+
 function renderPairRelativeValuation() {
   const valuation = state.economics?.pairRelativeValuation;
   const confidenceLabels = { high: "高", medium: "中", low: "低", unavailable: "不可用" };
@@ -1248,14 +1417,19 @@ function renderPairRelativeValuation() {
   );
   const deviation = $("#valuation-deviation");
   deviation.textContent = formatSignedPercent(valuation?.actualDeviationPercent);
-  deviation.classList.remove("is-positive", "is-negative", "is-unavailable");
+  deviation.classList.remove("is-premium", "is-discount", "is-unavailable");
   deviation.classList.add(
     !Number.isFinite(valuation?.actualDeviationPercent)
       ? "is-unavailable"
       : valuation.actualDeviationPercent >= 0
-        ? "is-positive"
-        : "is-negative",
+        ? "is-premium"
+        : "is-discount",
   );
+  deviation.title = Number.isFinite(valuation?.actualDeviationPercent)
+    ? valuation.actualDeviationPercent >= 0
+      ? "PAIR 实际价格高于相对估值中枢"
+      : "PAIR 实际价格低于相对估值中枢"
+    : "缺少可比结果";
   $("#valuation-policy-price").textContent = formatTokenPrice(
     valuation?.policyScenario?.estimateUsd,
   );
@@ -1263,11 +1437,12 @@ function renderPairRelativeValuation() {
   const pairPolicy = valuation?.policyScenario?.pairFeeAllocationPercent;
   $("#valuation-policy-label").textContent =
     Number.isFinite(ponsPolicy) && Number.isFinite(pairPolicy)
-      ? `${formatCount(pairPolicy)} / ${formatCount(ponsPolicy)} 情景`
-      : "政策情景";
+      ? `${formatCount(pairPolicy)}% / ${formatCount(ponsPolicy)}% 情景`
+      : "费用分配情景";
   $("#valuation-confidence").textContent = confidenceLabels[valuation?.confidence] ?? "—";
+  renderValuationCalculation(valuation);
   $("#valuation-meta").textContent = valuation
-    ? `${valuation.commonDayCount}/7 日 · ${valuation.platformWindowStart ?? "—"}—${valuation.platformWindowEnd ?? "—"} · 更新 ${formatDateTime(valuation.observedAt)}`
+    ? `模型 ${valuation.modelVersion} · 快照 ${formatDateTime(valuation.observedAt)} · 价格有效期 ${formatCount(valuation.priceFreshnessMinutes)} 分钟`
     : "—";
   renderValuationHistory();
 }

@@ -11,8 +11,8 @@
     <title>Robinhood Chain 发射台</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css?v=0.11.0" />
-    <link rel="stylesheet" href="./styles-v2.css?v=0.15.0" />
-    <script src="./app.js?v=0.15.0" type="module"></script>
+    <link rel="stylesheet" href="./styles-v2.css?v=0.15.1" />
+    <script src="./app.js?v=0.15.1" type="module"></script>
   </head>
   <body class="radar-v2">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -920,7 +920,7 @@
           <header class="valuation-panel__head">
             <div>
               <span>PAIR / PONS</span>
-              <h1 id="pair-valuation-title">PAIR 相对估值</h1>
+              <h1 id="pair-valuation-title">PAIR 相对估值中枢</h1>
             </div>
             <strong class="valuation-state" id="pair-valuation-state">等待数据</strong>
           </header>
@@ -931,19 +931,19 @@
               <strong id="valuation-actual-price">—</strong>
             </article>
             <article class="valuation-metric valuation-metric--estimate">
-              <span>PONS 同倍数</span>
+              <span>相对估值中枢</span>
               <strong id="valuation-estimate-price">—</strong>
             </article>
             <article class="valuation-metric">
-              <span>7 日区间</span>
+              <span>日估值中间 50%</span>
               <strong id="valuation-range">—</strong>
             </article>
             <article class="valuation-metric">
-              <span>实际偏离</span>
+              <span>实际 vs 中枢</span>
               <strong id="valuation-deviation">—</strong>
             </article>
             <article class="valuation-metric">
-              <span id="valuation-policy-label">90 / 80 情景</span>
+              <span id="valuation-policy-label">费用分配情景</span>
               <strong id="valuation-policy-price">—</strong>
             </article>
             <article class="valuation-metric">
@@ -952,11 +952,99 @@
             </article>
           </div>
 
+          <section class="valuation-calculation" aria-labelledby="valuation-formula-heading">
+            <header class="valuation-calculation__head">
+              <div>
+                <span>基础模型 · 比较锚，不是价格预测</span>
+                <strong id="valuation-formula-heading">计算公式</strong>
+              </div>
+              <small class="valuation-window-state" id="valuation-window-state">—</small>
+            </header>
+
+            <p class="valuation-formula" id="valuation-formula-definition">
+              PONS 价格 ×（PONS 有效供应量 ÷ PAIR 有效供应量）×（PAIR 7日平台量 ÷ PONS 7日平台量）
+            </p>
+            <output
+              class="valuation-equation"
+              id="valuation-equation-substitution"
+              aria-label="PAIR 相对估值逐项代入结果"
+            >—</output>
+
+            <div class="valuation-calculation__detail">
+              <div class="valuation-input-table-wrap">
+                <table class="valuation-input-table">
+                  <caption>估值输入与来源</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">输入</th>
+                      <th scope="col">PONS</th>
+                      <th scope="col">PAIR</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row">
+                        当前价格
+                        <small>PONS 入模 · PAIR 仅用于偏离</small>
+                      </th>
+                      <td>
+                        <strong id="valuation-input-pons-price">—</strong>
+                        <span class="valuation-input-meta" id="valuation-input-pons-price-meta">未核验</span>
+                      </td>
+                      <td>
+                        <strong id="valuation-input-pair-price">—</strong>
+                        <span class="valuation-input-meta" id="valuation-input-pair-price-meta">未核验</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th scope="row">
+                        有效供应量
+                        <small>总供应量 − 死亡地址余额</small>
+                      </th>
+                      <td>
+                        <strong id="valuation-input-pons-supply">—</strong>
+                        <span class="valuation-input-meta" id="valuation-input-pons-supply-meta">未核验</span>
+                      </td>
+                      <td>
+                        <strong id="valuation-input-pair-supply">—</strong>
+                        <span class="valuation-input-meta" id="valuation-input-pair-supply-meta">未核验</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th scope="row">
+                        7日平台交易量
+                        <small>同一组闭合 UTC 日求和</small>
+                      </th>
+                      <td>
+                        <strong id="valuation-input-pons-volume">—</strong>
+                        <span class="valuation-input-meta" id="valuation-input-pons-volume-meta">未核验</span>
+                      </td>
+                      <td>
+                        <strong id="valuation-input-pair-volume">—</strong>
+                        <span class="valuation-input-meta" id="valuation-input-pair-volume-meta">未核验</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <aside class="valuation-scenario" aria-labelledby="valuation-scenario-title">
+                <div>
+                  <span>单独情景</span>
+                  <strong id="valuation-scenario-title">费用分配比例</strong>
+                </div>
+                <output id="valuation-policy-equation">—</output>
+                <small>只调整 PAIR / PONS 的费用分配比例，其他输入不变。</small>
+                <ul class="valuation-reasons" id="valuation-reasons" hidden></ul>
+              </aside>
+            </div>
+          </section>
+
           <div class="valuation-chart-panel">
             <div class="valuation-chart-head">
-              <span>7D 定时估值</span>
+              <span>估值中枢历史（7D）</span>
               <div class="valuation-legend" aria-hidden="true">
-                <i class="is-estimate"></i><span>同倍数</span>
+                <i class="is-estimate"></i><span>中枢</span>
                 <i class="is-actual"></i><span>实际</span>
               </div>
             </div>
