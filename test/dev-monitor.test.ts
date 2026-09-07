@@ -17,6 +17,10 @@ import {
   devMonitorSettingsFromEnv,
 } from "../src/dev-monitor/config.js";
 import { DevMonitorDatabase } from "../src/dev-monitor/database.js";
+import {
+  buildDevMonitorNotificationEligibility,
+  VERIFIED_PROJECT_CREATOR_POLICY,
+} from "../src/dev-monitor/notification-policy.js";
 import { PAIR_OFFICIAL_PROTOCOL_TOKEN, PAIR_PRIMARY_ISSUER } from "../src/dev-monitor/pair-team.js";
 import { DevMonitorService } from "../src/dev-monitor/service.js";
 import type {
@@ -436,6 +440,7 @@ test("alerts suppress baselines and initial buys but send selected launches and 
       currentProfiles: [profile()],
       insertedProjects: [project()],
       insertedActivities: [activity()],
+      notificationEligibility: buildDevMonitorNotificationEligibility([project()]),
       createdAt: "2026-09-06T00:03:00.000Z",
     }),
     [],
@@ -447,6 +452,10 @@ test("alerts suppress baselines and initial buys but send selected launches and 
     currentProfiles: [profile(), profile({ address: ROUTER })],
     insertedProjects: [project({ creator: ROUTER })],
     insertedActivities: [activity(), activity({ id: "initial", type: "initial_buy" })],
+    notificationEligibility: buildDevMonitorNotificationEligibility([
+      project(),
+      project({ creator: ROUTER }),
+    ]),
     createdAt: "2026-09-06T00:03:00.000Z",
   });
   assert.deepEqual(
@@ -477,12 +486,125 @@ test("attention policy excludes repeat factories, spammy proven creators, and un
       activity({ id: "unknown", targetPlatform: null }),
       activity({ id: "spam", developer: ROUTER }),
     ],
+    notificationEligibility: buildDevMonitorNotificationEligibility([project()]),
     createdAt: "2026-09-06T00:03:00.000Z",
   });
   assert.deepEqual(
     alerts.map((item) => item.dedupeKey),
     ["developer_buy:known"],
   );
+});
+
+test("notification policy rejects inferred senders and performance labels without creator proof", () => {
+  const inferredLongProject = project({
+    platform: "long",
+    attribution: "canonical_event_transaction_sender",
+    attributionConfidence: "medium",
+  });
+  const alerts = planDevMonitorAlerts({
+    baselineComplete: true,
+    previousProfiles: [profile()],
+    currentProfiles: [profile()],
+    insertedProjects: [inferredLongProject],
+    insertedActivities: [activity()],
+    notificationEligibility: buildDevMonitorNotificationEligibility([inferredLongProject]),
+    createdAt: "2026-09-06T00:03:00.000Z",
+  });
+  assert.equal(VERIFIED_PROJECT_CREATOR_POLICY, "verified_project_creators_only");
+  assert.deepEqual(alerts, []);
+});
+
+test("outbox preserves facts while suppressing alerts without exact creator evidence", () => {
+  const directory = mkdtempSync(join(tmpdir(), "dev-monitor-creator-policy-"));
+  const database = new DevMonitorDatabase(join(directory, "test.sqlite"));
+  const inferredCreator = ROUTER;
+  const verifiedProject = project();
+  const inferredProject = project({
+    address: ROUTER,
+    creator: inferredCreator,
+    platform: "long",
+    attribution: "canonical_event_transaction_sender",
+    attributionConfidence: "medium",
+  });
+  try {
+    database.upsertProjects([verifiedProject, inferredProject]);
+    const alerts = [
+      {
+        dedupeKey: "verified:launch",
+        severity: "warning" as const,
+        type: "developer_launch" as const,
+        title: "verified launch",
+        message: "message",
+        developer: DEV,
+        project: TOKEN,
+        transactionHash: TX_HASH,
+        createdAt: "2026-09-06T00:00:00.000Z",
+      },
+      {
+        dedupeKey: "inferred:launch",
+        severity: "warning" as const,
+        type: "developer_launch" as const,
+        title: "inferred launch",
+        message: "message",
+        developer: inferredCreator,
+        project: ROUTER,
+        transactionHash: TX_HASH,
+        createdAt: "2026-09-06T00:00:01.000Z",
+      },
+      {
+        dedupeKey: "verified:buy",
+        severity: "warning" as const,
+        type: "developer_buy" as const,
+        title: "verified buy",
+        message: "message",
+        developer: DEV,
+        project: TOKEN,
+        transactionHash: TX_HASH,
+        createdAt: "2026-09-06T00:00:02.000Z",
+      },
+      {
+        dedupeKey: "inferred:buy",
+        severity: "warning" as const,
+        type: "developer_buy" as const,
+        title: "inferred buy",
+        message: "message",
+        developer: inferredCreator,
+        project: TOKEN,
+        transactionHash: TX_HASH,
+        createdAt: "2026-09-06T00:00:03.000Z",
+      },
+      {
+        dedupeKey: "legacy:promotion",
+        severity: "info" as const,
+        type: "developer_promoted" as const,
+        title: "legacy promotion",
+        message: "message",
+        developer: DEV,
+        project: TOKEN,
+        transactionHash: TX_HASH,
+        createdAt: "2026-09-06T00:00:04.000Z",
+      },
+    ];
+    assert.equal(database.enqueueAlerts(alerts), 5);
+    const eligibility = buildDevMonitorNotificationEligibility(database.projects());
+    assert.equal(
+      database.suppressIneligibleUnsentAlerts(
+        eligibility,
+        "2026-09-06T00:01:00.000Z",
+        "unverified_project_creator_policy",
+      ),
+      3,
+    );
+    assert.equal(database.projects().length, 2);
+    assert.deepEqual(
+      database.pendingAlerts("2026-09-06T00:02:00.000Z").map((alert) => alert.dedupeKey),
+      ["verified:buy", "verified:launch"],
+    );
+    assert.equal(database.alertSummary(true).suppressed, 3);
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test("database persists deduplicated evidence and notifier records Feishu readback", async () => {

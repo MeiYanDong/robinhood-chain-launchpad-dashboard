@@ -1,6 +1,10 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import {
+  isDevMonitorAlertEligible,
+  type DevMonitorNotificationEligibility,
+} from "./notification-policy.js";
 import type {
   DevMonitorActivity,
   DevMonitorAlert,
@@ -433,6 +437,60 @@ export class DevMonitorDatabase {
       `)
       .run(suppressedAt, reason.slice(0, 120));
     return Number(result.changes);
+  }
+
+  suppressIneligibleUnsentAlerts(
+    eligibility: DevMonitorNotificationEligibility,
+    suppressedAt: string,
+    reason: string,
+  ): number {
+    const rows = this.db
+      .prepare(`
+        SELECT id, alert_type, developer, project
+        FROM dev_monitor_alert_outbox
+        WHERE deliverable = 1
+          AND status IN ('pending', 'failed')
+      `)
+      .all() as unknown as Array<{
+      id: number;
+      alert_type: DevMonitorAlert["type"];
+      developer: string;
+      project: string | null;
+    }>;
+    const update = this.db.prepare(`
+      UPDATE dev_monitor_alert_outbox
+      SET deliverable = 0,
+          next_attempt_at = NULL,
+          suppressed_at = ?,
+          suppression_reason = ?
+      WHERE id = ?
+        AND deliverable = 1
+        AND status IN ('pending', 'failed')
+    `);
+    let suppressed = 0;
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      for (const row of rows) {
+        if (
+          isDevMonitorAlertEligible(
+            {
+              type: row.alert_type,
+              developer: row.developer,
+              project: row.project,
+            },
+            eligibility,
+          )
+        ) {
+          continue;
+        }
+        suppressed += Number(update.run(suppressedAt, reason.slice(0, 120), row.id).changes);
+      }
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+    return suppressed;
   }
 
   sentAlertCountSince(since: string): number {
