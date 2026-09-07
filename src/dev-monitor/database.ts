@@ -3,6 +3,7 @@ import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import {
   isDevMonitorAlertEligible,
+  PAIR_TEAM_ONLY_NOTIFICATION_POLICY,
   type DevMonitorNotificationEligibility,
 } from "./notification-policy.js";
 import type {
@@ -531,6 +532,7 @@ export class DevMonitorDatabase {
     };
     return {
       configured,
+      policy: PAIR_TEAM_ONLY_NOTIFICATION_POLICY,
       pending: row.pending ?? 0,
       failed: row.failed ?? 0,
       suppressed: row.suppressed ?? 0,

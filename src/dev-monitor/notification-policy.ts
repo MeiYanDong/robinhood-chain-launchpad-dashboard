@@ -1,11 +1,12 @@
 import type { DevMonitorAlert, DevMonitorProject } from "./types.js";
+import { isPairPrimaryIssuer, PAIR_PRIMARY_ISSUER } from "./pair-team.js";
 
-export const VERIFIED_PROJECT_CREATOR_POLICY = "verified_project_creators_only" as const;
-export const UNVERIFIED_PROJECT_CREATOR_REASON = "unverified_project_creator_policy";
+export const PAIR_TEAM_ONLY_NOTIFICATION_POLICY = "pair_team_wallet_only" as const;
+export const NON_PAIR_TEAM_NOTIFICATION_REASON = "pair_team_only_policy";
 
 export interface DevMonitorNotificationEligibility {
-  verifiedCreators: ReadonlySet<string>;
-  verifiedLaunches: ReadonlySet<string>;
+  allowedWallets: ReadonlySet<string>;
+  allowedLaunches: ReadonlySet<string>;
 }
 
 function normalized(value: string): string {
@@ -16,35 +17,31 @@ function launchKey(creator: string, project: string): string {
   return `${normalized(creator)}:${normalized(project)}`;
 }
 
-export function isVerifiedProjectCreatorEvidence(project: DevMonitorProject): boolean {
-  return project.attribution === "canonical_event" && project.attributionConfidence === "high";
-}
-
 export function buildDevMonitorNotificationEligibility(
   projects: DevMonitorProject[],
 ): DevMonitorNotificationEligibility {
-  const verifiedCreators = new Set<string>();
-  const verifiedLaunches = new Set<string>();
+  const allowedWallets = new Set<string>([PAIR_PRIMARY_ISSUER.address]);
+  const allowedLaunches = new Set<string>();
   for (const project of projects) {
-    if (!isVerifiedProjectCreatorEvidence(project)) continue;
-    verifiedCreators.add(normalized(project.creator));
-    verifiedLaunches.add(launchKey(project.creator, project.address));
+    if (!isPairPrimaryIssuer(project.creator)) continue;
+    allowedLaunches.add(launchKey(project.creator, project.address));
   }
-  return { verifiedCreators, verifiedLaunches };
+  return { allowedWallets, allowedLaunches };
 }
 
 export function isDevMonitorAlertEligible(
   alert: Pick<DevMonitorAlert, "type" | "developer" | "project">,
   eligibility: DevMonitorNotificationEligibility,
 ): boolean {
+  if (!eligibility.allowedWallets.has(normalized(alert.developer))) return false;
   if (alert.type === "developer_launch") {
     return (
       alert.project !== null &&
-      eligibility.verifiedLaunches.has(launchKey(alert.developer, alert.project))
+      eligibility.allowedLaunches.has(launchKey(alert.developer, alert.project))
     );
   }
   if (alert.type === "developer_buy") {
-    return eligibility.verifiedCreators.has(normalized(alert.developer));
+    return true;
   }
   return false;
 }

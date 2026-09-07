@@ -55,7 +55,12 @@ test("runtime verification performs only the nineteen documented GET checks", as
       baselineComplete: true,
       status: "partial",
       counts: { projects: 100, watched: 4 },
-      alerts: { configured: true, pending: 0, failed: 0 },
+      alerts: {
+        configured: true,
+        policy: "pair_team_wallet_only",
+        pending: 0,
+        failed: 0,
+      },
       sources: [{ id: "pair_v2", status: "ok" }],
     },
     "/api/dev-monitor/pair-launches?tier=all&limit=20&offset=0": {

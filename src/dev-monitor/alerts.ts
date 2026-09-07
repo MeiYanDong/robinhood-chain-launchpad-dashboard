@@ -71,11 +71,10 @@ export function planDevMonitorAlerts(input: {
       type: "developer_launch",
       title: `${newProfile.label} 新发币`,
       message: [
-        `链上创建者（官方发行事件核验）：${project.creator}`,
+        `PAIR 项目方主发行钱包：${project.creator}`,
         `平台：${platformLabel(project.platform)}`,
         `代币：${symbol} · ${project.address}`,
-        "身份边界：链上项目创建者，不等同于已核验的现实身份",
-        "归属证据：官方 Factory / Coordinator 事件中的 indexed creator",
+        "身份依据：PAIR 官方代币 API + PAIR 发行交易",
         `交易：${EXPLORER_BASE_URL}/tx/${project.transactionHash}`,
       ].join("\n"),
       developer: project.creator,
@@ -93,7 +92,7 @@ export function planDevMonitorAlerts(input: {
       activity.confidence !== "high" ||
       activity.targetPlatform === null ||
       !attentionWorthy(developer) ||
-      !input.notificationEligibility.verifiedCreators.has(activity.developer.toLowerCase())
+      !input.notificationEligibility.allowedWallets.has(activity.developer.toLowerCase())
     ) {
       continue;
     }
@@ -101,9 +100,9 @@ export function planDevMonitorAlerts(input: {
       dedupeKey: `developer_buy:${activity.id}`,
       severity: "warning",
       type: "developer_buy",
-      title: "已核验项目创建者出现真实买入",
+      title: "PAIR 项目方钱包出现真实买入",
       message: [
-        `链上创建者（官方发行事件核验）：${activity.developer}`,
+        `PAIR 项目方主发行钱包：${activity.developer}`,
         `买入：${amount(activity.targetAmount)} ${activity.target.symbol} · ${activity.target.address}`,
         `${activity.quote.address === "native" ? "交易发送上限" : "净支付"}：${amount(activity.quoteAmount)} ${activity.quote.symbol}`,
         `平台归属：${activity.targetPlatform ? platformLabel(activity.targetPlatform) : "未归属到已核验发射台"}`,
