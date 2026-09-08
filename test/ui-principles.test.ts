@@ -18,21 +18,27 @@ test("current frontend assets use the package version as their cache key", async
   assert.match(html, new RegExp(`app\\.js\\?v=${version.replaceAll(".", "\\.")}`));
 });
 
-test("default dashboard leads with the three-platform economics comparison", async () => {
+test("launchpad dashboard is split into four task views and defaults to a concise overview", async () => {
   const html = await readFile(htmlUrl, "utf8");
 
-  assert.match(html, /class="is-active"[^>]*data-dataset="economics"/);
-  assert.match(html, />代币价值</);
-  assert.match(html, />三强快照</);
-  assert.match(html, /id="triad-pons-price"/);
-  assert.match(html, /id="triad-long-share"/);
-  assert.match(html, /id="triad-pair-buyback"/);
+  assert.match(html, /href="\/launchpads\/" data-launchpad-view="overview">今日概览/);
+  assert.match(html, /href="\/launchpads\/\?view=platforms"[^>]*>平台经营/);
+  assert.match(html, /href="\/launchpads\/\?view=valuation"[^>]*>PAIR vs PONS/);
+  assert.match(html, /href="\/launchpads\/\?view=tokens"[^>]*>平台代币/);
+  assert.match(html, /id="launchpad-overview"/);
+  assert.match(html, /id="overview-volume-leader"/);
+  assert.match(html, /id="overview-activity-leader"/);
+  assert.match(html, /id="overview-valuation-gap"/);
+  assert.match(html, /id="overview-platform-body"/);
+  assert.match(html, /id="overview-insight-list"/);
+  assert.match(html, /id="overview-trend-chart"/);
   assert.match(html, /id="platform-activity-cards"/);
   assert.match(html, /data-activity-window="7"/);
   assert.match(html, /data-activity-window="30"/);
   assert.match(html, /data-volume-window="lifetime"/);
   assert.match(html, /id="platform-activity-chart"/);
-  assert.match(html, />PAIR 相对估值</);
+  assert.match(html, /id="platform-operation-body"/);
+  assert.match(html, />PAIR vs PONS</);
   assert.match(html, />资金闭环</);
   assert.match(html, /id="pair-flow-main-today"/);
   assert.match(html, /id="pair-flow-bought-total"/);
@@ -58,8 +64,8 @@ test("default dashboard leads with the three-platform economics comparison", asy
   assert.match(html, />当前价格</);
   assert.match(html, />平台经营</);
   assert.match(html, />回购核验</);
-  assert.match(html, />来源市值</);
-  assert.match(html, />销毁调整市值</);
+  assert.match(html, />数据源市值</);
+  assert.match(html, />扣除销毁后市值</);
   assert.match(html, /协议收入<br \/>应计/);
   assert.match(html, /协议收入<br \/>实收/);
   assert.match(html, />成交量 </);
@@ -69,6 +75,8 @@ test("default dashboard leads with the three-platform economics comparison", asy
   assert.doesNotMatch(html, /PRIA/);
   assert.match(html, /<details[\s\S]*id="platform-economics-disclosure"/);
   assert.match(html, /<details[\s\S]*id="buyback-disclosure"/);
+  assert.match(html, /七日预测实验（样本不足时自动停用）/);
+  assert.doesNotMatch(html, /日估值中间 50%|独立七日上涨占比|90% \/ 80% 情景|三强快照/);
   assert.doesNotMatch(
     html,
     /COVERAGE BEFORE|先看覆盖|数字先上桌|Launchpad ledger|ACCOUNTING NOTES|SOURCE ROUTES|TOKEN VALUE|PLATFORM ECONOMICS|PLATFORM ACTIVITY|BUYBACK PROOF/,
@@ -94,7 +102,8 @@ test("economics client keeps unknown, not-applicable, and refresh routes distinc
   assert.match(app, /派生 · \$\{qualityLabel\}/);
   assert.match(app, /evidence-badge--quiet/);
   assert.match(app, /One or more source results require attention/);
-  assert.match(app, /renderTriadSummary\(\)/);
+  assert.match(app, /renderLaunchpadOverview\(\)/);
+  assert.match(app, /renderPlatformOperations\(\)/);
   assert.match(app, /renderPlatformActivity\(\)/);
   assert.match(app, /renderPairFlow\(\)/);
   assert.match(app, /未知/);
@@ -103,10 +112,12 @@ test("economics client keeps unknown, not-applicable, and refresh routes distinc
   assert.match(app, /evidenceCell\(token\.priceUsd, formatTokenPrice\)/);
   assert.match(app, /renderValuationCalculation\(valuation\)/);
   assert.match(app, /renderPonsForecast\(\)/);
-  assert.match(app, /matchedRegime[\s\S]*独立七日上涨占比/);
-  assert.match(app, /matchedRegime[\s\S]*历史基线/);
+  assert.match(app, /reliableForecast[\s\S]*暂无可靠七日预测/);
+  assert.match(app, /matchedSampleCount[\s\S]*backtestMedianAbsoluteErrorPercent/);
   assert.match(app, /state\.valuationHistory\?\.daily/);
-  assert.match(app, /PAIR 持币地址.*模型权重 0/);
+  assert.match(app, /PAIR 持币地址.*尚未进入当前公式/);
+  assert.match(app, /LAUNCHPAD_VIEW/);
+  assert.match(app, /URLSearchParams\(window\.location\.search\)/);
   assert.match(app, /valuation\?\.formula/);
   assert.match(app, /valuation\?\.inputs/);
   assert.match(app, /ponsEffectiveSupply/);
@@ -247,13 +258,14 @@ test("unified intelligence entry keeps leader, heat, and valuation as separate m
     html,
     /data-dataset="intelligence"[^>]*data-product-context="leaders"[\s\S]*龙头 \/ 热度 \/ 估值/,
   );
-  assert.match(html, /data-dataset="economics"[^>]*data-product-context="launchpads"/);
+  assert.match(html, /data-launchpad-view="overview"/);
   assert.match(html, /id="structural-leader-symbol"/);
   assert.match(html, /id="chain-heat-state"/);
   assert.match(html, /id="token-heat-body"/);
   assert.match(html, /id="cohort-grid"/);
   assert.match(app, /INITIAL_DATASET[\s\S]*"intelligence"/);
   assert.match(app, /document\.body\.dataset\.productContext = product/);
+  assert.match(app, /document\.body\.dataset\.launchpadView/);
   assert.match(app, /api\("\/api\/intelligence"\)/);
   assert.match(app, /api\("\/api\/intelligence\/refresh", \{ method: "POST" \}\)/);
   assert.doesNotMatch(app, /compositeScore|综合分/);

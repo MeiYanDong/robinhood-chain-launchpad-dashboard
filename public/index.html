@@ -11,8 +11,8 @@
     <title>Robinhood Chain 发射台</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css?v=0.11.0" />
-    <link rel="stylesheet" href="./styles-v2.css?v=0.17.2" />
-    <script src="./app.js?v=0.17.2" type="module"></script>
+    <link rel="stylesheet" href="./styles-v2.css?v=0.18.0" />
+    <script src="./app.js?v=0.18.0" type="module"></script>
   </head>
   <body class="radar-v2">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -58,23 +58,6 @@
         <button type="button" data-dataset="intelligence" data-product-context="leaders">
           龙头 / 热度 / 估值
         </button>
-        <button
-          class="is-active"
-          type="button"
-          data-dataset="economics"
-          data-product-context="launchpads"
-        >
-          三强对比
-        </button>
-        <button type="button" data-dataset="platform" data-product-context="launchpads">
-          平台总览
-        </button>
-        <button type="button" data-dataset="pair" data-product-context="launchpads">
-          PAIR 代币
-        </button>
-        <button type="button" data-dataset="long" data-product-context="launchpads">
-          Long 代币
-        </button>
         <button type="button" data-dataset="pair_flow" data-product-context="pair-flow">
           PAIR 资金闭环
         </button>
@@ -84,6 +67,13 @@
         <button type="button" data-dataset="pair_v2" data-product-context="pair-v2">
           V2 监控 / Alpha
         </button>
+      </nav>
+
+      <nav class="launchpad-task-nav" id="launchpad-task-nav" aria-label="发射台任务">
+        <a href="/launchpads/" data-launchpad-view="overview">今日概览</a>
+        <a href="/launchpads/?view=platforms" data-launchpad-view="platforms">平台经营</a>
+        <a href="/launchpads/?view=valuation" data-launchpad-view="valuation">PAIR vs PONS</a>
+        <a href="/launchpads/?view=tokens" data-launchpad-view="tokens">平台代币</a>
       </nav>
 
       <section class="pair-alpha-terminal" id="pair-alpha-view" aria-label="PAIR 跨代 Alpha 雷达" hidden>
@@ -609,6 +599,18 @@
         </div>
       </section>
 
+      <section class="launchpad-token-head" id="launchpad-token-head" aria-labelledby="launchpad-token-title" hidden>
+        <div>
+          <span>平台代币</span>
+          <h1 id="launchpad-token-title">看龙头，也看底层配对资产</h1>
+          <p>先比较三个平台代表币，再进入 PAIR 或 Long 的四项独立排行。</p>
+        </div>
+        <div class="launchpad-token-switch" aria-label="代币排行平台">
+          <button class="is-active" type="button" data-dataset="pair" data-product-context="launchpads">PAIR 代币</button>
+          <button type="button" data-dataset="long" data-product-context="launchpads">Long 代币</button>
+        </div>
+      </section>
+
       <section class="economics-section" id="economics-view" aria-label="Pons Long PAIR 对比">
         <div class="economics-tape" aria-label="对比快照">
           <span>闭合日<strong id="economics-target-date">—</strong></span>
@@ -616,70 +618,103 @@
           <span>更新时间<strong id="economics-observed-at">—</strong></span>
         </div>
 
-        <section class="triad-summary" aria-labelledby="triad-summary-title">
-          <header class="triad-summary__head">
-            <h2 id="triad-summary-title">三强快照</h2>
-            <span>价格、规模、份额、收入、回购</span>
+        <section class="launchpad-overview" id="launchpad-overview" aria-labelledby="launchpad-overview-title">
+          <header class="launchpad-page-head">
+            <div>
+              <span>今日概览</span>
+              <h1 id="launchpad-overview-title">先看结果，再决定往哪里深入</h1>
+            </div>
+            <p>价格使用最新快照；成交量和份额使用最近一个完整 UTC 日。</p>
           </header>
-          <div class="triad-summary__grid">
-            <article class="triad-card" data-platform-id="pons">
-              <header class="triad-card__head">
-                <div><i aria-hidden="true"></i><strong>Pons</strong></div>
-                <span id="triad-pons-symbol">PONS</span>
-              </header>
-              <div class="triad-card__price">
-                <span>当前价格</span>
-                <strong id="triad-pons-price">—</strong>
-              </div>
-              <dl class="triad-card__metrics">
-                <div><dt>代表币市值</dt><dd id="triad-pons-market-cap">—</dd></div>
-                <div><dt>平台份额</dt><dd id="triad-pons-share">—</dd></div>
-                <div><dt>协议收入</dt><dd id="triad-pons-revenue">—</dd></div>
-                <div><dt>回购证据</dt><dd id="triad-pons-buyback">—</dd></div>
-              </dl>
-            </article>
 
-            <article class="triad-card" data-platform-id="long">
-              <header class="triad-card__head">
-                <div><i aria-hidden="true"></i><strong>Long</strong></div>
-                <span id="triad-long-symbol">—</span>
-              </header>
-              <div class="triad-card__price">
-                <span>龙头价格</span>
-                <strong id="triad-long-price">—</strong>
-              </div>
-              <dl class="triad-card__metrics">
-                <div><dt>龙头市值</dt><dd id="triad-long-market-cap">—</dd></div>
-                <div><dt>平台份额</dt><dd id="triad-long-share">—</dd></div>
-                <div><dt>协议收入</dt><dd id="triad-long-revenue">—</dd></div>
-                <div><dt>回购机制</dt><dd id="triad-long-buyback">—</dd></div>
-              </dl>
+          <div class="decision-strip" aria-label="今日三个关键结果">
+            <article class="decision-card">
+              <span>成交量最大</span>
+              <strong id="overview-volume-leader">—</strong>
+              <small id="overview-volume-leader-note">等待完整日数据</small>
             </article>
+            <article class="decision-card decision-card--activity">
+              <span>相对平时最活跃</span>
+              <strong id="overview-activity-leader">—</strong>
+              <small id="overview-activity-leader-note">等待历史基准</small>
+            </article>
+            <article class="decision-card decision-card--valuation">
+              <span>PAIR 对比 PONS</span>
+              <strong id="overview-valuation-gap">—</strong>
+              <small id="overview-valuation-gap-note">经营规模对标，不是价格预测</small>
+            </article>
+          </div>
 
-            <article class="triad-card" data-platform-id="pair">
-              <header class="triad-card__head">
-                <div><i aria-hidden="true"></i><strong>PAIR</strong></div>
-                <span id="triad-pair-symbol">PAIR</span>
+          <div class="overview-workbench">
+            <section class="overview-comparison" aria-labelledby="overview-comparison-title">
+              <header>
+                <div>
+                  <span>同日可比</span>
+                  <h2 id="overview-comparison-title">三个平台现在怎么样</h2>
+                </div>
+                <a href="/launchpads/?view=platforms">看完整经营数据 →</a>
               </header>
-              <div class="triad-card__price">
-                <span>当前价格</span>
-                <strong id="triad-pair-price">—</strong>
+              <div class="overview-comparison__table-wrap">
+                <table class="overview-comparison__table">
+                  <thead>
+                    <tr>
+                      <th>平台 / 代表币</th>
+                      <th>当前价格</th>
+                      <th>闭合日交易量</th>
+                      <th>市场份额</th>
+                      <th>相对平时</th>
+                    </tr>
+                  </thead>
+                  <tbody id="overview-platform-body"></tbody>
+                </table>
               </div>
-              <dl class="triad-card__metrics">
-                <div><dt>代表币市值</dt><dd id="triad-pair-market-cap">—</dd></div>
-                <div><dt>平台份额</dt><dd id="triad-pair-share">—</dd></div>
-                <div><dt>协议收入</dt><dd id="triad-pair-revenue">—</dd></div>
-                <div><dt>回购证据</dt><dd id="triad-pair-buyback">—</dd></div>
-              </dl>
-            </article>
+            </section>
+
+            <aside class="overview-insights" aria-labelledby="overview-insights-title">
+              <header>
+                <span>需要注意</span>
+                <h2 id="overview-insights-title">今天的三件事</h2>
+              </header>
+              <ol id="overview-insight-list">
+                <li>等待数据</li>
+              </ol>
+            </aside>
+          </div>
+
+          <section class="overview-trend" aria-labelledby="overview-trend-title">
+            <header>
+              <div>
+                <span>最近 7 个完整 UTC 日</span>
+                <h2 id="overview-trend-title">平台交易量走势</h2>
+              </div>
+              <div class="activity-legend" aria-label="平台图例">
+                <span data-platform-id="pons"><i></i>Pons</span>
+                <span data-platform-id="pair"><i></i>PAIR</span>
+                <span data-platform-id="long"><i></i>Long</span>
+              </div>
+            </header>
+            <svg
+              id="overview-trend-chart"
+              role="img"
+              aria-label="Pons Long PAIR 最近七日平台交易量"
+              viewBox="0 0 960 250"
+            ></svg>
+            <p id="overview-trend-empty" hidden>等待完整日交易量。</p>
+            <footer>悬停数据点可查看日期和金额；缺失日不会补成 0。</footer>
+          </section>
+
+          <div class="overview-next-actions" aria-label="继续查看">
+            <a href="/launchpads/?view=valuation"><span>估值对比</span><strong>PAIR vs PONS →</strong></a>
+            <a href="/launchpads/?view=tokens"><span>代币排行</span><strong>找平台龙头 →</strong></a>
+            <a href="/pair-flow/"><span>链上核验</span><strong>看回购与销毁 →</strong></a>
           </div>
         </section>
 
         <section class="activity-board" aria-labelledby="platform-activity-title">
           <header class="activity-board__head">
             <div>
-              <span>自身历史基准</span>
-              <h2 id="platform-activity-title">平台活跃度</h2>
+              <span>和平台自己过去相比</span>
+              <h1 id="platform-activity-title">平台经营</h1>
             </div>
             <div class="activity-board__meta">
               <small id="platform-activity-date">闭合日 —</small>
@@ -689,7 +724,7 @@
 
           <div class="activity-board__controls">
             <div class="activity-control" aria-label="活跃倍数窗口">
-              <span>活跃窗口</span>
+              <span>比较周期</span>
               <div>
                 <button class="is-active" type="button" data-activity-window="7">7日</button>
                 <button type="button" data-activity-window="30">30日</button>
@@ -698,18 +733,18 @@
             <div class="activity-control" aria-label="历史图指标">
               <span>历史图</span>
               <div>
-                <button class="is-active" type="button" data-activity-chart="multiple">活跃倍数</button>
+                <button class="is-active" type="button" data-activity-chart="multiple">相对平时</button>
                 <button type="button" data-activity-chart="daily">日交易量</button>
               </div>
             </div>
-            <p id="platform-activity-formula">倍数 = 当前周期日均交易量 ÷ 自身历史同周期中位数</p>
+            <p id="platform-activity-formula">相对平时 = 当前周期日均交易量 ÷ 过去同周期的正常水平</p>
           </div>
 
           <div class="activity-card-grid" id="platform-activity-cards" aria-live="polite"></div>
 
           <div class="activity-history">
             <div class="activity-history__head">
-              <strong id="platform-activity-chart-title">7日活跃倍数历史</strong>
+              <strong id="platform-activity-chart-title">最近7日相对平时走势</strong>
               <div class="activity-legend" aria-label="平台图例">
                 <span data-platform-id="pons"><i></i>Pons</span>
                 <span data-platform-id="pair"><i></i>PAIR</span>
@@ -751,6 +786,30 @@
                   </tr>
                 </thead>
                 <tbody id="platform-volume-body"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="platform-operation" aria-labelledby="platform-operation-title">
+            <header>
+              <div>
+                <h2 id="platform-operation-title">最近闭合日经营结果</h2>
+                <small>收入实收与应计分开；未知就是尚未核验</small>
+              </div>
+            </header>
+            <div class="platform-operation__table-wrap">
+              <table class="platform-operation__table">
+                <thead>
+                  <tr>
+                    <th>平台</th>
+                    <th>交易量</th>
+                    <th>用户支付手续费</th>
+                    <th>协议确认收入</th>
+                    <th>实际回购</th>
+                    <th>状态</th>
+                  </tr>
+                </thead>
+                <tbody id="platform-operation-body"></tbody>
               </table>
             </div>
           </section>
@@ -1000,44 +1059,47 @@
         <section class="valuation-panel" aria-labelledby="pair-valuation-title">
           <header class="valuation-panel__head">
             <div>
-              <span>PAIR / PONS</span>
-              <h1 id="pair-valuation-title">PAIR 相对估值</h1>
+              <span>经营规模对标</span>
+              <h1 id="pair-valuation-title">PAIR vs PONS</h1>
+              <p>回答一个问题：如果按 PONS 的价格和两个平台的规模换算，PAIR 的参考价是多少？</p>
             </div>
             <strong class="valuation-state" id="pair-valuation-state">等待数据</strong>
           </header>
 
           <div class="valuation-metrics">
             <article class="valuation-metric valuation-metric--actual">
-              <span>PAIR 实际</span>
+              <span>PAIR 当前价格</span>
               <strong id="valuation-actual-price">—</strong>
             </article>
             <article class="valuation-metric valuation-metric--estimate">
-              <span>现价 PONS 锚</span>
+              <span>PONS 规模参考价</span>
               <strong id="valuation-estimate-price">—</strong>
             </article>
-            <article class="valuation-metric">
-              <span>日估值中间 50%</span>
+            <article class="valuation-metric valuation-metric--research" hidden>
+              <span>历史波动区间</span>
               <strong id="valuation-range">—</strong>
             </article>
             <article class="valuation-metric">
-              <span>实际 vs 中枢</span>
+              <span>实际比参考价</span>
               <strong id="valuation-deviation">—</strong>
             </article>
-            <article class="valuation-metric">
+            <article class="valuation-metric valuation-metric--research" hidden>
               <span id="valuation-policy-label">费用分配情景</span>
               <strong id="valuation-policy-price">—</strong>
             </article>
             <article class="valuation-metric">
-              <span>置信度</span>
+              <span>当前能否参考</span>
               <strong id="valuation-confidence">—</strong>
             </article>
           </div>
 
+          <details class="valuation-research">
+            <summary>七日预测实验（样本不足时自动停用）</summary>
           <section class="pons-forecast" aria-labelledby="pons-forecast-title">
             <header class="pons-forecast__head">
               <div>
-                <span>PONS · 7D · SHADOW</span>
-                <h2 id="pons-forecast-title">PONS 七日研究区间</h2>
+                <span>PONS · 七日</span>
+                <h2 id="pons-forecast-title">PONS 七日预测实验</h2>
               </div>
               <strong class="valuation-state is-unavailable" id="pons-forecast-state">等待数据</strong>
             </header>
@@ -1049,16 +1111,16 @@
                 <small id="pons-forecast-current-source">—</small>
               </article>
               <article class="is-primary">
-                <span>七日中枢</span>
+                <span>七日参考价</span>
                 <strong id="pons-forecast-midpoint">—</strong>
                 <small id="pons-forecast-return">—</small>
               </article>
               <article>
-                <span>历史中间 50%</span>
+                <span>历史波动范围</span>
                 <strong id="pons-forecast-range">—</strong>
               </article>
               <article>
-                <span id="pons-forecast-upside-label">独立七日上涨占比</span>
+                <span id="pons-forecast-upside-label">过去七日结果</span>
                 <strong id="pons-forecast-upside">—</strong>
               </article>
               <article class="is-pair-anchor">
@@ -1083,12 +1145,13 @@
               <ul id="pons-forecast-drivers" aria-label="当前四维证据"></ul>
             </div>
           </section>
+          </details>
 
           <section class="valuation-calculation" aria-labelledby="valuation-formula-heading">
             <header class="valuation-calculation__head">
               <div>
-                <span>基础模型 · 比较锚，不是价格预测</span>
-                <strong id="valuation-formula-heading">计算公式</strong>
+                <span>公开、可复算 · 不是未来价格预测</span>
+                <strong id="valuation-formula-heading">参考价怎么算</strong>
               </div>
               <small class="valuation-window-state" id="valuation-window-state">—</small>
             </header>
@@ -1207,10 +1270,10 @@
           <footer class="valuation-meta" id="valuation-meta">—</footer>
         </section>
 
-        <section class="economics-block" aria-labelledby="token-economics-title">
+        <section class="economics-block token-economics-block" aria-labelledby="token-economics-title">
           <header class="economics-block__head">
             <div>
-              <h2 id="token-economics-title">代币价值</h2>
+              <h2 id="token-economics-title">三个平台代表币</h2>
             </div>
             <small>Long 使用动态市值龙头</small>
           </header>
@@ -1220,8 +1283,8 @@
                 <tr>
                   <th>平台 / 代表币</th>
                   <th>当前价格</th>
-                  <th>来源市值</th>
-                  <th>销毁调整市值</th>
+                  <th>数据源市值</th>
+                  <th>扣除销毁后市值</th>
                   <th>流动性</th>
                   <th>24H 成交</th>
                   <th>持币地址</th>
@@ -1239,7 +1302,7 @@
         >
           <summary class="economics-block__head">
             <div>
-              <h2 id="platform-economics-title">平台经营</h2>
+              <h2 id="platform-economics-title">完整经营明细</h2>
             </div>
             <span class="economics-disclosure__meta">
               <small>同一闭合 UTC 日</small>

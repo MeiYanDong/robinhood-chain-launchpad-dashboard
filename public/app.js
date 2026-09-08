@@ -94,20 +94,6 @@ const PAIR_ALPHA_ACTION_LABELS = {
   evidence_wait: "等待证据",
   cold_watch: "冷启动观察",
 };
-const PLATFORM_ACTIVITY_BAND_LABELS = {
-  quiet: "偏冷",
-  normal: "常态",
-  active: "活跃",
-  unusually_active: "异常活跃",
-  unknown: "未知",
-};
-const PLATFORM_ACTIVITY_STATUS_LABELS = {
-  available: "可用",
-  building_window: "窗口建立中",
-  building_baseline: "基准建立中",
-  partial: "覆盖不完整",
-  unknown: "未知",
-};
 const METRIC_SHORT = {
   volume_usd: "VOL",
   fees_usd: "FEE",
@@ -142,6 +128,12 @@ const APP_PREFIX = (() => {
   );
   return match ? `/${match[1]}` : "";
 })();
+const LAUNCHPAD_VIEW = (() => {
+  const requested = new URLSearchParams(window.location.search).get("view") ?? "overview";
+  return ["overview", "platforms", "valuation", "tokens"].includes(requested)
+    ? requested
+    : "overview";
+})();
 const INITIAL_DATASET = window.location.pathname.startsWith("/leaders")
   ? "intelligence"
   : window.location.pathname.startsWith("/pair-alpha")
@@ -150,7 +142,11 @@ const INITIAL_DATASET = window.location.pathname.startsWith("/leaders")
       ? "pair_v2"
       : window.location.pathname.startsWith("/pair-flow")
         ? "pair_flow"
-        : "economics";
+        : LAUNCHPAD_VIEW === "platforms"
+          ? "platform"
+          : LAUNCHPAD_VIEW === "tokens"
+            ? "pair"
+            : "economics";
 
 const state = {
   dataset: INITIAL_DATASET,
@@ -1054,68 +1050,296 @@ function summaryEvidenceValue(evidence, formatter) {
   return formatter(evidence.value);
 }
 
-function summaryEvidenceState(evidence) {
-  if (!Number.isFinite(evidence?.value)) return "unknown";
-  return evidence?.quality === "scope_mismatch" ? "warning" : "available";
+function platformActivitySnapshot(platformId) {
+  const activityPlatform = state.platformActivity?.platforms.find(
+    (item) => item.platformId === platformId,
+  );
+  const series = activityPlatform?.activity?.[`${state.activityWindowDays}d`] ?? null;
+  return { activityPlatform, series, point: activityPointForDisplay(series) };
 }
 
-function setTriadValue(selector, value, stateName = "", title = "") {
-  const target = $(selector);
-  target.textContent = value;
-  target.className = stateName ? `triad-value triad-value--${stateName}` : "triad-value";
-  target.title = title;
+function plainActivityState(point) {
+  if (!Number.isFinite(point?.multiple)) {
+    return { value: "历史不足", note: "还不能和平台自己的正常水平比较", className: "is-unknown" };
+  }
+  const multiple = point.multiple;
+  if (multiple >= 2) {
+    return { value: `${multiple.toFixed(1)}×`, note: "明显高于平时", className: "is-hot" };
+  }
+  if (multiple >= 1.2) {
+    return { value: `${multiple.toFixed(1)}×`, note: "高于平时", className: "is-active" };
+  }
+  if (multiple >= 0.8) {
+    return { value: `${multiple.toFixed(1)}×`, note: "接近平时", className: "is-normal" };
+  }
+  return { value: `${multiple.toFixed(1)}×`, note: "低于平时", className: "is-quiet" };
 }
 
-function renderTriadSummary() {
-  const proofLabels = {
-    transaction_verified: "逐笔已核验",
-    policy_and_cumulative_burn_only: "仅政策",
-    not_applicable: "无机制",
-  };
+function renderOverviewTrendChart() {
+  const svg = $("#overview-trend-chart");
+  const empty = $("#overview-trend-empty");
+  if (!svg || !empty) return;
+  svg.replaceChildren();
+  const platforms = state.platformActivity?.platforms ?? [];
+  const allDates = [
+    ...new Set(platforms.flatMap((platform) => platform.daily.map((point) => point.date))),
+  ].sort();
+  const dates = allDates.slice(-7);
+  const series = platforms.map((platform) => ({
+    platform,
+    points: dates.map((date) => ({
+      date,
+      value: platform.daily.find((point) => point.date === date)?.valueUsd ?? null,
+    })),
+  }));
+  const values = series.flatMap(({ points }) =>
+    points.map((point) => point.value).filter((value) => Number.isFinite(value) && value > 0),
+  );
+  if (dates.length < 2 || values.length === 0) {
+    svg.hidden = true;
+    empty.hidden = false;
+    return;
+  }
 
-  for (const platformId of ["pons", "long", "pair"]) {
-    const token = state.economics.tokens.find((item) => item.platformId === platformId);
-    const platform = state.economics.platforms.find((item) => item.platformId === platformId);
-    const buyback = state.economics.buybacks.find((item) => item.platformId === platformId);
-    const symbol = token?.symbol ?? "—";
-    $(`#triad-${platformId}-symbol`).textContent = symbol;
+  svg.hidden = false;
+  empty.hidden = true;
+  const width = 960;
+  const height = 250;
+  const padding = { top: 22, right: 24, bottom: 38, left: 82 };
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  const rawMin = Math.min(...values);
+  const rawMax = Math.max(...values);
+  const logMin = Math.log10(Math.max(rawMin * 0.75, 1));
+  const logMax = Math.log10(Math.max(rawMax * 1.2, 10));
+  const x = (index) => padding.left + (index / Math.max(1, dates.length - 1)) * plotWidth;
+  const y = (value) =>
+    padding.top +
+    plotHeight -
+    ((Math.log10(Math.max(value, 1)) - logMin) / Math.max(0.001, logMax - logMin)) * plotHeight;
 
-    setTriadValue(
-      `#triad-${platformId}-price`,
-      summaryEvidenceValue(token?.priceUsd, formatTokenPrice),
-      summaryEvidenceState(token?.priceUsd),
-      token?.priceUsd?.note ?? "",
+  for (const fraction of [0, 0.5, 1]) {
+    const gridY = padding.top + plotHeight * fraction;
+    svg.append(
+      svgElement("line", {
+        x1: padding.left,
+        x2: width - padding.right,
+        y1: gridY,
+        y2: gridY,
+        class: "overview-trend-grid",
+      }),
     );
-    setTriadValue(
-      `#triad-${platformId}-market-cap`,
-      summaryEvidenceValue(token?.marketCapUsd, formatUsd),
-      summaryEvidenceState(token?.marketCapUsd),
-      token?.marketCapUsd?.note ?? "",
+    const value = 10 ** (logMax - (logMax - logMin) * fraction);
+    const label = svgElement("text", {
+      x: padding.left - 10,
+      y: gridY + 4,
+      class: "overview-trend-label",
+      "text-anchor": "end",
+    });
+    label.textContent = formatUsd(value);
+    svg.append(label);
+  }
+
+  dates.forEach((date, index) => {
+    const label = svgElement("text", {
+      x: x(index),
+      y: height - 12,
+      class: "overview-trend-date",
+      "text-anchor": index === 0 ? "start" : index === dates.length - 1 ? "end" : "middle",
+    });
+    label.textContent = date.slice(5);
+    svg.append(label);
+  });
+
+  for (const { platform, points } of series) {
+    const available = points.filter((point) => Number.isFinite(point.value) && point.value > 0);
+    if (available.length < 2) continue;
+    const path = activityChartPath(points, (date) => x(dates.indexOf(date)), y);
+    svg.append(
+      svgElement("path", {
+        d: path,
+        class: `overview-trend-line overview-trend-line--${platform.platformId}`,
+      }),
     );
-    setTriadValue(
-      `#triad-${platformId}-share`,
-      summaryEvidenceValue(platform?.threePlatformSharePercent, formatPercent),
-      summaryEvidenceState(platform?.threePlatformSharePercent),
-      platform?.threePlatformSharePercent?.note ?? "",
+    points.forEach((point, index) => {
+      if (!Number.isFinite(point.value) || point.value <= 0) return;
+      const circle = svgElement("circle", {
+        cx: x(index),
+        cy: y(point.value),
+        r: 4,
+        class: `overview-trend-point overview-trend-point--${platform.platformId}`,
+        tabindex: 0,
+      });
+      const title = svgElement("title");
+      title.textContent = `${platform.platformName} · ${point.date} · ${formatUsd(point.value)}`;
+      circle.append(title);
+      svg.append(circle);
+    });
+  }
+}
+
+function renderLaunchpadOverview() {
+  const body = $("#overview-platform-body");
+  if (!body || !state.economics) return;
+  const platforms = state.economics.platforms;
+  const tokens = state.economics.tokens;
+  const comparable = platforms.filter((platform) => Number.isFinite(platform.volumeUsd?.value));
+  const volumeLeader = [...comparable].sort(
+    (left, right) => right.volumeUsd.value - left.volumeUsd.value,
+  )[0];
+  $("#overview-volume-leader").textContent = volumeLeader?.platformName ?? "未知";
+  $("#overview-volume-leader-note").textContent = volumeLeader
+    ? `${formatUsd(volumeLeader.volumeUsd.value)} · 三平台份额 ${summaryEvidenceValue(volumeLeader.threePlatformSharePercent, formatPercent)}`
+    : "等待完整日数据";
+
+  const activityRows = platforms.map((platform) => {
+    const activity = platformActivitySnapshot(platform.platformId);
+    return { platform, ...activity, display: plainActivityState(activity.point) };
+  });
+  const activityLeader = [...activityRows]
+    .filter((item) => Number.isFinite(item.point?.multiple))
+    .sort((left, right) => right.point.multiple - left.point.multiple)[0];
+  $("#overview-activity-leader").textContent = activityLeader?.platform.platformName ?? "历史不足";
+  $("#overview-activity-leader-note").textContent = activityLeader
+    ? `${activityLeader.display.value} · ${activityLeader.display.note}`
+    : "还没有平台形成足够历史基准";
+
+  const valuation = state.economics.pairRelativeValuation;
+  const gap = valuation?.actualDeviationPercent;
+  $("#overview-valuation-gap").textContent = Number.isFinite(gap)
+    ? `实际${gap >= 0 ? "高" : "低"} ${formatPercent(Math.abs(gap))}`
+    : "暂不可比";
+  $("#overview-valuation-gap-note").textContent = Number.isFinite(valuation?.estimateUsd)
+    ? `PONS 规模参考价 ${formatTokenPrice(valuation.estimateUsd)}`
+    : "经营规模对标，不是价格预测";
+
+  body.replaceChildren();
+  for (const item of activityRows) {
+    const token = tokens.find((candidate) => candidate.platformId === item.platform.platformId);
+    const row = element("tr");
+    const identity = element("td", "overview-platform-identity");
+    identity.append(
+      element("i", `overview-platform-dot overview-platform-dot--${item.platform.platformId}`),
+      element("strong", "", item.platform.platformName),
+      element("small", "", token?.symbol ?? "—"),
     );
-    setTriadValue(
-      `#triad-${platformId}-revenue`,
-      summaryEvidenceValue(platform?.protocolRevenueAccruedUsd, formatUsd),
-      summaryEvidenceState(platform?.protocolRevenueAccruedUsd),
-      platform?.protocolRevenueAccruedUsd?.note ?? "",
+    const activity = element("td", `overview-activity-cell ${item.display.className}`);
+    activity.append(
+      element("strong", "", item.display.value),
+      element("small", "", item.display.note),
+    );
+    row.append(
+      identity,
+      element("td", "", summaryEvidenceValue(token?.priceUsd, formatTokenPrice)),
+      element("td", "", summaryEvidenceValue(item.platform.volumeUsd, formatUsd)),
+      element(
+        "td",
+        "",
+        summaryEvidenceValue(item.platform.threePlatformSharePercent, formatPercent),
+      ),
+      activity,
+    );
+    body.append(row);
+  }
+
+  const insights = [];
+  if (volumeLeader) {
+    insights.push(
+      `${volumeLeader.platformName} 的闭合日交易量领先，占三平台 ${summaryEvidenceValue(volumeLeader.threePlatformSharePercent, formatPercent)}。`,
+    );
+  }
+  if (activityLeader) {
+    insights.push(
+      `${activityLeader.platform.platformName} 最近 ${state.activityWindowDays} 日的日均交易量是自身正常水平的 ${activityLeader.display.value}。`,
+    );
+  } else {
+    insights.push("活跃倍数仍在建立历史基准，暂时只看原始交易量。");
+  }
+  if (Number.isFinite(gap)) {
+    insights.push(
+      `PAIR 当前价格比 PONS 规模参考价${gap >= 0 ? "高" : "低"} ${formatPercent(Math.abs(gap))}；共同可比历史 ${formatCount(valuation.totalCommonDayCount)} 日。`,
+    );
+  } else {
+    insights.push("PAIR 与 PONS 暂无足够的共同闭合日，估值对比停用。");
+  }
+  $("#overview-insight-list").replaceChildren(...insights.map((item) => element("li", "", item)));
+  renderOverviewTrendChart();
+}
+
+function renderPlatformOperations() {
+  const body = $("#platform-operation-body");
+  if (!body || !state.economics) return;
+  body.replaceChildren();
+  for (const platform of state.economics.platforms) {
+    const row = element("tr");
+    const identity = element("td", "platform-operation__identity");
+    identity.append(
+      element("strong", "", platform.platformName),
+      element("small", "", platform.date),
     );
 
-    const proofStatus = buyback?.proofStatus ?? "unknown";
-    setTriadValue(
-      `#triad-${platformId}-buyback`,
-      proofLabels[proofStatus] ?? "未知",
-      proofStatus === "transaction_verified"
-        ? "verified"
-        : proofStatus === "not_applicable"
-          ? "neutral"
-          : "warning",
-      buyback?.note ?? buyback?.policy?.basis ?? "",
+    const revenueEvidence = Number.isFinite(platform.protocolRevenueReceivedUsd?.value)
+      ? platform.protocolRevenueReceivedUsd
+      : platform.protocolRevenueAccruedUsd;
+    const revenue = element("td", "platform-operation__value");
+    revenue.append(
+      element("strong", "", summaryEvidenceValue(revenueEvidence, formatUsd)),
+      element(
+        "small",
+        "",
+        Number.isFinite(platform.protocolRevenueReceivedUsd?.value)
+          ? "金库实收"
+          : Number.isFinite(platform.protocolRevenueAccruedUsd?.value)
+            ? "应计；实收未核验"
+            : "尚无可比收入",
+      ),
     );
+
+    const buyback = element("td", "platform-operation__value");
+    buyback.append(
+      element(
+        "strong",
+        "",
+        platform.executedBuybackUsd?.state === "not_applicable"
+          ? "无机制"
+          : summaryEvidenceValue(platform.executedBuybackUsd, formatUsd),
+      ),
+      element(
+        "small",
+        "",
+        platform.executedBuybackUsd?.state === "not_applicable"
+          ? "不适用"
+          : Number.isFinite(platform.executedBuybackUsd?.value)
+            ? "逐笔已核验"
+            : "等待资金闭环",
+      ),
+    );
+
+    const availableCount = [
+      platform.volumeUsd,
+      platform.userFeesUsd,
+      revenueEvidence,
+      platform.executedBuybackUsd,
+    ].filter(
+      (evidence) => Number.isFinite(evidence?.value) || evidence?.state === "not_applicable",
+    ).length;
+    const status = element(
+      "td",
+      `platform-operation__state ${availableCount >= 3 ? "is-partial" : "is-limited"}`,
+    );
+    status.textContent =
+      availableCount === 4 ? "已覆盖" : availableCount >= 2 ? "部分覆盖" : "覆盖有限";
+    status.title = "打开完整经营明细可查看应计、实收、回购预算和净利润的独立口径。";
+
+    row.append(
+      identity,
+      evidenceCell(platform.volumeUsd),
+      evidenceCell(platform.userFeesUsd),
+      revenue,
+      buyback,
+      status,
+    );
+    body.append(row);
   }
 }
 
@@ -1126,21 +1350,6 @@ function currentActivitySeries(platform) {
 function activityPointForDisplay(series) {
   if (!series) return null;
   return series.current?.status === "available" ? series.current : series.latestAvailable;
-}
-
-function activityStatusLabel(series) {
-  const current = series?.current;
-  if (!current) return "暂无历史";
-  if (current.status === "available") {
-    return PLATFORM_ACTIVITY_BAND_LABELS[current.band] ?? "可用";
-  }
-  if (current.status === "building_baseline") {
-    return `基准 ${current.baselineObservationCount}/${current.baselineRequired}`;
-  }
-  if (current.status === "partial") {
-    return `覆盖 ${current.observedDays}/${current.expectedDays}`;
-  }
-  return PLATFORM_ACTIVITY_STATUS_LABELS[current.status] ?? "未知";
 }
 
 function renderPlatformActivityCards() {
@@ -1156,6 +1365,7 @@ function renderPlatformActivityCards() {
     const series = currentActivitySeries(platform);
     const current = series?.current ?? null;
     const displayPoint = activityPointForDisplay(series);
+    const plainState = plainActivityState(displayPoint);
     const card = element("article", "activity-card");
     card.dataset.platformId = platform.platformId;
 
@@ -1165,7 +1375,7 @@ function renderPlatformActivityCards() {
     const status = element(
       "span",
       `activity-state activity-state--${current?.status ?? "unknown"} activity-state--band-${current?.band ?? "unknown"}`,
-      activityStatusLabel(series),
+      plainState.note,
     );
     header.append(identity, status);
 
@@ -1173,66 +1383,58 @@ function renderPlatformActivityCards() {
     const multiple = element(
       "strong",
       `activity-multiple activity-multiple--${displayPoint?.band ?? "unknown"}`,
-      formatRatio(displayPoint?.multiple),
+      plainState.value,
     );
     const pointDate = displayPoint?.date ?? platform.latestUsableDate;
     primary.append(
-      element("span", "", `${state.activityWindowDays}日活跃倍数`),
+      element("span", "", `最近 ${state.activityWindowDays} 日相对平时`),
       multiple,
       element(
         "small",
         "",
         displayPoint?.multiple === null || displayPoint?.multiple === undefined
-          ? "等待足够历史建立基准"
+          ? "历史不够时，不计算倍数"
           : pointDate === payload.targetDate
-            ? `截至 ${pointDate}`
-            : `最近可算 ${pointDate}`,
+            ? `截至 ${pointDate} · ${plainState.note}`
+            : `最近可算 ${pointDate} · ${plainState.note}`,
       ),
     );
 
-    const details = element("dl", "activity-card__metrics");
-    const metrics = [
-      ["周期日均", formatUsd(displayPoint?.averageDailyVolumeUsd)],
-      ["历史中位", formatUsd(displayPoint?.baselineMedianDailyVolumeUsd)],
+    const comparison = element("dl", "activity-card__comparison");
+    const currentAverage = element("div");
+    currentAverage.append(
+      element("dt", "", `${state.activityWindowDays} 日平均`),
+      element("dd", "", formatUsd(displayPoint?.averageDailyVolumeUsd)),
+    );
+    const normalAverage = element("div");
+    normalAverage.append(
+      element("dt", "", "过去正常水平"),
+      element("dd", "", formatUsd(displayPoint?.baselineMedianDailyVolumeUsd)),
+    );
+    comparison.append(currentAverage, normalAverage);
+
+    const details = element("details", "activity-card__details");
+    const summary = element("summary", "", "查看计算依据");
+    const detailList = element("dl");
+    const detailRows = [
       [
-        "历史百分位",
-        Number.isFinite(displayPoint?.percentile) ? `P${Math.round(displayPoint.percentile)}` : "—",
+        "历史样本",
+        `${formatCount(current?.baselineObservationCount)} / ${formatCount(current?.baselineRequired ?? payload.benchmark.baselineMinimumObservations)}`,
       ],
       [
-        "历史覆盖",
+        "数据覆盖",
         platform.calendarDays > 0 ? `${platform.observedDays}/${platform.calendarDays} 日` : "—",
       ],
+      ["数据起点", platform.firstObservedDate ?? "—"],
+      ["最新日期", platform.latestUsableDate ?? "—"],
     ];
-    for (const [label, value] of metrics) {
+    for (const [label, value] of detailRows) {
       const item = element("div");
       item.append(element("dt", "", label), element("dd", "", value));
-      details.append(item);
+      detailList.append(item);
     }
-
-    const baselineCount = current?.baselineObservationCount ?? 0;
-    const baselineRequired =
-      current?.baselineRequired ?? payload.benchmark.baselineMinimumObservations;
-    const progress = element("div", "activity-baseline-progress");
-    const track = element("span");
-    const fill = element("i");
-    fill.style.width = `${Math.min(100, (baselineCount / baselineRequired) * 100)}%`;
-    track.append(fill);
-    progress.append(element("small", "", `基准样本 ${baselineCount}/${baselineRequired}`), track);
-
-    const footer = element("footer", "activity-card__foot");
-    footer.append(
-      element(
-        "span",
-        "",
-        platform.firstObservedDate ? `起点 ${platform.firstObservedDate}` : "暂无起点",
-      ),
-      element(
-        "span",
-        "",
-        platform.latestUsableDate ? `最新 ${platform.latestUsableDate}` : "暂无数据",
-      ),
-    );
-    card.append(header, primary, details, progress, footer);
+    details.append(summary, detailList);
+    card.append(header, primary, comparison, details);
     host.append(card);
   }
 }
@@ -1374,18 +1576,20 @@ function renderPlatformActivityChart() {
         class: `activity-chart-line activity-chart-line--${platform.platformId}`,
       }),
     );
-    const last = [...points].reverse().find((point) => Number.isFinite(point.value));
-    if (!last) continue;
-    const dot = svgElement("circle", {
-      cx: x(last.date),
-      cy: y(last.value),
-      r: 4.5,
-      class: `activity-chart-dot activity-chart-dot--${platform.platformId}`,
-    });
-    const title = svgElement("title");
-    title.textContent = `${platform.platformName} · ${last.date} · ${last.label}`;
-    dot.append(title);
-    svg.append(dot);
+    for (const point of points) {
+      if (!Number.isFinite(point.value)) continue;
+      const dot = svgElement("circle", {
+        cx: x(point.date),
+        cy: y(point.value),
+        r: 3.25,
+        tabindex: 0,
+        class: `activity-chart-dot activity-chart-dot--${platform.platformId}`,
+      });
+      const title = svgElement("title");
+      title.textContent = `${platform.platformName} · ${point.date} · ${point.label}`;
+      dot.append(title);
+      svg.append(dot);
+    }
   }
 
   const startLabel = svgElement("text", {
@@ -1405,18 +1609,18 @@ function renderPlatformActivityChart() {
 
   $("#platform-activity-chart-title").textContent =
     state.activityChartMode === "multiple"
-      ? `${state.activityWindowDays}日活跃倍数历史`
+      ? `最近${state.activityWindowDays}日相对平时走势`
       : "平台日交易量历史";
   $("#platform-activity-chart").setAttribute(
     "aria-label",
     state.activityChartMode === "multiple"
-      ? `Pons Long PAIR ${state.activityWindowDays}日活跃倍数历史`
+      ? `Pons Long PAIR 最近${state.activityWindowDays}日相对各自正常水平走势`
       : "Pons Long PAIR 日交易量历史",
   );
   $("#platform-activity-chart-note").textContent =
     state.activityChartMode === "multiple"
-      ? "1.0× 为平台自身历史常态；高倍数只表示成交放大。"
-      : "从各平台首个已验证日展示；缺失与可疑零值保留断点。";
+      ? "1.0× 代表和平时相当；悬停数据点可查看每一天，高倍数只表示成交放大。"
+      : "悬停数据点可查看每天金额；缺失与可疑零值保留断点。";
 }
 
 function volumeDisplay(summary) {
@@ -1509,11 +1713,12 @@ function renderPlatformActivity() {
   if (payload?.stale) status.classList.add("is-stale");
   if (hasBuildingBaseline && !payload?.stale) status.classList.add("is-building");
   $("#platform-activity-formula").textContent = payload
-    ? `倍数 = ${state.activityWindowDays}日均量 ÷ 此前同周期历史中位数 · 最少 ${payload.benchmark.baselineMinimumObservations} 个基准样本`
-    : "倍数 = 当前周期日均交易量 ÷ 自身历史同周期中位数";
+    ? `相对平时 = 最近 ${state.activityWindowDays} 日平均交易量 ÷ 过去同周期正常水平 · 至少需要 ${payload.benchmark.baselineMinimumObservations} 个历史样本`
+    : "相对平时 = 当前周期日均交易量 ÷ 过去同周期正常水平";
   renderPlatformActivityCards();
   renderPlatformActivityChart();
   renderPlatformVolumes();
+  renderPlatformOperations();
 }
 
 function formatPriceRange(low, high) {
@@ -1723,16 +1928,23 @@ function renderPonsForecast() {
   status.classList.remove("is-available", "is-unavailable");
   const available = forecast?.state === "available";
   const matchedRegime = forecast?.method === "matched_regime_neighbors";
-  status.classList.add(available ? "is-available" : "is-unavailable");
+  const reliableForecast = Boolean(
+    available &&
+      matchedRegime &&
+      (forecast?.matchedSampleCount ?? 0) >= 5 &&
+      Number.isFinite(forecast?.backtestMedianAbsoluteErrorPercent) &&
+      forecast.backtestMedianAbsoluteErrorPercent <= 50,
+  );
+  status.classList.add(reliableForecast ? "is-available" : "is-unavailable");
   status.textContent = !forecast
     ? "等待数据"
-    : available
-      ? matchedRegime
-        ? "研究区间可用"
-        : "历史基线"
-      : forecast.state === "building_history"
-        ? "历史建立中"
-        : "不可用";
+    : reliableForecast
+      ? "可作为研究参考"
+      : available
+        ? "暂无可靠七日预测"
+        : forecast.state === "building_history"
+          ? "历史建立中"
+          : "不可用";
   status.title = forecast?.warning ?? "等待 PONS 日线与链上数据";
 
   $("#pons-forecast-current").textContent = formatTokenPrice(forecast?.currentPriceUsd);
@@ -1743,39 +1955,43 @@ function renderPonsForecast() {
       : forecast.currentPriceSource === "gmgn_forming_candle"
         ? "GMGN 当日 K 线"
         : "价格不可用";
-  $("#pons-forecast-midpoint").textContent = formatTokenPrice(forecast?.midpointUsd);
-  $("#pons-forecast-return").textContent = Number.isFinite(forecast?.medianReturnPercent)
-    ? `隐含 ${formatSignedPercent(forecast.medianReturnPercent)}`
-    : "—";
-  $("#pons-forecast-range").textContent = formatPriceRange(
-    forecast?.rangeLowUsd,
-    forecast?.rangeHighUsd,
-  );
-  $("#pons-forecast-upside-label").textContent = matchedRegime
-    ? "相似阶段上涨占比"
-    : "独立七日上涨占比";
-  $("#pons-forecast-upside").textContent = formatPercent(forecast?.positiveOutcomePercent);
+  $("#pons-forecast-midpoint").textContent = reliableForecast
+    ? formatTokenPrice(forecast?.midpointUsd)
+    : "不展示";
+  $("#pons-forecast-return").textContent =
+    reliableForecast && Number.isFinite(forecast?.medianReturnPercent)
+      ? `隐含 ${formatSignedPercent(forecast.medianReturnPercent)}`
+      : `相似样本 ${formatCount(forecast?.matchedSampleCount)} 个`;
+  $("#pons-forecast-range").textContent = reliableForecast
+    ? formatPriceRange(forecast?.rangeLowUsd, forecast?.rangeHighUsd)
+    : "不展示";
+  $("#pons-forecast-upside-label").textContent = "历史七日结果";
+  $("#pons-forecast-upside").textContent = reliableForecast
+    ? `${formatPercent(forecast?.positiveOutcomePercent)} 上涨`
+    : `${formatCount(forecast?.outcomeSampleCount)} 个样本`;
   const adjusted = forecast?.pairAdjustedAnchor;
-  $("#pair-adjusted-anchor").textContent = formatTokenPrice(adjusted?.adjustedPonsAnchorUsd);
-  $("#pair-adjusted-range").textContent = formatPriceRange(
-    adjusted?.rangeLowUsd,
-    adjusted?.rangeHighUsd,
-  );
+  $("#pair-adjusted-anchor").textContent = reliableForecast
+    ? formatTokenPrice(adjusted?.adjustedPonsAnchorUsd)
+    : "不展示";
+  $("#pair-adjusted-range").textContent = reliableForecast
+    ? formatPriceRange(adjusted?.rangeLowUsd, adjusted?.rangeHighUsd)
+    : "等待足够的相似历史";
   $("#pair-adjusted-anchor").title = Number.isFinite(adjusted?.actualDeviationPercent)
     ? `PAIR 实际相对调整锚 ${formatSignedPercent(adjusted.actualDeviationPercent)}`
     : (adjusted?.formula ?? "等待调整锚");
   $("#pons-forecast-chain").textContent = forecast
     ? `${forecast.chainLabel}${Number.isFinite(forecast.ponsActivityMultiple) ? ` · Pons ${forecast.ponsActivityMultiple.toFixed(2)}×` : ""}`
     : "—";
-  const confidenceLabels = { medium: "中", low: "低", unavailable: "不可用" };
   $("#pons-forecast-confidence").textContent = forecast
-    ? `置信度 ${confidenceLabels[forecast.confidence] ?? "—"}`
+    ? reliableForecast
+      ? "当前可作研究参考"
+      : "当前不可采用"
     : "—";
 
   const methodLabels = {
-    matched_regime_neighbors: "相似链况 + 平台阶段匹配",
-    empirical_price_history: "价格历史基线",
-    none: "等待完整七日结果",
+    matched_regime_neighbors: "按相似链况与平台阶段寻找历史",
+    empirical_price_history: "只有价格历史，未匹配当前链况",
+    none: "等待完整七日历史",
   };
   $("#pons-forecast-method").textContent = forecast
     ? `方法 · ${methodLabels[forecast.method] ?? forecast.method}`
@@ -1792,7 +2008,7 @@ function renderPonsForecast() {
   const holders = forecast?.pairHolderObservation;
   $("#pair-holder-signal").textContent =
     holders?.state === "available"
-      ? `PAIR 持币地址 ${formatCount(holders.holderCount)} · ${formatSignedPercent(holders.changePercent)} · 模型权重 0`
+      ? `PAIR 持币地址 ${formatCount(holders.holderCount)} · ${formatSignedPercent(holders.changePercent)} · 尚未进入当前公式`
       : "PAIR 持币地址未入模";
   $("#pair-holder-signal").title = holders?.reason ?? "";
 
@@ -1950,16 +2166,27 @@ function renderValuationCalculation(valuation) {
     `(${formatValuationQuantity(inputs?.ponsEffectiveSupply?.value)} ÷ ${formatValuationQuantity(inputs?.pairEffectiveSupply?.value)})`,
     `(${formatValuationQuantity(inputs?.pairPlatformVolumeUsd?.value, "usd")} ÷ ${formatValuationQuantity(inputs?.ponsPlatformVolumeUsd?.value, "usd")})`,
   ].join(" × ");
-  $("#valuation-equation-substitution").textContent =
-    `${substitution} = ${formatTokenPrice(valuation?.estimateUsd)}`;
+  const inputsReady = [
+    inputs?.ponsPriceUsd?.value,
+    inputs?.ponsEffectiveSupply?.value,
+    inputs?.pairEffectiveSupply?.value,
+    inputs?.pairPlatformVolumeUsd?.value,
+    inputs?.ponsPlatformVolumeUsd?.value,
+    valuation?.estimateUsd,
+  ].every((value) => Number.isFinite(value));
+  $("#valuation-equation-substitution").textContent = inputsReady
+    ? `${substitution} = ${formatTokenPrice(valuation?.estimateUsd)}`
+    : "输入不足，暂不计算参考价";
 
   const ponsPolicy = valuation?.policyScenario?.ponsFeeAllocationPercent;
   const pairPolicy = valuation?.policyScenario?.pairFeeAllocationPercent;
   const policyEquation = $("#valuation-policy-equation");
   policyEquation.textContent =
-    Number.isFinite(ponsPolicy) && Number.isFinite(pairPolicy)
+    Number.isFinite(valuation?.estimateUsd) &&
+    Number.isFinite(ponsPolicy) &&
+    Number.isFinite(pairPolicy)
       ? `${formatTokenPrice(valuation?.estimateUsd)} × (PAIR ${formatCount(pairPolicy)}% ÷ PONS ${formatCount(ponsPolicy)}%) = ${formatTokenPrice(valuation?.policyScenario?.estimateUsd)}`
-      : "—";
+      : "基础参考价不可用，情景暂不计算";
 
   const reasons = $("#valuation-reasons");
   const reasonItems = valuation?.reasons ?? [];
@@ -1973,11 +2200,10 @@ function renderValuationCalculation(valuation) {
 
 function renderPairRelativeValuation() {
   const valuation = state.economics?.pairRelativeValuation;
-  const confidenceLabels = { high: "高", medium: "中", low: "低", unavailable: "不可用" };
   const status = $("#pair-valuation-state");
   status.classList.remove("is-available", "is-unavailable");
   status.classList.add(valuation?.state === "available" ? "is-available" : "is-unavailable");
-  status.textContent = valuation?.state === "available" ? "可用" : "不可用";
+  status.textContent = valuation?.state === "available" ? "已计算" : "暂不可比";
   status.title = valuation?.reasons?.map((item) => item.message).join("\n") ?? "等待估值数据";
 
   $("#valuation-actual-price").textContent = formatTokenPrice(valuation?.actualPriceUsd);
@@ -2008,9 +2234,18 @@ function renderPairRelativeValuation() {
   const pairPolicy = valuation?.policyScenario?.pairFeeAllocationPercent;
   $("#valuation-policy-label").textContent =
     Number.isFinite(ponsPolicy) && Number.isFinite(pairPolicy)
-      ? `${formatCount(pairPolicy)}% / ${formatCount(ponsPolicy)}% 情景`
+      ? "费用分配比例调整"
       : "费用分配情景";
-  $("#valuation-confidence").textContent = confidenceLabels[valuation?.confidence] ?? "—";
+  const referenceState =
+    valuation?.state !== "available"
+      ? "暂不参考"
+      : (valuation.totalCommonDayCount ?? 0) >= 14 && valuation.confidence !== "low"
+        ? "可参考"
+        : "谨慎参考";
+  $("#valuation-confidence").textContent = referenceState;
+  $("#valuation-confidence").className = `valuation-reference-state valuation-reference-state--${
+    referenceState === "可参考" ? "ready" : referenceState === "谨慎参考" ? "caution" : "off"
+  }`;
   renderValuationCalculation(valuation);
   $("#valuation-meta").textContent = valuation
     ? `模型 ${valuation.modelVersion} · 快照 ${formatDateTime(valuation.observedAt)} · 价格有效期 ${formatCount(valuation.priceFreshnessMinutes)} 分钟`
@@ -3289,8 +3524,8 @@ function renderEconomics() {
     : "未齐";
   $("#economics-observed-at").textContent = formatDateTime(state.economics.observedAt);
   $("#header-date").textContent = state.economics.targetDate;
-  renderTriadSummary();
   renderPlatformActivity();
+  renderLaunchpadOverview();
   renderPairFlow();
   renderPairRelativeValuation();
   renderTokenEconomics();
@@ -4221,13 +4456,16 @@ async function switchDataset(dataset) {
   $$("[data-dataset]").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.dataset === dataset);
   });
+  const launchpadTokenView = APP_PREFIX === "/launchpads" && LAUNCHPAD_VIEW === "tokens";
   $("#intelligence-view").hidden = dataset !== "intelligence";
   $("#pair-alpha-view").hidden = dataset !== "pair_alpha";
   $("#pair-v2-view").hidden = dataset !== "pair_v2";
-  $("#economics-view").hidden = !["economics", "pair_flow"].includes(dataset);
+  $("#economics-view").hidden = !(
+    ["economics", "pair_flow"].includes(dataset) || launchpadTokenView
+  );
   $("#platform-view").hidden = dataset !== "platform";
-  $("#pair-view").hidden = dataset !== "pair";
-  $("#long-view").hidden = dataset !== "long";
+  $("#pair-view").hidden = !(launchpadTokenView && dataset === "pair");
+  $("#long-view").hidden = !(launchpadTokenView && dataset === "long");
   showNotices([]);
 
   if (dataset === "intelligence") {
@@ -4281,15 +4519,19 @@ async function refreshDashboard() {
       await api("/api/economics/refresh", { method: "POST" });
       await api("/api/pair/flow/refresh", { method: "POST" }).catch(() => null);
       await loadEconomics();
+    } else if (state.dataset === "platform" && APP_PREFIX === "/launchpads") {
+      await api("/api/economics/refresh", { method: "POST" });
+      await api("/api/refresh", { method: "POST" });
+      await Promise.all([loadEconomics(), loadOverview()]);
     } else if (state.dataset === "pair_flow") {
       await api("/api/pair/flow/refresh", { method: "POST" });
       await loadPairFlowPage();
     } else if (state.dataset === "pair") {
       await api("/api/pair/refresh", { method: "POST" });
-      await loadPair();
+      await Promise.all([loadPair(), loadEconomics()]);
     } else if (state.dataset === "long") {
       await api("/api/long/refresh", { method: "POST" });
-      await loadLong();
+      await Promise.all([loadLong(), loadEconomics()]);
     } else {
       await api("/api/refresh", { method: "POST" });
       await loadOverview();
@@ -4588,6 +4830,7 @@ function syncInitialView() {
             ? "pair-flow"
             : "launchpads";
   document.body.dataset.productContext = product;
+  document.body.dataset.launchpadView = product === "launchpads" ? LAUNCHPAD_VIEW : "none";
   if (product === "pair-flow") {
     document.title = "PAIR 资金闭环｜Robinhood Chain";
     $("#economics-view").setAttribute("aria-label", "PAIR 资金闭环");
@@ -4595,7 +4838,20 @@ function syncInitialView() {
     document.title = "PAIR Alpha Radar｜Robinhood Chain";
   } else if (product === "pair-v2") {
     document.title = "PAIR V2 监控｜Robinhood Chain";
+  } else if (product === "launchpads") {
+    const titles = {
+      overview: "今日概览｜Robinhood Chain 发射台",
+      platforms: "平台经营｜Robinhood Chain 发射台",
+      valuation: "PAIR vs PONS｜Robinhood Chain 发射台",
+      tokens: "平台代币｜Robinhood Chain 发射台",
+    };
+    document.title = titles[LAUNCHPAD_VIEW];
   }
+  $(".dataset-switch").hidden = product === "launchpads";
+  $("#launchpad-task-nav").hidden = product !== "launchpads";
+  $$("[data-launchpad-view]").forEach((link) => {
+    link.classList.toggle("is-active", link.dataset.launchpadView === LAUNCHPAD_VIEW);
+  });
   $$("[data-dataset]").forEach((button) => {
     const belongsToProduct = button.dataset.productContext === product;
     button.hidden = !belongsToProduct;
@@ -4607,10 +4863,21 @@ function syncInitialView() {
   $("#intelligence-view").hidden = state.dataset !== "intelligence";
   $("#pair-alpha-view").hidden = state.dataset !== "pair_alpha";
   $("#pair-v2-view").hidden = state.dataset !== "pair_v2";
-  $("#economics-view").hidden = !["economics", "pair_flow"].includes(state.dataset);
-  $("#platform-view").hidden = state.dataset !== "platform";
-  $("#pair-view").hidden = state.dataset !== "pair";
-  $("#long-view").hidden = state.dataset !== "long";
+  $("#economics-view").hidden = !(
+    ["economics", "pair_flow"].includes(state.dataset) || product === "launchpads"
+  );
+  $("#platform-view").hidden = !(product === "launchpads" && LAUNCHPAD_VIEW === "platforms");
+  $("#launchpad-token-head").hidden = !(product === "launchpads" && LAUNCHPAD_VIEW === "tokens");
+  $("#pair-view").hidden = !(
+    product === "launchpads" &&
+    LAUNCHPAD_VIEW === "tokens" &&
+    state.dataset === "pair"
+  );
+  $("#long-view").hidden = !(
+    product === "launchpads" &&
+    LAUNCHPAD_VIEW === "tokens" &&
+    state.dataset === "long"
+  );
   $$("[data-product]").forEach((link) => {
     link.classList.toggle("is-active", link.dataset.product === product);
   });
@@ -4633,10 +4900,16 @@ let pairFlowPollInFlight = false;
 let pairV2PollInFlight = false;
 let pairAlphaPollInFlight = false;
 async function pollEconomicsCache() {
-  if (economicsPollInFlight || state.dataset !== "economics" || document.hidden) return;
+  const launchpadView = APP_PREFIX === "/launchpads";
+  if (economicsPollInFlight || (!launchpadView && state.dataset !== "economics") || document.hidden)
+    return;
   economicsPollInFlight = true;
   try {
-    await loadEconomics();
+    if (launchpadView && LAUNCHPAD_VIEW === "platforms") {
+      await Promise.all([loadEconomics(), loadOverview()]);
+    } else {
+      await loadEconomics();
+    }
   } catch {
     // Keep the last verified cache on screen; the manual refresh path reports actionable failures.
   } finally {
@@ -4716,7 +4989,11 @@ try {
   else if (state.dataset === "pair_alpha") await loadPairAlpha();
   else if (state.dataset === "pair_v2") await loadPairV2();
   else if (state.dataset === "pair_flow") await loadPairFlowPage();
-  else await loadEconomics();
+  else if (APP_PREFIX === "/launchpads" && LAUNCHPAD_VIEW === "platforms") {
+    await Promise.all([loadEconomics(), loadOverview()]);
+  } else if (APP_PREFIX === "/launchpads" && LAUNCHPAD_VIEW === "tokens") {
+    await Promise.all([loadEconomics(), loadPair()]);
+  } else await loadEconomics();
 } catch (error) {
   showNotices([`数据加载失败：${error.message}`], "error");
   $("#run-state").classList.add("is-bad");
