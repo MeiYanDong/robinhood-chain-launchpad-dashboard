@@ -358,6 +358,8 @@ DEV 通知根因、1,401 条历史队列封存、飞书业务码 `0`、限频策
 [`docs/evidence/dev-monitor-attention-production-deployment-2026-09-07.md`](docs/evidence/dev-monitor-attention-production-deployment-2026-09-07.md)。
 最终 1,539 条历史噪声封存、实时追块恢复、SQLite 止血、飞书真实投递与 `0.14.7` 回读见
 [`docs/evidence/dev-monitor-attention-production-deployment-2026-09-07-v2.md`](docs/evidence/dev-monitor-attention-production-deployment-2026-09-07-v2.md)。
+发射台具体日期、指标解释、平台颜色、线性图表和 `0.18.1` 公网回读见
+[`docs/evidence/launchpad-language-production-deployment-2026-09-08.md`](docs/evidence/launchpad-language-production-deployment-2026-09-08.md)。
 
 部署配置固化在 [`deploy/`](deploy/)；新版本应使用不可变 release 目录并原子切换
 `current` 软链接，保留上一版用于回滚。发布后必须同时验证公网首页、`/healthz`、
