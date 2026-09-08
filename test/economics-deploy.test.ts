@@ -26,6 +26,7 @@ test("economics production config pins the market CLI and separates public from 
   assert.match(refreshService, /--retry-delay 30/);
   assert.match(refreshService, /--retry-max-time 210/);
   assert.match(refreshService, /--retry-all-errors/);
+  assert.match(refreshService, /--output \/dev\/null/);
   assert.match(refreshService, /POST http:\/\/127\.0\.0\.1:4176\/api\/economics\/rebuild/);
   assert.match(refreshTimer, /OnCalendar=\*-\*-\* \*:10,25,40,55:00 UTC/);
 });
