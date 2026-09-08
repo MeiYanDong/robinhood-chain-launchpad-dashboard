@@ -9,6 +9,8 @@ export interface EconomicsSettings {
   rpcFallbackUrls?: string[];
   gmgnBinary: string;
   gmgnTimeoutMs: number;
+  priceHistoryDays: number;
+  priceHistoryTtlMinutes: number;
   requestTimeoutMs: number;
   refreshTtlMinutes: number;
   staleAfterMinutes: number;
@@ -24,6 +26,8 @@ export const DEFAULT_ECONOMICS_SETTINGS: EconomicsSettings = {
   rpcUrl: "https://rpc.mainnet.chain.robinhood.com",
   gmgnBinary: "gmgn-cli",
   gmgnTimeoutMs: 20_000,
+  priceHistoryDays: 120,
+  priceHistoryTtlMinutes: 60,
   requestTimeoutMs: 20_000,
   refreshTtlMinutes: 15,
   staleAfterMinutes: 45,
@@ -53,6 +57,16 @@ export function economicsSettingsFromEnv(env: NodeJS.ProcessEnv = process.env): 
       env.ECONOMICS_GMGN_TIMEOUT_MS,
       DEFAULT_ECONOMICS_SETTINGS.gmgnTimeoutMs,
       "ECONOMICS_GMGN_TIMEOUT_MS",
+    ),
+    priceHistoryDays: positiveNumber(
+      env.ECONOMICS_PRICE_HISTORY_DAYS,
+      DEFAULT_ECONOMICS_SETTINGS.priceHistoryDays,
+      "ECONOMICS_PRICE_HISTORY_DAYS",
+    ),
+    priceHistoryTtlMinutes: positiveNumber(
+      env.ECONOMICS_PRICE_HISTORY_TTL_MINUTES,
+      DEFAULT_ECONOMICS_SETTINGS.priceHistoryTtlMinutes,
+      "ECONOMICS_PRICE_HISTORY_TTL_MINUTES",
     ),
     requestTimeoutMs: positiveNumber(
       env.ECONOMICS_REQUEST_TIMEOUT_MS,

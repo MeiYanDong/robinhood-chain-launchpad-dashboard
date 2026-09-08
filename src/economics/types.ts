@@ -47,6 +47,22 @@ export interface ProtocolTokenMarketObservation {
   quality: "official" | "third_party" | "derived";
 }
 
+export interface TokenDailyCandle {
+  tokenAddress: string;
+  date: string;
+  openedAt: string;
+  openUsd: number;
+  highUsd: number;
+  lowUsd: number;
+  closeUsd: number;
+  volumeUsd: number;
+  amountTokens: number;
+  state: "closed" | "forming";
+  observedAt: string;
+  source: "gmgn.tokenKline";
+  quality: "third_party";
+}
+
 export interface TokenSupplyObservation {
   address: string;
   decimals: number;
@@ -200,11 +216,31 @@ export interface PairRelativeValuationHistoryPoint {
   confidence: PairRelativeValuationConfidence;
 }
 
+export interface DailyOhlc {
+  openUsd: number;
+  highUsd: number;
+  lowUsd: number;
+  closeUsd: number;
+}
+
+export interface PairRelativeValuationDailyPoint {
+  date: string;
+  state: "closed" | "forming";
+  pons: TokenDailyCandle | null;
+  pairActual: DailyOhlc | null;
+  pairSpotAnchor: DailyOhlc | null;
+  rangeLowUsd: number | null;
+  rangeHighUsd: number | null;
+  sampleCount: number;
+  lastObservedAt: string | null;
+}
+
 export interface PairRelativeValuationHistoryResponse {
   service: "rhc-launchpad-economics";
   generatedAt: string;
   window: "7d";
   points: PairRelativeValuationHistoryPoint[];
+  daily: PairRelativeValuationDailyPoint[];
 }
 
 export interface EconomicsResponse {

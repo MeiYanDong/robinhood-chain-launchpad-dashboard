@@ -5,6 +5,7 @@ import type {
   EconomicsResponse,
   PairRelativeValuationHistoryPoint,
   StoredEconomicsSnapshot,
+  TokenDailyCandle,
 } from "./types.js";
 import { toPairRelativeValuationHistoryPoint } from "./valuation.js";
 
@@ -18,6 +19,14 @@ interface SnapshotRow {
 
 interface ValuationSnapshotRow {
   payload_json: string;
+}
+
+interface CandleRow {
+  payload_json: string;
+}
+
+interface TimestampRow {
+  fetched_at: string | null;
 }
 
 const VALUATION_HISTORY_LIMIT = 2_048;
@@ -55,6 +64,17 @@ export class EconomicsDatabase {
 
       CREATE INDEX IF NOT EXISTS idx_pair_relative_valuation_observed
         ON pair_relative_valuation_snapshots(observed_at DESC);
+
+      CREATE TABLE IF NOT EXISTS token_daily_candles (
+        token_address TEXT NOT NULL,
+        date TEXT NOT NULL,
+        fetched_at TEXT NOT NULL,
+        payload_json TEXT NOT NULL,
+        PRIMARY KEY(token_address, date)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_token_daily_candles_date
+        ON token_daily_candles(token_address, date DESC);
     `);
   }
 
@@ -139,6 +159,68 @@ export class EconomicsDatabase {
       }
     }
     return points;
+  }
+
+  upsertTokenDailyCandles(tokenAddress: string, candles: TokenDailyCandle[]): void {
+    if (candles.length === 0) return;
+    const statement = this.db.prepare(`
+      INSERT INTO token_daily_candles(token_address, date, fetched_at, payload_json)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(token_address, date) DO UPDATE SET
+        fetched_at = excluded.fetched_at,
+        payload_json = excluded.payload_json
+    `);
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      for (const candle of candles) {
+        statement.run(
+          tokenAddress.toLowerCase(),
+          candle.date,
+          candle.observedAt,
+          JSON.stringify(candle),
+        );
+      }
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
+  tokenDailyCandles(tokenAddress: string, limit = 120): TokenDailyCandle[] {
+    const boundedLimit = Math.max(1, Math.min(366, Math.trunc(limit)));
+    const rows = this.db
+      .prepare(`
+        SELECT payload_json
+        FROM token_daily_candles
+        WHERE token_address = ?
+        ORDER BY date DESC
+        LIMIT ?
+      `)
+      .all(tokenAddress.toLowerCase(), boundedLimit) as unknown as CandleRow[];
+    const candles: TokenDailyCandle[] = [];
+    for (const row of rows.reverse()) {
+      try {
+        const candle = JSON.parse(row.payload_json) as TokenDailyCandle;
+        if (typeof candle.date === "string" && Number.isFinite(candle.closeUsd)) {
+          candles.push(candle);
+        }
+      } catch {
+        // Ignore one corrupt cached candle and retain the rest of the series.
+      }
+    }
+    return candles;
+  }
+
+  tokenDailyCandlesFetchedAt(tokenAddress: string): string | null {
+    const row = this.db
+      .prepare(`
+        SELECT MAX(fetched_at) AS fetched_at
+        FROM token_daily_candles
+        WHERE token_address = ?
+      `)
+      .get(tokenAddress.toLowerCase()) as TimestampRow | undefined;
+    return row?.fetched_at ?? null;
   }
 
   close(): void {

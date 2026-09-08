@@ -155,6 +155,66 @@ export interface RelativeValuationModel {
   rules: string[];
 }
 
+export interface PonsForecastDriver {
+  id: "chain_breadth" | "chain_capital" | "chain_market" | "pons_platform";
+  label: string;
+  change7dPercent: number | null;
+  direction: "supportive" | "neutral" | "headwind" | "unknown";
+  asOf: string | null;
+}
+
+export interface PairAdjustedAnchor {
+  state: "available" | "unavailable";
+  spotPonsAnchorUsd: number | null;
+  adjustedPonsAnchorUsd: number | null;
+  rangeLowUsd: number | null;
+  rangeHighUsd: number | null;
+  actualPriceUsd: number | null;
+  actualDeviationPercent: number | null;
+  currentConversionFactor: number | null;
+  formula: string;
+}
+
+export interface PairHolderObservation {
+  state: "available" | "unavailable";
+  holderCount: number | null;
+  previousHolderCount: number | null;
+  changePercent: number | null;
+  observedAt: string | null;
+  includedInPriceModel: false;
+  reason: string;
+}
+
+export interface PonsPriceForecast {
+  decisionQuestion: "where_might_pons_trade_in_7_days";
+  modelVersion: "pons-regime-neighbors-v1";
+  modelStatus: "shadow";
+  state: "available" | "building_history" | "unavailable";
+  horizonDays: 7;
+  observedAt: string | null;
+  currentPriceUsd: number | null;
+  currentPriceSource: "economics_spot" | "gmgn_forming_candle" | "none";
+  midpointUsd: number | null;
+  rangeLowUsd: number | null;
+  rangeHighUsd: number | null;
+  medianReturnPercent: number | null;
+  positiveOutcomePercent: number | null;
+  confidence: "medium" | "low" | "unavailable";
+  method: "matched_regime_neighbors" | "empirical_price_history" | "none";
+  priceObservationDays: number;
+  outcomeSampleCount: number;
+  matchedSampleCount: number;
+  backtestMedianAbsoluteErrorPercent: number | null;
+  chainState: HeatState;
+  chainLabel: string;
+  ponsActivityMultiple: number | null;
+  drivers: PonsForecastDriver[];
+  pairAdjustedAnchor: PairAdjustedAnchor;
+  pairHolderObservation: PairHolderObservation;
+  rules: string[];
+  warning: string;
+}
+
 export interface IntelligenceResponse {
   service: "rhc-market-intelligence";
   generatedAt: string;
@@ -163,6 +223,7 @@ export interface IntelligenceResponse {
   chainHeat: ChainHeatModel;
   tokenHeat: TokenHeatModel;
   relativeValuation: RelativeValuationModel;
+  ponsForecast: PonsPriceForecast;
   sources: IntelligenceSource[];
   warnings: string[];
 }

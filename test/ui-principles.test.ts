@@ -32,7 +32,7 @@ test("default dashboard leads with the three-platform economics comparison", asy
   assert.match(html, /data-activity-window="30"/);
   assert.match(html, /data-volume-window="lifetime"/);
   assert.match(html, /id="platform-activity-chart"/);
-  assert.match(html, />PAIR 相对估值中枢</);
+  assert.match(html, />PAIR 相对估值</);
   assert.match(html, />资金闭环</);
   assert.match(html, /id="pair-flow-main-today"/);
   assert.match(html, /id="pair-flow-bought-total"/);
@@ -50,6 +50,11 @@ test("default dashboard leads with the three-platform economics comparison", asy
   assert.match(html, /id="valuation-policy-equation"/);
   assert.match(html, /id="valuation-reasons"/);
   assert.match(html, /id="valuation-history-chart"/);
+  assert.match(html, /id="pons-forecast-midpoint"/);
+  assert.match(html, /id="pons-forecast-upside-label"/);
+  assert.match(html, /id="pair-adjusted-anchor"/);
+  assert.match(html, /id="pair-holder-signal"/);
+  assert.match(html, /id="valuation-daily-body"/);
   assert.match(html, />当前价格</);
   assert.match(html, />平台经营</);
   assert.match(html, />回购核验</);
@@ -97,6 +102,11 @@ test("economics client keeps unknown, not-applicable, and refresh routes distinc
   assert.match(app, /formatTokenPrice/);
   assert.match(app, /evidenceCell\(token\.priceUsd, formatTokenPrice\)/);
   assert.match(app, /renderValuationCalculation\(valuation\)/);
+  assert.match(app, /renderPonsForecast\(\)/);
+  assert.match(app, /matchedRegime[\s\S]*独立七日上涨占比/);
+  assert.match(app, /matchedRegime[\s\S]*历史基线/);
+  assert.match(app, /state\.valuationHistory\?\.daily/);
+  assert.match(app, /PAIR 持币地址.*模型权重 0/);
   assert.match(app, /valuation\?\.formula/);
   assert.match(app, /valuation\?\.inputs/);
   assert.match(app, /ponsEffectiveSupply/);

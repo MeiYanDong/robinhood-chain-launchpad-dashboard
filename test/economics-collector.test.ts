@@ -5,6 +5,7 @@ import {
   fetchTokenSuppliesFromRpc,
   parsePairProtocolToken,
   parsePonsProtocolToken,
+  parseTokenDailyCandles,
   parseTokenSupplies,
 } from "../src/economics/collector.js";
 import { DEFAULT_ECONOMICS_SETTINGS, economicsSettingsFromEnv } from "../src/economics/config.js";
@@ -87,6 +88,40 @@ test("economics RPC parser separates total supply from cumulative dead-address b
   );
 });
 
+test("GMGN daily candles keep USD volume distinct from token amount and mark the open day", () => {
+  const candles = parseTokenDailyCandles(
+    {
+      list: [
+        {
+          time: Date.parse("2026-09-02T00:00:00.000Z"),
+          open: "0.18",
+          high: "0.22",
+          low: "0.17",
+          close: "0.2",
+          volume: "1000",
+          amount: "5000",
+        },
+        {
+          time: Date.parse("2026-09-03T00:00:00.000Z"),
+          open: "0.2",
+          high: "0.24",
+          low: "0.19",
+          close: "0.23",
+          volume: "2300",
+          amount: "10000",
+        },
+      ],
+    },
+    settings.ponsTokenAddress,
+    "2026-09-03T12:00:00.000Z",
+  );
+
+  assert.equal(candles[0]?.volumeUsd, 1_000);
+  assert.equal(candles[0]?.amountTokens, 5_000);
+  assert.equal(candles[0]?.state, "closed");
+  assert.equal(candles[1]?.state, "forming");
+});
+
 test("economics RPC supply read retries one transient HTTP failure", async () => {
   let calls = 0;
   const fetcher: typeof fetch = async () => {
@@ -150,6 +185,7 @@ test("economics environment settings stay bounded and reject invalid refresh int
   assert.equal(parsed.rpcUrl, "https://rpc.example");
   assert.equal(parsed.refreshTtlMinutes, 5);
   assert.equal(parsed.staleAfterMinutes, 20);
+  assert.equal(parsed.priceHistoryTtlMinutes, 60);
   assert.throws(
     () => economicsSettingsFromEnv({ ECONOMICS_REFRESH_TTL_MINUTES: "0" }),
     /must be positive/,

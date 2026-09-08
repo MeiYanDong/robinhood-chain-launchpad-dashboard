@@ -6,6 +6,7 @@ import type {
   EconomicsCollectionBatch,
   EconomicsSourceHealth,
   ProtocolTokenMarketObservation,
+  TokenDailyCandle,
   TokenSupplyObservation,
 } from "./types.js";
 
@@ -21,6 +22,7 @@ export interface EconomicsSourceResult<T> {
 export interface EconomicsCollectorDependencies {
   fetchPairToken?: () => Promise<EconomicsSourceResult<ProtocolTokenMarketObservation>>;
   fetchPonsToken?: () => Promise<EconomicsSourceResult<ProtocolTokenMarketObservation>>;
+  fetchPonsPriceHistory?: () => Promise<EconomicsSourceResult<TokenDailyCandle[]>>;
   fetchTokenSupplies?: () => Promise<EconomicsSourceResult<TokenSupplyObservation[]>>;
   now?: () => Date;
 }
@@ -97,6 +99,65 @@ export function parsePonsProtocolToken(
     source: "gmgn.ponsTokenInfo",
     quality: "derived",
   };
+}
+
+export function parseTokenDailyCandles(
+  payload: unknown,
+  tokenAddress: string,
+  observedAt: string,
+): TokenDailyCandle[] {
+  if (!ADDRESS_PATTERN.test(tokenAddress)) throw new Error("Token address is invalid");
+  if (!isRecord(payload) || !Array.isArray(payload.list)) {
+    throw new Error("Token K-line payload is not an object with a list");
+  }
+  const currentUtcDate = observedAt.slice(0, 10);
+  const byDate = new Map<string, TokenDailyCandle>();
+  for (const candidate of payload.list) {
+    if (!isRecord(candidate)) continue;
+    const time = finiteNumber(candidate.time);
+    const openUsd = nonNegative(candidate.open);
+    const highUsd = nonNegative(candidate.high);
+    const lowUsd = nonNegative(candidate.low);
+    const closeUsd = nonNegative(candidate.close);
+    const volumeUsd = nonNegative(candidate.volume);
+    const amountTokens = nonNegative(candidate.amount);
+    if (
+      time === null ||
+      !Number.isInteger(time) ||
+      openUsd === null ||
+      highUsd === null ||
+      lowUsd === null ||
+      closeUsd === null ||
+      volumeUsd === null ||
+      amountTokens === null ||
+      Math.max(openUsd, closeUsd) > highUsd ||
+      Math.min(openUsd, closeUsd) < lowUsd
+    ) {
+      continue;
+    }
+    const opened = new Date(time);
+    if (!Number.isFinite(opened.valueOf())) continue;
+    const openedAt = opened.toISOString();
+    const date = openedAt.slice(0, 10);
+    byDate.set(date, {
+      tokenAddress: tokenAddress.toLowerCase(),
+      date,
+      openedAt,
+      openUsd,
+      highUsd,
+      lowUsd,
+      closeUsd,
+      volumeUsd,
+      amountTokens,
+      state: date >= currentUtcDate ? "forming" : "closed",
+      observedAt,
+      source: "gmgn.tokenKline",
+      quality: "third_party",
+    });
+  }
+  const candles = [...byDate.values()].sort((left, right) => left.date.localeCompare(right.date));
+  if (candles.length === 0) throw new Error("Token K-line payload has no valid candles");
+  return candles;
 }
 
 function parseRpcHex(value: unknown, label: string): bigint {
@@ -193,6 +254,52 @@ async function defaultPonsTokenFetcher(
   const fetchedAt = new Date().toISOString();
   return {
     value: parsePonsProtocolToken(JSON.parse(stdout) as unknown, fetchedAt, settings),
+    fetchedAt,
+    latencyMs: Math.round(performance.now() - started),
+  };
+}
+
+async function defaultPonsPriceHistoryFetcher(
+  settings: EconomicsSettings,
+  now: Date,
+): Promise<EconomicsSourceResult<TokenDailyCandle[]>> {
+  const started = performance.now();
+  const inheritedNodeOptions = process.env.NODE_OPTIONS ?? "";
+  const nodeOptions = inheritedNodeOptions.includes("--use-system-ca")
+    ? inheritedNodeOptions
+    : `${inheritedNodeOptions} --use-system-ca`.trim();
+  const to = Math.floor(now.valueOf() / 1_000);
+  const from = to - Math.ceil(settings.priceHistoryDays) * 86_400;
+  const { stdout } = await execFileAsync(
+    settings.gmgnBinary,
+    [
+      "market",
+      "kline",
+      "--chain",
+      "robinhood",
+      "--address",
+      settings.ponsTokenAddress,
+      "--resolution",
+      "1d",
+      "--from",
+      String(from),
+      "--to",
+      String(to),
+      "--raw",
+    ],
+    {
+      timeout: settings.gmgnTimeoutMs,
+      maxBuffer: 5 * 1_024 * 1_024,
+      env: { ...process.env, NODE_OPTIONS: nodeOptions },
+    },
+  );
+  const fetchedAt = new Date().toISOString();
+  return {
+    value: parseTokenDailyCandles(
+      JSON.parse(stdout) as unknown,
+      settings.ponsTokenAddress,
+      fetchedAt,
+    ),
     fetchedAt,
     latencyMs: Math.round(performance.now() - started),
   };
@@ -344,6 +451,7 @@ export class EconomicsCollector {
   private readonly fetchTokenSupplies: () => Promise<
     EconomicsSourceResult<TokenSupplyObservation[]>
   >;
+  private readonly fetchPonsPriceHistory: () => Promise<EconomicsSourceResult<TokenDailyCandle[]>>;
   private readonly now: () => Date;
 
   constructor(
@@ -356,7 +464,14 @@ export class EconomicsCollector {
       dependencies.fetchPonsToken ?? (() => defaultPonsTokenFetcher(this.settings));
     this.fetchTokenSupplies =
       dependencies.fetchTokenSupplies ?? (() => defaultSupplyFetcher(this.settings));
+    this.fetchPonsPriceHistory =
+      dependencies.fetchPonsPriceHistory ??
+      (() => defaultPonsPriceHistoryFetcher(this.settings, this.now()));
     this.now = dependencies.now ?? (() => new Date());
+  }
+
+  collectPonsPriceHistory(): Promise<EconomicsSourceResult<TokenDailyCandle[]>> {
+    return this.fetchPonsPriceHistory();
   }
 
   async collect(): Promise<EconomicsCollectionBatch> {

@@ -1,12 +1,18 @@
-import type { EconomicsResponse } from "../economics/types.js";
+import type { EconomicsResponse, TokenDailyCandle } from "../economics/types.js";
 import type { LongLeaderboardResponse } from "../long-tokens/types.js";
 import type { PairLeaderboardResponse } from "../pair/types.js";
+import type { PlatformActivityResponse } from "../platform-activity/types.js";
 import type { IntelligenceSettings } from "./config.js";
 import { buildIntelligence, type ExternalIntelligenceInput } from "./model.js";
 import type { IntelligenceResponse } from "./types.js";
 
 export interface IntelligenceEconomicsProvider {
   snapshot(): EconomicsResponse | null;
+  ponsPriceHistory(): TokenDailyCandle[];
+}
+
+export interface IntelligenceDashboardProvider {
+  platformActivity(): PlatformActivityResponse;
 }
 
 export interface IntelligencePairProvider {
@@ -21,6 +27,7 @@ export interface IntelligenceServiceDependencies {
   economics: IntelligenceEconomicsProvider;
   pair: IntelligencePairProvider;
   long: IntelligenceLongProvider;
+  dashboard: IntelligenceDashboardProvider;
   fetcher?: typeof fetch;
   now?: () => Date;
   warn?: (event: string, context: Record<string, unknown>) => void;
@@ -98,6 +105,8 @@ export class IntelligenceService {
         economics: this.dependencies.economics.snapshot(),
         pair: this.dependencies.pair.rankings(),
         long: this.dependencies.long.rankings(),
+        platformActivity: this.dependencies.dashboard.platformActivity(),
+        ponsPriceHistory: this.dependencies.economics.ponsPriceHistory(),
       });
       this.cached = snapshot;
       this.refreshedAt = now.valueOf();

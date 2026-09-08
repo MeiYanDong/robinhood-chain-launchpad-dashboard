@@ -134,6 +134,7 @@ test("runtime verification performs only the twenty documented GET checks", asyn
       service: "rhc-launchpad-economics",
       window: "7d",
       points: [{ observedAt: "2026-08-30T11:45:00.000Z" }],
+      daily: [{ date: "2026-08-30" }],
     },
     "/api/intelligence/health": {
       ok: true,
@@ -145,6 +146,7 @@ test("runtime verification performs only the twenty documented GET checks", asyn
       chainHeat: {},
       tokenHeat: {},
       relativeValuation: {},
+      ponsForecast: { modelVersion: "pons-regime-neighbors-v1" },
       sources: [{ id: "chain_radar" }],
     },
   };

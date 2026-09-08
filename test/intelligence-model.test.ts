@@ -234,6 +234,8 @@ test("intelligence keeps leader, heat, token pressure, and role valuation separa
     economics: economics(),
     pair: radar("pair") as PairLeaderboardResponse,
     long: radar("long") as LongLeaderboardResponse,
+    platformActivity: null,
+    ponsPriceHistory: [],
   });
 
   assert.equal(result.status, "success");
@@ -264,6 +266,8 @@ test("four cliff thresholds are explicit and missing sources fail closed", () =>
     economics: economics(),
     pair: radar("pair") as PairLeaderboardResponse,
     long: radar("long") as LongLeaderboardResponse,
+    platformActivity: null,
+    ponsPriceHistory: [],
   });
   assert.equal(cliff.leader.cliffLeader.symbol, "PONS");
   assert.equal(cliff.leader.cliffLeader.state, "confirmed");
@@ -275,6 +279,8 @@ test("four cliff thresholds are explicit and missing sources fail closed", () =>
     economics: null,
     pair: emptyRadar("pair") as PairLeaderboardResponse,
     long: emptyRadar("long") as LongLeaderboardResponse,
+    platformActivity: null,
+    ponsPriceHistory: [],
   });
   assert.equal(missing.status, "unavailable");
   assert.equal(missing.leader.structuralLeader.state, "unknown");

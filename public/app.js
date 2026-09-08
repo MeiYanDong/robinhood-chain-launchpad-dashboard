@@ -1549,7 +1549,20 @@ function renderValuationHistory() {
   const svg = $("#valuation-history-chart");
   const empty = $("#valuation-chart-empty");
   svg.replaceChildren();
-  const points = (state.valuationHistory?.points ?? [])
+  renderValuationDailyTable();
+  const daily = state.valuationHistory?.daily ?? [];
+  const sourcePoints =
+    daily.length > 0
+      ? daily.map((point) => ({
+          observedAt: point.lastObservedAt ?? `${point.date}T12:00:00.000Z`,
+          date: point.date,
+          estimateUsd: point.pairSpotAnchor?.closeUsd ?? null,
+          actualPriceUsd: point.pairActual?.closeUsd ?? null,
+          rangeLowUsd: point.rangeLowUsd,
+          rangeHighUsd: point.rangeHighUsd,
+        }))
+      : (state.valuationHistory?.points ?? []);
+  const points = sourcePoints
     .filter((point) => {
       const timestamp = Date.parse(point.observedAt);
       return (
@@ -1628,20 +1641,25 @@ function renderValuationHistory() {
     svg.append(svgElement("path", { d: actualPath, class: "valuation-chart-line is-actual" }));
   }
 
-  const appendLastDot = (key, className) => {
-    const point = [...points].reverse().find((candidate) => Number.isFinite(candidate[key]));
-    if (!point) return;
-    svg.append(
-      svgElement("circle", {
+  for (const point of points) {
+    for (const [key, label, className] of [
+      ["estimateUsd", "现价 PONS 锚", ""],
+      ["actualPriceUsd", "PAIR 实际", " is-actual"],
+    ]) {
+      if (!Number.isFinite(point[key])) continue;
+      const marker = svgElement("circle", {
         cx: x(point),
         cy: y(point[key]),
-        r: 3.8,
-        class: `valuation-chart-dot${className}`,
-      }),
-    );
-  };
-  appendLastDot("estimateUsd", "");
-  appendLastDot("actualPriceUsd", " is-actual");
+        r: 4.5,
+        class: `valuation-chart-point${className}`,
+        tabindex: 0,
+      });
+      const title = svgElement("title", {});
+      title.textContent = `${point.date ?? point.observedAt.slice(0, 10)} · ${label} ${formatTokenPrice(point[key])}`;
+      marker.append(title);
+      svg.append(marker);
+    }
+  }
 
   const maxLabel = svgElement("text", { x: 8, y: padding.top + 4, class: "valuation-chart-label" });
   maxLabel.textContent = formatTokenPrice(rawMax);
@@ -1665,6 +1683,144 @@ function renderValuationHistory() {
   });
   endLabel.textContent = formatDateTime(points.at(-1).observedAt);
   svg.append(maxLabel, minLabel, startLabel, endLabel);
+}
+
+function renderValuationDailyTable() {
+  const body = $("#valuation-daily-body");
+  if (!body) return;
+  body.replaceChildren();
+  for (const point of state.valuationHistory?.daily ?? []) {
+    const row = element("tr");
+    const date = element("td", point.state === "forming" ? "is-forming" : "", point.date);
+    row.append(
+      date,
+      element("td", "", formatTokenPrice(point.pons?.closeUsd)),
+      element(
+        "td",
+        "",
+        point.pons
+          ? `${formatTokenPrice(point.pons.lowUsd)}–${formatTokenPrice(point.pons.highUsd).replace(/^\$/, "")}`
+          : "—",
+      ),
+      element("td", "", formatTokenPrice(point.pairActual?.closeUsd)),
+      element("td", "", formatTokenPrice(point.pairSpotAnchor?.closeUsd)),
+      element("td", "", formatCount(point.sampleCount)),
+    );
+    body.append(row);
+  }
+  if (body.childElementCount === 0) {
+    const row = element("tr");
+    const cell = element("td", "", "等待每日价格与估值快照");
+    cell.colSpan = 6;
+    row.append(cell);
+    body.append(row);
+  }
+}
+
+function renderPonsForecast() {
+  const forecast = state.intelligence?.ponsForecast;
+  const status = $("#pons-forecast-state");
+  status.classList.remove("is-available", "is-unavailable");
+  const available = forecast?.state === "available";
+  const matchedRegime = forecast?.method === "matched_regime_neighbors";
+  status.classList.add(available ? "is-available" : "is-unavailable");
+  status.textContent = !forecast
+    ? "等待数据"
+    : available
+      ? matchedRegime
+        ? "研究区间可用"
+        : "历史基线"
+      : forecast.state === "building_history"
+        ? "历史建立中"
+        : "不可用";
+  status.title = forecast?.warning ?? "等待 PONS 日线与链上数据";
+
+  $("#pons-forecast-current").textContent = formatTokenPrice(forecast?.currentPriceUsd);
+  $("#pons-forecast-current-source").textContent = !forecast
+    ? "—"
+    : forecast.currentPriceSource === "economics_spot"
+      ? "GMGN 即时价格"
+      : forecast.currentPriceSource === "gmgn_forming_candle"
+        ? "GMGN 当日 K 线"
+        : "价格不可用";
+  $("#pons-forecast-midpoint").textContent = formatTokenPrice(forecast?.midpointUsd);
+  $("#pons-forecast-return").textContent = Number.isFinite(forecast?.medianReturnPercent)
+    ? `隐含 ${formatSignedPercent(forecast.medianReturnPercent)}`
+    : "—";
+  $("#pons-forecast-range").textContent = formatPriceRange(
+    forecast?.rangeLowUsd,
+    forecast?.rangeHighUsd,
+  );
+  $("#pons-forecast-upside-label").textContent = matchedRegime
+    ? "相似阶段上涨占比"
+    : "独立七日上涨占比";
+  $("#pons-forecast-upside").textContent = formatPercent(forecast?.positiveOutcomePercent);
+  const adjusted = forecast?.pairAdjustedAnchor;
+  $("#pair-adjusted-anchor").textContent = formatTokenPrice(adjusted?.adjustedPonsAnchorUsd);
+  $("#pair-adjusted-range").textContent = formatPriceRange(
+    adjusted?.rangeLowUsd,
+    adjusted?.rangeHighUsd,
+  );
+  $("#pair-adjusted-anchor").title = Number.isFinite(adjusted?.actualDeviationPercent)
+    ? `PAIR 实际相对调整锚 ${formatSignedPercent(adjusted.actualDeviationPercent)}`
+    : (adjusted?.formula ?? "等待调整锚");
+  $("#pons-forecast-chain").textContent = forecast
+    ? `${forecast.chainLabel}${Number.isFinite(forecast.ponsActivityMultiple) ? ` · Pons ${forecast.ponsActivityMultiple.toFixed(2)}×` : ""}`
+    : "—";
+  const confidenceLabels = { medium: "中", low: "低", unavailable: "不可用" };
+  $("#pons-forecast-confidence").textContent = forecast
+    ? `置信度 ${confidenceLabels[forecast.confidence] ?? "—"}`
+    : "—";
+
+  const methodLabels = {
+    matched_regime_neighbors: "相似链况 + 平台阶段匹配",
+    empirical_price_history: "价格历史基线",
+    none: "等待完整七日结果",
+  };
+  $("#pons-forecast-method").textContent = forecast
+    ? `方法 · ${methodLabels[forecast.method] ?? forecast.method}`
+    : "—";
+  $("#pons-forecast-method").title = forecast?.rules?.join("\n") ?? "";
+  $("#pons-forecast-samples").textContent = forecast
+    ? `价格 ${formatCount(forecast.priceObservationDays)} 日 · 完整结果 ${formatCount(forecast.outcomeSampleCount)} · 相似样本 ${formatCount(forecast.matchedSampleCount)}`
+    : "—";
+  $("#pons-forecast-backtest").textContent = Number.isFinite(
+    forecast?.backtestMedianAbsoluteErrorPercent,
+  )
+    ? `滚动回测中位误差 ${formatPercent(forecast.backtestMedianAbsoluteErrorPercent)}`
+    : "滚动回测样本建立中";
+  const holders = forecast?.pairHolderObservation;
+  $("#pair-holder-signal").textContent =
+    holders?.state === "available"
+      ? `PAIR 持币地址 ${formatCount(holders.holderCount)} · ${formatSignedPercent(holders.changePercent)} · 模型权重 0`
+      : "PAIR 持币地址未入模";
+  $("#pair-holder-signal").title = holders?.reason ?? "";
+
+  const directionLabels = {
+    supportive: "支持",
+    neutral: "中性",
+    headwind: "拖累",
+    unknown: "未知",
+  };
+  const drivers = $("#pons-forecast-drivers");
+  drivers.replaceChildren(
+    ...(forecast?.drivers ?? []).map((item) => {
+      const row = element("li", `is-${item.direction}`);
+      row.append(
+        element("span", "", item.label),
+        element(
+          "strong",
+          "",
+          `${formatSignedPercent(item.change7dPercent)} · ${directionLabels[item.direction]}`,
+        ),
+      );
+      row.title = item.asOf ? `证据日 ${item.asOf}` : "该维度暂不可用";
+      return row;
+    }),
+  );
+  if (drivers.childElementCount === 0) {
+    drivers.append(element("li", "is-unknown", "等待四维证据"));
+  }
 }
 
 function valuationFormulaLabel(formula) {
@@ -1860,6 +2016,7 @@ function renderPairRelativeValuation() {
     ? `模型 ${valuation.modelVersion} · 快照 ${formatDateTime(valuation.observedAt)} · 价格有效期 ${formatCount(valuation.priceFreshnessMinutes)} 分钟`
     : "—";
   renderValuationHistory();
+  renderPonsForecast();
 }
 
 function pairFlowMetricText(metric, formatter) {
@@ -3969,6 +4126,7 @@ async function loadPairTeamLaunches() {
 }
 
 async function loadEconomics() {
+  const intelligencePromise = api("/api/intelligence").catch(() => null);
   const [economics, platformActivity, valuationHistory, pairFlow] = await Promise.all([
     api("/api/economics"),
     api("/api/platform-activity"),
@@ -3980,6 +4138,11 @@ async function loadEconomics() {
   state.valuationHistory = valuationHistory;
   if (pairFlow) state.pairFlow = pairFlow;
   renderEconomics();
+  const intelligence = await intelligencePromise;
+  if (intelligence) {
+    state.intelligence = intelligence;
+    renderPonsForecast();
+  }
 }
 
 async function loadPairFlowEvents(reset = true) {

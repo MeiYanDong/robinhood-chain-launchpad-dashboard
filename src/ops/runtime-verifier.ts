@@ -376,7 +376,8 @@ export async function verifyRuntime(
   if (
     valuationHistory.payload.service !== "rhc-launchpad-economics" ||
     valuationHistory.payload.window !== "7d" ||
-    !Array.isArray(valuationHistory.payload.points)
+    !Array.isArray(valuationHistory.payload.points) ||
+    !Array.isArray(valuationHistory.payload.daily)
   ) {
     throw new RuntimeVerificationError(
       "RUNTIME_CONTRACT_ERROR",
@@ -402,6 +403,8 @@ export async function verifyRuntime(
     !isRecord(intelligence.payload.chainHeat) ||
     !isRecord(intelligence.payload.tokenHeat) ||
     !isRecord(intelligence.payload.relativeValuation) ||
+    !isRecord(intelligence.payload.ponsForecast) ||
+    intelligence.payload.ponsForecast.modelVersion !== "pons-regime-neighbors-v1" ||
     !Array.isArray(intelligence.payload.sources)
   ) {
     throw new RuntimeVerificationError(
