@@ -22,6 +22,7 @@ export interface DashboardHttpApi {
   health(): { ok: boolean; [key: string]: unknown };
   meta(): unknown;
   overview(windowDays: WindowDays): unknown;
+  platformActivity(): unknown;
   platformDetail(platformId: string): unknown | null;
   coverage(): unknown;
   sources(): unknown;
@@ -595,6 +596,11 @@ export function createDashboardRequestHandler(
           return;
         }
         sendJson(response, 200, options.dashboard.overview(windowDays));
+        return;
+      }
+
+      if (request.method === "GET" && pathname === "/api/platform-activity") {
+        sendJson(response, 200, options.dashboard.platformActivity());
         return;
       }
 

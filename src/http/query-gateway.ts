@@ -6,6 +6,7 @@ const compress = promisify(gzip);
 export const QUERY_CACHE_PATHS = [
   "/healthz",
   "/api/meta",
+  "/api/platform-activity",
   "/api/economics",
   "/api/economics/health",
   "/api/economics/valuation",

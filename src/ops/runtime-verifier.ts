@@ -139,6 +139,30 @@ export async function verifyRuntime(
     );
   }
 
+  const platformActivity = await readJson(base, "/api/platform-activity", fetcher, timeoutMs);
+  const activityPlatforms = platformActivity.payload.platforms;
+  if (
+    platformActivity.payload.service !== "rhc-platform-activity" ||
+    platformActivity.payload.modelVersion !== "platform-activity-v1" ||
+    typeof platformActivity.payload.targetDate !== "string" ||
+    !Array.isArray(activityPlatforms) ||
+    !isRecord(platformActivity.payload.comparisons) ||
+    !["pons", "long", "pair"].every((platformId) =>
+      activityPlatforms.some(
+        (row) =>
+          isRecord(row) &&
+          row.platformId === platformId &&
+          isRecord(row.activity) &&
+          isRecord(row.volumes),
+      ),
+    )
+  ) {
+    throw new RuntimeVerificationError(
+      "RUNTIME_CONTRACT_ERROR",
+      "Platform activity response did not match the expected contract",
+    );
+  }
+
   const sources = await readJson(base, "/api/sources", fetcher, timeoutMs);
   if (!Array.isArray(sources.payload.sources)) {
     throw new RuntimeVerificationError(
@@ -401,6 +425,12 @@ export async function verifyRuntime(
         status: overview.status,
         targetDate: targetDate(overview.payload),
         itemCount: overview.payload.platforms.length,
+      },
+      {
+        path: "/api/platform-activity",
+        status: platformActivity.status,
+        targetDate: targetDate(platformActivity.payload),
+        itemCount: activityPlatforms.length,
       },
       {
         path: "/api/sources",

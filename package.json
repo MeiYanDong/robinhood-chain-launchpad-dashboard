@@ -1,6 +1,6 @@
 {
   "name": "robinhood-chain-launchpad-dashboard",
-  "version": "0.15.3",
+  "version": "0.16.0",
   "private": true,
   "type": "module",
   "description": "Read-only Robinhood Chain launchpad metrics dashboard",
@@ -21,6 +21,7 @@
     "test:bot": "tsx --test test/bot/*.test.ts",
     "test:bot:integration": "tsx --test test/bot/integration.test.ts",
     "fixture:replay": "tsx --test test/bot/poller-replay.test.ts test/bot/integration.test.ts",
+    "backfill:platform-activity": "tsx scripts/backfill-platform-activity.ts",
     "bot:fake": "tsx scripts/run-bot-fake.ts",
     "benchmark:bot": "tsx scripts/benchmark-bot.ts",
     "test:coverage": "c8 --all --include='src/**/*.ts' --exclude='src/live-check.ts' --check-coverage --lines=70 --statements=70 --branches=70 --functions=75 --reporter=text --reporter=json-summary tsx --test test/*.test.ts test/**/*.test.ts",

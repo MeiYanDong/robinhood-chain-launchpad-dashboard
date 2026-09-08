@@ -12,6 +12,9 @@ import type {
   SourceHealth,
   WindowDays,
 } from "../domain/types.js";
+import { buildPlatformActivity } from "../platform-activity/model.js";
+import { PLATFORM_ACTIVITY_IDS } from "../platform-activity/types.js";
+import type { PlatformActivityResponse } from "../platform-activity/types.js";
 import type { CollectionRun, DashboardDatabase } from "../storage/database.js";
 import { lastClosedUtcDate, shiftUtcDate, windowStart } from "../utils/time.js";
 
@@ -202,6 +205,29 @@ export class DashboardService {
       coverage,
       stats: this.database.getPlatformStats(platformId),
     };
+  }
+
+  platformActivity(): PlatformActivityResponse {
+    const usableRun = this.database.latestUsableRun();
+    const latestRun = this.database.latestRun();
+    const now = this.now();
+    const targetDate = usableRun?.targetDate ?? lastClosedUtcDate(now);
+    const completedAt = usableRun?.completedAt ? Date.parse(usableRun.completedAt) : Number.NaN;
+    return buildPlatformActivity({
+      targetDate,
+      generatedAt: now.toISOString(),
+      stale:
+        !Number.isFinite(completedAt) ||
+        now.valueOf() - completedAt >= this.cacheTtlMinutes * 60_000,
+      runStatus: latestRun?.status ?? "empty",
+      platforms: this.database.getPlatforms(),
+      metrics: PLATFORM_ACTIVITY_IDS.flatMap((platformId) =>
+        this.database.getMetricHistory(platformId, "volume_usd"),
+      ),
+      stats: PLATFORM_ACTIVITY_IDS.flatMap((platformId) =>
+        this.database.getPlatformStats(platformId),
+      ),
+    });
   }
 
   metricsForPlatforms(

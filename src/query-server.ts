@@ -9,6 +9,7 @@ const staticHandler = createDashboardRequestHandler({
     health: () => ({ ok: false }),
     meta: () => null,
     overview: () => null,
+    platformActivity: () => null,
     platformDetail: () => null,
     coverage: () => null,
     sources: () => null,

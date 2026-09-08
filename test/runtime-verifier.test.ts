@@ -9,11 +9,22 @@ function jsonResponse(payload: unknown, status = 200): Response {
   });
 }
 
-test("runtime verification performs only the nineteen documented GET checks", async () => {
+test("runtime verification performs only the twenty documented GET checks", async () => {
   const requests: Array<{ url: string; method: string; redirect: RequestRedirect }> = [];
   const responses: Record<string, unknown> = {
     "/healthz": { ok: true, service: "rhc-launch-ledger", targetDate: "2026-08-29" },
     "/api/overview?window=30": { targetDate: "2026-08-29", platforms: [{ id: "pons" }] },
+    "/api/platform-activity": {
+      service: "rhc-platform-activity",
+      modelVersion: "platform-activity-v1",
+      targetDate: "2026-08-29",
+      comparisons: { "7d": {}, "30d": {}, lifetime: {} },
+      platforms: ["pons", "long", "pair"].map((platformId) => ({
+        platformId,
+        activity: { "7d": {}, "30d": {} },
+        volumes: { "7d": {}, "30d": {}, lifetime: {} },
+      })),
+    },
     "/api/sources": { sources: [{ source: "fixture", status: "ok" }] },
     "/api/pair/health": { ok: true, service: "rhc-pair-token-radar" },
     "/api/pair/rankings": {
@@ -157,6 +168,7 @@ test("runtime verification performs only the nineteen documented GET checks", as
   assert.deepEqual(requests, [
     { url: "/healthz", method: "GET", redirect: "error" },
     { url: "/api/overview?window=30", method: "GET", redirect: "error" },
+    { url: "/api/platform-activity", method: "GET", redirect: "error" },
     { url: "/api/sources", method: "GET", redirect: "error" },
     { url: "/api/pair/health", method: "GET", redirect: "error" },
     { url: "/api/pair/rankings", method: "GET", redirect: "error" },
@@ -184,17 +196,18 @@ test("runtime verification performs only the nineteen documented GET checks", as
     { url: "/api/intelligence", method: "GET", redirect: "error" },
   ]);
   assert.equal(result.checks[1]?.itemCount, 1);
-  assert.equal(result.checks[4]?.itemCount, 11);
-  assert.equal(result.checks[5]?.itemCount, 1);
-  assert.equal(result.checks[7]?.itemCount, 1);
-  assert.equal(result.checks[8]?.itemCount, 4);
-  assert.equal(result.checks[9]?.itemCount, 1);
-  assert.equal(result.checks[10]?.itemCount, 2);
-  assert.equal(result.checks[12]?.itemCount, 8);
-  assert.equal(result.checks[14]?.itemCount, 3);
-  assert.equal(result.checks[15]?.itemCount, 5);
-  assert.equal(result.checks[16]?.itemCount, 1);
-  assert.equal(result.checks[18]?.itemCount, 1);
+  assert.equal(result.checks[2]?.itemCount, 3);
+  assert.equal(result.checks[5]?.itemCount, 11);
+  assert.equal(result.checks[6]?.itemCount, 1);
+  assert.equal(result.checks[8]?.itemCount, 1);
+  assert.equal(result.checks[9]?.itemCount, 4);
+  assert.equal(result.checks[10]?.itemCount, 1);
+  assert.equal(result.checks[11]?.itemCount, 2);
+  assert.equal(result.checks[13]?.itemCount, 8);
+  assert.equal(result.checks[15]?.itemCount, 3);
+  assert.equal(result.checks[16]?.itemCount, 5);
+  assert.equal(result.checks[17]?.itemCount, 1);
+  assert.equal(result.checks[19]?.itemCount, 1);
 });
 
 test("runtime verification fails closed on readiness and response contract errors", async () => {

@@ -411,6 +411,28 @@ export class DashboardDatabase {
     }));
   }
 
+  getMetricHistory(platformId: string, metric: DailyMetric["metric"]): DailyMetric[] {
+    const rows = this.db
+      .prepare(`
+        SELECT * FROM daily_metrics
+        WHERE platform_id = ? AND metric = ?
+        ORDER BY date, collected_at
+      `)
+      .all(platformId, metric) as unknown as MetricRow[];
+
+    return rows.map((row) => ({
+      platformId: row.platform_id,
+      metric: row.metric,
+      date: row.date,
+      value: row.value,
+      source: row.source,
+      quality: row.quality,
+      scope: row.scope,
+      derivation: row.derivation,
+      collectedAt: row.collected_at,
+    }));
+  }
+
   getSourceHealth(): SourceHealth[] {
     const rows = this.db
       .prepare("SELECT * FROM source_health ORDER BY source")

@@ -92,6 +92,7 @@ test("SQLite batch writes round-trip canonical records and completed run state",
     assert.equal(database.latestUsableRun()?.targetDate, "2026-08-29");
     assert.equal(database.getPlatform("pons")?.name, "Pons");
     assert.deepEqual(database.getMetrics("2026-08-29", "2026-08-29"), [metric()]);
+    assert.deepEqual(database.getMetricHistory("pons", "volume_usd"), [metric()]);
     assert.equal(database.getPlatformStats("pons")[0]?.value, 9);
     assert.equal(database.getSourceHealth()[0]?.latestDataDate, "2026-08-29");
     assert.deepEqual(database.getRawObservation("fixture.source")?.payload, { value: 125 });

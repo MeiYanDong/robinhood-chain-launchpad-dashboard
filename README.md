@@ -2,7 +2,7 @@
 
 Robinhood Chain 发射台数据看板。首页直接展示平台、成交量、用户手续费与平台收入；口径、来源和覆盖信息按需查看。
 
-仓库代码 `0.15.3` 在独立 PAIR V2 与创建者监控之外新增跨代 PAIR Alpha 雷达：官方目录
+仓库代码 `0.16.0` 在独立 PAIR V2 与创建者监控之外新增跨代 PAIR Alpha 雷达：官方目录
 全量发现 V1/V2，以 15 秒热候选、60 秒完整目录和 8 秒链上事件三层后台更新；点火、回踩、
 研究候选、过热勿追和风险停止互斥展示。飞书链路只允许已核验的 PAIR 项目方主发行钱包，
 其它项目创建者只入证据层，并采用精选、限频、过期封存；买入游标
@@ -20,6 +20,8 @@ Robinhood Chain 发射台数据看板。首页直接展示平台、成交量、�
 - 代币价值：PONS、PAIR 平台币与 Long 当前市值龙头的市值、销毁调整市值、流动性、24H 成交量和持币地址；
 - PAIR 相对估值中枢：直接展示公式、逐项代入值、来源与共同闭合日窗口，并把 90% / 80% 费用分配假设留在单独情景；
 - 平台经营：同一闭合 UTC 日的成交量、三平台份额、用户手续费、协议收入应计与实收；
+- 平台活跃度：Pons、Long、PAIR 的 7 日或 30 日日均成交量相对各自历史常态的倍数，以及
+  7 日、30 日、上线以来交易量；
 - 回购核验：公开回购比例、理论预算、累计销毁和逐笔实际执行分列；
 - 回购后留存和净利润缺少成本或实收证据时保持未知，Long 没有回购机制时显示“不适用”。
 
@@ -351,7 +353,7 @@ DEV 通知根因、1,401 条历史队列封存、飞书业务码 `0`、限频策
 
 部署配置固化在 [`deploy/`](deploy/)；新版本应使用不可变 release 目录并原子切换
 `current` 软链接，保留上一版用于回滚。发布后必须同时验证公网首页、`/healthz`、
-`/api/overview?window=30`、`/api/sources`、`/api/pair/health`、`/api/pair/rankings`、
+`/api/overview?window=30`、`/api/platform-activity`、`/api/sources`、`/api/pair/health`、`/api/pair/rankings`、
 `/api/long/health`、`/api/long/rankings`、`/api/economics/health`、`/api/economics`，
 `/api/intelligence/health`、`/api/intelligence`，以及公网 `/leaders/`、`/launchpads/`、
 `/pair-flow/`、`/pair-flow/api/pair/flow/events`、`/pair-v2/`、`/pair-v2/api/pair/v2/health`、
@@ -423,6 +425,7 @@ DEV 通知根因、1,401 条历史队列封存、飞书业务码 `0`、限频策
 | --- | --- |
 | `GET /healthz` | 服务与可用缓存状态 |
 | `GET /api/overview?window=1\|7\|30` | 汇总和平台排名 |
+| `GET /api/platform-activity` | Pons、Long、PAIR 日度成交历史、7/30 日活跃倍数与窗口交易量 |
 | `GET /api/platforms/:id` | 单平台 64 日序列、scope、来源 |
 | `GET /api/coverage` | 指标定义、警告、30 日覆盖矩阵 |
 | `GET /api/sources` | 采集运行与来源健康 |
@@ -479,5 +482,3 @@ npm run verify:live
 生产部署采用独立 query 进程（4175）与 collector（4176），高频监控库单独存放。
 逐指标质量、过期策略、迁移和回滚流程见 [运行手册](docs/runbooks/query-isolation.md)。
 Long 官方平台量无法访问时仍保持未知；本版本不承诺补齐上游未提供的数据。
-本次生产验收、PAIR 配对资产样本与回滚边界见
-[部署证据](docs/evidence/query-isolation-production-deployment-2026-09-07.md)。

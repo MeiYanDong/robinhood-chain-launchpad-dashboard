@@ -27,6 +27,11 @@ test("default dashboard leads with the three-platform economics comparison", asy
   assert.match(html, /id="triad-pons-price"/);
   assert.match(html, /id="triad-long-share"/);
   assert.match(html, /id="triad-pair-buyback"/);
+  assert.match(html, /id="platform-activity-cards"/);
+  assert.match(html, /data-activity-window="7"/);
+  assert.match(html, /data-activity-window="30"/);
+  assert.match(html, /data-volume-window="lifetime"/);
+  assert.match(html, /id="platform-activity-chart"/);
   assert.match(html, />PAIR 相对估值中枢</);
   assert.match(html, />资金闭环</);
   assert.match(html, /id="pair-flow-main-today"/);
@@ -61,7 +66,7 @@ test("default dashboard leads with the three-platform economics comparison", asy
   assert.match(html, /<details[\s\S]*id="buyback-disclosure"/);
   assert.doesNotMatch(
     html,
-    /COVERAGE BEFORE|先看覆盖|数字先上桌|Launchpad ledger|ACCOUNTING NOTES|SOURCE ROUTES|TOKEN VALUE|PLATFORM ECONOMICS|BUYBACK PROOF/,
+    /COVERAGE BEFORE|先看覆盖|数字先上桌|Launchpad ledger|ACCOUNTING NOTES|SOURCE ROUTES|TOKEN VALUE|PLATFORM ECONOMICS|PLATFORM ACTIVITY|BUYBACK PROOF/,
   );
 });
 
@@ -69,6 +74,7 @@ test("economics client keeps unknown, not-applicable, and refresh routes distinc
   const app = await readFile(appUrl, "utf8");
 
   assert.match(app, /api\("\/api\/economics"\)/);
+  assert.match(app, /api\("\/api\/platform-activity"\)/);
   assert.match(app, /api\("\/api\/economics\/valuation\/history"\)/);
   assert.match(app, /api\("\/api\/pair\/flow"\)/);
   assert.match(app, /api\("\/api\/pair\/flow\/refresh", \{ method: "POST" \}\)/);
@@ -84,6 +90,7 @@ test("economics client keeps unknown, not-applicable, and refresh routes distinc
   assert.match(app, /evidence-badge--quiet/);
   assert.match(app, /One or more source results require attention/);
   assert.match(app, /renderTriadSummary\(\)/);
+  assert.match(app, /renderPlatformActivity\(\)/);
   assert.match(app, /renderPairFlow\(\)/);
   assert.match(app, /未知/);
   assert.match(app, /不适用/);
