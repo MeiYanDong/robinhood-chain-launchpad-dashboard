@@ -11,12 +11,16 @@ import {
 
 test("query prewarm covers every decision page without caching mutations", () => {
   const decisionPaths = [
+    "/api/overview?window=30",
     "/api/intelligence",
     "/api/pair/alpha",
     "/api/pair/v2",
+    "/api/dev-monitor/pair-launches?tier=all&limit=20&offset=0",
     "/api/dev-monitor/pair-team-launches?limit=5&offset=0",
+    "/api/dev-monitor/pair-team-launches?limit=20&offset=0",
     "/api/pair/flow",
     "/api/pair/flow/events?type=all&window=today&limit=50&offset=0",
+    "/api/economics/valuation/history",
   ];
   const cachedPaths = new Set<string>(QUERY_CACHE_PATHS);
   for (const path of decisionPaths) assert.ok(cachedPaths.has(path));
