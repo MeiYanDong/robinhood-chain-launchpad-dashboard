@@ -15,6 +15,7 @@ test("current frontend assets use the package version as their cache key", async
   const version = (JSON.parse(packageText) as { version: string }).version;
 
   assert.match(html, new RegExp(`styles-v2\\.css\\?v=${version.replaceAll(".", "\\.")}`));
+  assert.match(html, new RegExp(`workbench\\.css\\?v=${version.replaceAll(".", "\\.")}`));
   assert.match(html, new RegExp(`app\\.js\\?v=${version.replaceAll(".", "\\.")}`));
 });
 
@@ -201,19 +202,19 @@ test("PAIR V2 separates quality, timing, heat, risk, and shadow outcomes", async
   assert.match(html, /id="pair-v2-view"/);
   assert.match(html, /id="pair-v2-token-body"/);
   assert.match(html, /id="pair-team-launch-body"/);
-  assert.match(html, /PAIR 项目方发币/);
+  assert.match(html, /PAIR 项目方新发行/);
   assert.match(html, /已核验主发行钱包/);
   assert.match(html, /官方明确确认/);
   assert.match(html, /同钱包、未确认背书/);
   assert.match(html, /同一钱包发行 ≠ PAIR 官方背书/);
   assert.match(html, /id="pair-v2-event-body"/);
   assert.match(html, /id="pair-v2-pending-buckets"/);
-  assert.match(html, /早期 Alpha 观察台/);
+  assert.match(html, /项目方发了什么，哪些新币值得看/);
   assert.match(html, /data-v2-lens="research"/);
   assert.match(html, /id="pair-v2-model-day-progress"/);
   assert.match(html, /id="pair-v2-horizons"/);
   assert.match(html, /成交 × 1% × 70% · 计算值/);
-  assert.match(html, /BuybackExecuted · 链上/);
+  assert.match(html, /链上回购事件/);
   assert.doesNotMatch(html, /CANONICAL RELEASE|DISCOVERY → CONFIRMATION|ONCHAIN LEDGER|DATA PLANE/);
   assert.match(app, /api\("\/api\/pair\/v2"\)/);
   assert.match(app, /api\/dev-monitor\/pair-team-launches/);
@@ -244,7 +245,7 @@ test("PAIR Alpha is a standalone all-generation signal terminal with explicit no
   assert.match(html, /data-alpha-lane="ignition_watch"/);
   assert.match(html, /data-alpha-lane="retest_watch"/);
   assert.match(html, /data-alpha-lane="no_chase"/);
-  assert.match(html, /净 Quote 流入<\/dt><dd>UNKNOWN/);
+  assert.match(html, /净流入<\/dt><dd>暂不可得/);
   assert.match(html, /id="pair-alpha-horizons"/);
   assert.match(app, /api\("\/api\/pair\/alpha"\)/);
   assert.match(app, /pollPairAlphaCache[\s\S]*await loadPairAlpha\(\)/);

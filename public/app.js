@@ -163,15 +163,15 @@ const state = {
   pairAlpha: null,
   devMonitor: null,
   pairTeamLaunches: null,
-  pairTeamRowLimit: 20,
+  pairTeamRowLimit: 5,
   pairV2Mode: "all",
   pairV2Lens: "all",
-  pairV2RowLimit: 20,
+  pairV2RowLimit: 5,
   pairV2Event: "all",
   pairAlphaLane: "all",
   pairAlphaGeneration: "all",
   pairAlphaSearch: "",
-  pairAlphaRowLimit: 25,
+  pairAlphaRowLimit: 5,
   pairEvents: null,
   pairFlowWindow: "today",
   valuationHistory: null,
@@ -205,6 +205,13 @@ function element(tag, className, text) {
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;
   return node;
+}
+
+function labelTableCells(row, labels) {
+  [...row.children].forEach((cell, index) => {
+    cell.dataset.label = labels[index] ?? "";
+  });
+  return row;
 }
 
 function orderedPlatforms(items) {
@@ -448,11 +455,18 @@ function bindMetricHelp() {
 function showNotices(messages = [], type = "warning") {
   const stack = $("#notice-stack");
   stack.replaceChildren();
-  for (const message of messages.filter(Boolean)) {
-    const normalized = String(message).trim();
-    if (/^One or more source results require attention\.?$/i.test(normalized)) continue;
-    stack.append(element("div", `notice${type === "error" ? " is-error" : ""}`, normalized));
-  }
+  const normalizedMessages = messages
+    .filter(Boolean)
+    .map((message) => String(message).trim())
+    .filter((message) => !/^One or more source results require attention\.?$/i.test(message));
+  if (normalizedMessages.length === 0) return;
+  const message =
+    normalizedMessages.length === 1
+      ? normalizedMessages[0]
+      : `${formatCount(normalizedMessages.length)} 条数据状态提醒；缺失项保持未知。可在「数据说明」查看来源。`;
+  const notice = element("div", `notice${type === "error" ? " is-error" : ""}`, message);
+  notice.title = normalizedMessages.join("\n");
+  stack.append(notice);
 }
 
 function renderRunState() {
@@ -946,8 +960,10 @@ function renderIntelligence() {
   $("#chain-heat-state").textContent = chainHeat.label;
   $("#chain-heat-state").className = `chain-heat-value chain-heat-value--${chainHeat.state}`;
   $("#chain-heat-confidence").textContent =
-    `置信度 ${{ high: "高", medium: "中", low: "低" }[chainHeat.confidence] ?? "—"}`;
+    `判断可靠度 ${{ high: "高", medium: "中", low: "低" }[chainHeat.confidence] ?? "—"}`;
   $("#chain-heat-warning").textContent = chainHeat.warning;
+  $("#leaders-summary-state").textContent =
+    `${leader.symbol ?? "龙头未知"} · ${chainHeat.label ?? "冷热未知"}`;
 
   renderHeatDimensions();
   renderCategoryLeaders();
@@ -2503,6 +2519,9 @@ function renderPairFlow() {
   setPairFlowMetric("#pair-flow-bought-total", flow.burn.cumulativeMarketAcquiredPair, (value) =>
     formatTokenAmount(value),
   );
+  setPairFlowMetric("#pair-flow-answer-bought", flow.burn.cumulativeMarketAcquiredPair, (value) =>
+    formatTokenAmount(value, "PAIR"),
+  );
   setPairFlowMetric(
     "#pair-flow-market-burned",
     flow.burn.cumulativeMarketAcquiredBurnedPair,
@@ -2510,6 +2529,9 @@ function renderPairFlow() {
   );
   setPairFlowMetric("#pair-flow-dead-total", flow.burn.deadLockedPair, (value) =>
     formatTokenAmount(value),
+  );
+  setPairFlowMetric("#pair-flow-answer-burned", flow.burn.deadLockedPair, (value) =>
+    formatTokenAmount(value, "PAIR"),
   );
   $("#pair-flow-dead-percent").textContent = Number.isFinite(flow.burn.deadLockedPercent?.value)
     ? `${formatPercent(flow.burn.deadLockedPercent.value)} 总供应量`
@@ -2529,6 +2551,11 @@ function renderPairFlow() {
     flow.burn.walletMarketAcquiredPendingPair,
     (value) => formatTokenAmount(value, "PAIR"),
   );
+  setPairFlowMetric(
+    "#pair-flow-answer-pending-burn",
+    flow.burn.walletMarketAcquiredPendingPair,
+    (value) => formatTokenAmount(value, "PAIR"),
+  );
   setPairFlowMetric("#pair-flow-wallet-pair", flow.burn.walletPendingPair, (value) =>
     formatTokenAmount(value, "PAIR"),
   );
@@ -2542,6 +2569,7 @@ function renderPairFlow() {
   $("#pair-flow-history-state").className = flow.attribution.complete ? "is-ok" : "is-partial";
 
   setPairFlowMetric("#pair-flow-policy-usd", flow.buyback.policyExpectedUsd, formatUsd);
+  setPairFlowMetric("#pair-flow-answer-pending-buyback", flow.buyback.policyExpectedUsd, formatUsd);
   const quoteAssetCount = flow.buyback.protocolQuoteAssetCount;
   const policySpy = flow.buyback.policyExpectedSpy;
   const policySpyText = Number.isFinite(policySpy?.value)
@@ -2709,7 +2737,7 @@ function pairFlowBuybackRow(event) {
     pairFlowProofCell(event, "buyback"),
     pairFlowTransactionCell(event),
   );
-  return row;
+  return labelTableCells(row, ["时间 / 执行者", "投入", "买入 PAIR", "成交额", "后续销毁", "交易"]);
 }
 
 function pairFlowBurnAllocationText(event) {
@@ -2736,7 +2764,14 @@ function pairFlowBurnRow(event) {
     pairFlowProofCell(event, "burn"),
     pairFlowTransactionCell(event),
   );
-  return row;
+  return labelTableCells(row, [
+    "时间 / 执行者",
+    "销毁 PAIR",
+    "批次归因",
+    "估算价值",
+    "关联买入",
+    "交易",
+  ]);
 }
 
 function renderPairFlowEvents() {
@@ -3029,7 +3064,18 @@ function renderPairV2TokenRow(token) {
   missing.title = missingItems.join("\n");
 
   row.append(identity, mode, valuation, volume, flow, quality, signal, heat, risk, missing);
-  return row;
+  return labelTableCells(row, [
+    "项目",
+    "模式 / 年龄",
+    "价格 / 市值",
+    "5M / 1H 成交",
+    "5M / 1H 买卖",
+    "质量门槛",
+    "早期时机",
+    "热度",
+    "风险 / 证据",
+    "关键缺口",
+  ]);
 }
 
 function pairV2MatchesLens(token) {
@@ -3057,7 +3103,7 @@ function renderPairV2Tokens() {
   $("#pair-v2-token-empty").hidden = tokens.length > 0;
   $("#pair-v2-token-footer").hidden = tokens.length === 0;
   $("#pair-v2-token-count").textContent =
-    `已显示 ${formatCount(shown.length)} / ${formatCount(tokens.length)} 个候选`;
+    `当前显示 ${formatCount(shown.length)} / ${formatCount(tokens.length)} 个候选`;
   $("#pair-v2-load-more").hidden = shown.length >= tokens.length;
 }
 
@@ -3163,7 +3209,17 @@ function renderPairTeamLaunchRow(item) {
     launched,
     transaction,
   );
-  return row;
+  return labelTableCells(row, [
+    "代币",
+    "与项目方关系",
+    "发行钱包",
+    "价格 / 市值",
+    "流动性",
+    "24H 成交",
+    "持币地址",
+    "发行时间 / 区块",
+    "发行交易",
+  ]);
 }
 
 function renderPairTeamLaunches() {
@@ -3494,7 +3550,7 @@ function pairAlphaTokenRow(token) {
   const generation = element(
     "span",
     `pair-alpha-generation pair-alpha-generation--${token.identity?.generation ?? "unknown"}`,
-    (token.identity?.generation ?? "unknown").toUpperCase(),
+    { v1: "V1", v2: "V2" }[token.identity?.generation] ?? "待确认",
   );
   link.prepend(generation);
   identity.append(link);
@@ -3543,7 +3599,7 @@ function pairAlphaTokenRow(token) {
   const volumeEvidenceStack = element("div", "pair-alpha-cell-stack");
   volumeEvidenceStack.append(
     element("strong", "", formatUsd(token.volumeEvidence?.official24hUsd)),
-    element("small", "", `池毛额 ${formatUsd(token.volumeEvidence?.canonicalGross24hUsd)}`),
+    element("small", "", `已核验池 ${formatUsd(token.volumeEvidence?.canonicalGross24hUsd)}`),
   );
   volumeEvidence.append(volumeEvidenceStack);
 
@@ -3590,7 +3646,17 @@ function pairAlphaTokenRow(token) {
     evidence,
     lifecycle,
   );
-  return row;
+  return labelTableCells(row, [
+    "代币 / 代际",
+    "动作",
+    "价格 / 市值",
+    "5M / 1H 成交",
+    "1H / 6H 涨幅",
+    "24H 成交口径",
+    "流动性 / 跨池价差",
+    "质量 / 证据",
+    "首次点火",
+  ]);
 }
 
 function renderPairAlphaTokens() {
@@ -3601,7 +3667,7 @@ function renderPairAlphaTokens() {
   $("#pair-alpha-empty").hidden = tokens.length > 0;
   $("#pair-alpha-table-footer").hidden = tokens.length === 0;
   $("#pair-alpha-token-count").textContent =
-    `已显示 ${formatCount(shown.length)} / ${formatCount(tokens.length)} 个候选`;
+    `当前显示 ${formatCount(shown.length)} / ${formatCount(tokens.length)} 个候选`;
   $("#pair-alpha-load-more").hidden = shown.length >= tokens.length;
 }
 
@@ -4050,7 +4116,7 @@ function renderPairAlphaMethod() {
     ["动作通道", "点火、回踩、研究候选、过热勿追与风险停止互斥；任何状态都只是 Shadow 研究输出。"],
     [
       "成交口径",
-      "官方 24H、主池 24H 与 canonical 池毛额分列；没有地址级资金流证据时，净 Quote 流入保持 UNKNOWN。",
+      "官方 24H、主池 24H 与已核验池成交总额分列；没有地址级资金流证据时，净报价资产流入保持暂不可得。",
     ],
     [
       "首次信号",
@@ -4581,7 +4647,7 @@ async function loadEconomics() {
 async function loadPairFlowEvents(reset = true) {
   const offset = reset ? 0 : (state.pairEvents?.items.length ?? 0);
   const response = await api(
-    `/api/pair/flow/events?type=all&window=${state.pairFlowWindow}&limit=200&offset=${offset}`,
+    `/api/pair/flow/events?type=all&window=${state.pairFlowWindow}&limit=50&offset=${offset}`,
   );
   if (reset || !state.pairEvents) {
     state.pairEvents = response;
@@ -4598,7 +4664,7 @@ async function loadPairFlowEvents(reset = true) {
 async function loadPairFlowPage() {
   const [flow, events] = await Promise.all([
     api("/api/pair/flow"),
-    api(`/api/pair/flow/events?type=all&window=${state.pairFlowWindow}&limit=200&offset=0`),
+    api(`/api/pair/flow/events?type=all&window=${state.pairFlowWindow}&limit=50&offset=0`),
   ]);
   state.pairFlow = flow;
   state.pairEvents = events;
@@ -4768,7 +4834,7 @@ function bindEvents() {
         return;
       }
       state.pairAlphaLane = lane;
-      state.pairAlphaRowLimit = 25;
+      state.pairAlphaRowLimit = 5;
       $$("[data-alpha-lane]").forEach((candidate) => {
         candidate.classList.toggle("is-active", candidate === button);
       });
@@ -4783,7 +4849,7 @@ function bindEvents() {
         return;
       }
       state.pairAlphaGeneration = generation;
-      state.pairAlphaRowLimit = 25;
+      state.pairAlphaRowLimit = 5;
       $$("[data-alpha-generation]").forEach((candidate) => {
         candidate.classList.toggle("is-active", candidate === button);
       });
@@ -4793,12 +4859,12 @@ function bindEvents() {
 
   $("#pair-alpha-search")?.addEventListener("input", (event) => {
     state.pairAlphaSearch = event.target.value;
-    state.pairAlphaRowLimit = 25;
+    state.pairAlphaRowLimit = 5;
     renderPairAlphaTokens();
   });
 
   $("#pair-alpha-load-more")?.addEventListener("click", () => {
-    state.pairAlphaRowLimit += 25;
+    state.pairAlphaRowLimit += 10;
     renderPairAlphaTokens();
   });
 
@@ -4807,7 +4873,7 @@ function bindEvents() {
       const mode = button.dataset.v2Mode;
       if (!["all", "1", "2", "3"].includes(mode) || mode === state.pairV2Mode) return;
       state.pairV2Mode = mode;
-      state.pairV2RowLimit = 20;
+      state.pairV2RowLimit = 5;
       $$("[data-v2-mode]").forEach((candidate) => {
         candidate.classList.toggle("is-active", candidate === button);
       });
@@ -4825,7 +4891,7 @@ function bindEvents() {
         return;
       }
       state.pairV2Lens = lens;
-      state.pairV2RowLimit = 20;
+      state.pairV2RowLimit = 5;
       $$("[data-v2-lens]").forEach((candidate) => {
         candidate.classList.toggle("is-active", candidate === button);
       });
@@ -4834,12 +4900,12 @@ function bindEvents() {
   });
 
   $("#pair-v2-load-more")?.addEventListener("click", () => {
-    state.pairV2RowLimit += 20;
+    state.pairV2RowLimit += 10;
     renderPairV2Tokens();
   });
 
   $("#pair-team-load-more")?.addEventListener("click", async () => {
-    state.pairTeamRowLimit = Math.min(500, state.pairTeamRowLimit + 20);
+    state.pairTeamRowLimit = Math.min(500, state.pairTeamRowLimit + 10);
     try {
       await loadPairTeamLaunches();
     } catch (error) {
@@ -5036,6 +5102,8 @@ function syncInitialView() {
     document.title = "PAIR Alpha Radar｜Robinhood Chain";
   } else if (product === "pair-v2") {
     document.title = "PAIR V2 监控｜Robinhood Chain";
+  } else if (product === "leaders") {
+    document.title = "龙头与热度｜Robinhood Chain";
   } else if (product === "launchpads") {
     const titles = {
       overview: "今日概览｜Robinhood Chain 发射台",
