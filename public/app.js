@@ -1,5 +1,6 @@
 const CORE_METRICS = ["volume_usd", "fees_usd", "protocol_revenue_usd"];
 const PAIR_METRICS = ["market_cap_usd", "liquidity_depth_usd", "volume_24h_usd", "holder_count"];
+const PLATFORM_DISPLAY_ORDER = { pons: 0, long: 1, pair: 2 };
 const METRIC_LABELS = {
   volume_usd: "成交量",
   fees_usd: "用户手续费",
@@ -206,6 +207,14 @@ function element(tag, className, text) {
   return node;
 }
 
+function orderedPlatforms(items) {
+  return [...items].sort(
+    (left, right) =>
+      (PLATFORM_DISPLAY_ORDER[left.platformId] ?? 99) -
+      (PLATFORM_DISPLAY_ORDER[right.platformId] ?? 99),
+  );
+}
+
 async function api(path, options = {}) {
   const response = await fetch(`${APP_PREFIX}${path}`, {
     ...options,
@@ -271,6 +280,30 @@ function formatDateTime(value) {
   }).format(date);
 }
 
+function utcDateParts(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value ?? "");
+  if (!match) return null;
+  return {
+    year: Number(match[1]),
+    month: Number(match[2]),
+    day: Number(match[3]),
+  };
+}
+
+function formatUtcDay(value, includeYear = false) {
+  const parts = utcDateParts(value);
+  if (!parts) return "—";
+  return includeYear
+    ? `${parts.year}年${parts.month}月${parts.day}日`
+    : `${parts.month}月${parts.day}日`;
+}
+
+function formatUtcRange(startDate, endDate) {
+  if (!utcDateParts(startDate) || !utcDateParts(endDate)) return "日期待确认";
+  if (startDate === endDate) return formatUtcDay(endDate);
+  return `${formatUtcDay(startDate)}—${formatUtcDay(endDate)}`;
+}
+
 function formatCount(value) {
   if (value === null || value === undefined || !Number.isFinite(value)) return "—";
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
@@ -332,6 +365,84 @@ function safeExternalUrl(value) {
   } catch {
     return null;
   }
+}
+
+function bindMetricHelp() {
+  const popover = $("#metric-help-popover");
+  const title = $("#metric-help-title");
+  const body = $("#metric-help-body");
+  if (!popover || !title || !body) return;
+
+  let activeButton = null;
+
+  const close = () => {
+    if (activeButton) activeButton.setAttribute("aria-expanded", "false");
+    activeButton = null;
+    popover.hidden = true;
+  };
+
+  const position = (button) => {
+    const gap = 10;
+    const edge = 10;
+    const buttonRect = button.getBoundingClientRect();
+    const popoverRect = popover.getBoundingClientRect();
+    const centered = buttonRect.left + buttonRect.width / 2 - popoverRect.width / 2;
+    const left = Math.min(
+      Math.max(edge, centered),
+      Math.max(edge, window.innerWidth - popoverRect.width - edge),
+    );
+    const below = buttonRect.bottom + gap;
+    const top =
+      below + popoverRect.height <= window.innerHeight - edge
+        ? below
+        : Math.max(edge, buttonRect.top - popoverRect.height - gap);
+    popover.style.left = `${Math.round(left)}px`;
+    popover.style.top = `${Math.round(top)}px`;
+  };
+
+  const open = (button) => {
+    if (activeButton && activeButton !== button) {
+      activeButton.setAttribute("aria-expanded", "false");
+    }
+    activeButton = button;
+    title.textContent = button.dataset.helpTitle ?? "指标说明";
+    body.textContent = button.dataset.help ?? "暂无说明";
+    button.setAttribute("aria-expanded", "true");
+    popover.hidden = false;
+    position(button);
+  };
+
+  for (const button of $$(".metric-help")) {
+    button.setAttribute("aria-controls", popover.id);
+    button.setAttribute("aria-expanded", "false");
+    button.addEventListener("pointerenter", () => open(button));
+    button.addEventListener("pointerleave", () => {
+      if (document.activeElement !== button) close();
+    });
+    button.addEventListener("focus", () => open(button));
+    button.addEventListener("blur", close);
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      open(button);
+    });
+    button.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      close();
+      button.blur();
+    });
+  }
+
+  document.addEventListener("pointerdown", (event) => {
+    if (activeButton && event.target !== activeButton && !popover.contains(event.target)) close();
+  });
+  window.addEventListener("resize", close);
+  document.addEventListener(
+    "scroll",
+    () => {
+      if (activeButton && !popover.hidden) position(activeButton);
+    },
+    true,
+  );
 }
 
 function showNotices(messages = [], type = "warning") {
@@ -429,7 +540,7 @@ function renderRunState() {
     text.textContent = state.overview.stale ? "数据过期" : "部分来源可用";
   } else {
     runState.classList.add("is-ok");
-    text.textContent = "数据已闭合";
+    text.textContent = "数据已更新";
   }
 }
 
@@ -915,7 +1026,7 @@ function tokenIdentityCell(token) {
 function renderTokenEconomics() {
   const body = $("#token-economics-body");
   body.replaceChildren();
-  for (const token of state.economics.tokens) {
+  for (const token of orderedPlatforms(state.economics.tokens)) {
     const row = element("tr");
     row.dataset.platformId = token.platformId;
     row.append(
@@ -947,7 +1058,7 @@ function renderTokenEconomics() {
 function renderPlatformEconomics() {
   const body = $("#platform-economics-body");
   body.replaceChildren();
-  for (const platform of state.economics.platforms) {
+  for (const platform of orderedPlatforms(state.economics.platforms)) {
     const row = element("tr");
     row.dataset.platformId = platform.platformId;
     const name = element("td", "economics-platform-cell");
@@ -980,7 +1091,7 @@ function renderBuybacks() {
     policy_and_cumulative_burn_only: "仅政策 + 累计销毁",
     not_applicable: "不适用",
   };
-  for (const buyback of state.economics.buybacks) {
+  for (const buyback of orderedPlatforms(state.economics.buybacks)) {
     const row = element("tr");
     const name = element("td", "economics-platform-cell");
     name.append(element("strong", "", buyback.platformName));
@@ -1060,31 +1171,36 @@ function platformActivitySnapshot(platformId) {
 
 function plainActivityState(point) {
   if (!Number.isFinite(point?.multiple)) {
-    return { value: "历史不足", note: "还不能和平台自己的正常水平比较", className: "is-unknown" };
+    return { value: "历史不足", note: "还不能和自身历史常态比较", className: "is-unknown" };
   }
   const multiple = point.multiple;
   if (multiple >= 2) {
-    return { value: `${multiple.toFixed(1)}×`, note: "明显高于平时", className: "is-hot" };
+    return { value: `${multiple.toFixed(1)}×`, note: "明显高于自身常态", className: "is-hot" };
   }
   if (multiple >= 1.2) {
-    return { value: `${multiple.toFixed(1)}×`, note: "高于平时", className: "is-active" };
+    return { value: `${multiple.toFixed(1)}×`, note: "高于自身常态", className: "is-active" };
   }
   if (multiple >= 0.8) {
-    return { value: `${multiple.toFixed(1)}×`, note: "接近平时", className: "is-normal" };
+    return { value: `${multiple.toFixed(1)}×`, note: "接近自身常态", className: "is-normal" };
   }
-  return { value: `${multiple.toFixed(1)}×`, note: "低于平时", className: "is-quiet" };
+  return { value: `${multiple.toFixed(1)}×`, note: "低于自身常态", className: "is-quiet" };
 }
 
 function renderOverviewTrendChart() {
   const svg = $("#overview-trend-chart");
   const empty = $("#overview-trend-empty");
+  const range = $("#overview-trend-range");
   if (!svg || !empty) return;
   svg.replaceChildren();
-  const platforms = state.platformActivity?.platforms ?? [];
+  const platforms = orderedPlatforms(state.platformActivity?.platforms ?? []);
   const allDates = [
     ...new Set(platforms.flatMap((platform) => platform.daily.map((point) => point.date))),
   ].sort();
   const dates = allDates.slice(-7);
+  if (range) {
+    range.textContent =
+      dates.length > 0 ? `${formatUtcRange(dates[0], dates.at(-1))} · UTC` : "最近 7 日";
+  }
   const series = platforms.map((platform) => ({
     platform,
     points: dates.map((date) => ({
@@ -1105,18 +1221,14 @@ function renderOverviewTrendChart() {
   empty.hidden = true;
   const width = 960;
   const height = 250;
-  const padding = { top: 22, right: 24, bottom: 38, left: 82 };
+  const padding = { top: 22, right: 118, bottom: 38, left: 82 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
-  const rawMin = Math.min(...values);
   const rawMax = Math.max(...values);
-  const logMin = Math.log10(Math.max(rawMin * 0.75, 1));
-  const logMax = Math.log10(Math.max(rawMax * 1.2, 10));
+  const chartMax = rawMax > 0 ? rawMax * 1.08 : 1;
   const x = (index) => padding.left + (index / Math.max(1, dates.length - 1)) * plotWidth;
   const y = (value) =>
-    padding.top +
-    plotHeight -
-    ((Math.log10(Math.max(value, 1)) - logMin) / Math.max(0.001, logMax - logMin)) * plotHeight;
+    padding.top + plotHeight - (Math.max(0, value) / Math.max(1, chartMax)) * plotHeight;
 
   for (const fraction of [0, 0.5, 1]) {
     const gridY = padding.top + plotHeight * fraction;
@@ -1129,7 +1241,7 @@ function renderOverviewTrendChart() {
         class: "overview-trend-grid",
       }),
     );
-    const value = 10 ** (logMax - (logMax - logMin) * fraction);
+    const value = chartMax * (1 - fraction);
     const label = svgElement("text", {
       x: padding.left - 10,
       y: gridY + 4,
@@ -1151,6 +1263,7 @@ function renderOverviewTrendChart() {
     svg.append(label);
   });
 
+  const endpoints = [];
   for (const { platform, points } of series) {
     const available = points.filter((point) => Number.isFinite(point.value) && point.value > 0);
     if (available.length < 2) continue;
@@ -1175,22 +1288,71 @@ function renderOverviewTrendChart() {
       circle.append(title);
       svg.append(circle);
     });
+    const endpointIndex = points.findLastIndex(
+      (point) => Number.isFinite(point.value) && point.value > 0,
+    );
+    const endpoint = points[endpointIndex];
+    if (endpoint) {
+      endpoints.push({
+        platform,
+        value: endpoint.value,
+        x: x(endpointIndex),
+        y: y(endpoint.value),
+      });
+    }
+  }
+
+  const sortedEndpoints = endpoints.sort((left, right) => left.y - right.y);
+  const labelGap = 16;
+  const labelBottom = padding.top + plotHeight;
+  for (const [index, endpoint] of sortedEndpoints.entries()) {
+    endpoint.labelY = Math.max(
+      endpoint.y,
+      index === 0 ? padding.top + 4 : sortedEndpoints[index - 1].labelY + labelGap,
+    );
+  }
+  for (let index = sortedEndpoints.length - 1; index >= 0; index -= 1) {
+    const upperBound = labelBottom - (sortedEndpoints.length - 1 - index) * labelGap;
+    sortedEndpoints[index].labelY = Math.min(sortedEndpoints[index].labelY, upperBound);
+  }
+  for (const endpoint of sortedEndpoints) {
+    svg.append(
+      svgElement("line", {
+        x1: endpoint.x + 6,
+        x2: width - 92,
+        y1: endpoint.y,
+        y2: endpoint.labelY,
+        class: `overview-trend-connector overview-trend-connector--${endpoint.platform.platformId}`,
+      }),
+    );
+    const label = svgElement("text", {
+      x: width - 10,
+      y: endpoint.labelY + 4,
+      class: `overview-trend-end overview-trend-end--${endpoint.platform.platformId}`,
+      "text-anchor": "end",
+    });
+    label.textContent = `${endpoint.platform.platformName} ${formatUsd(endpoint.value)}`;
+    svg.append(label);
   }
 }
 
 function renderLaunchpadOverview() {
   const body = $("#overview-platform-body");
   if (!body || !state.economics) return;
-  const platforms = state.economics.platforms;
+  const platforms = orderedPlatforms(state.economics.platforms);
   const tokens = state.economics.tokens;
+  const dayLabel = formatUtcDay(state.economics.targetDate);
+  $("#overview-volume-date-heading").textContent = `${dayLabel}交易量`;
+  $("#overview-data-note").textContent =
+    `价格使用最新快照；交易量和占比统计到 ${dayLabel}（UTC）。`;
   const comparable = platforms.filter((platform) => Number.isFinite(platform.volumeUsd?.value));
   const volumeLeader = [...comparable].sort(
     (left, right) => right.volumeUsd.value - left.volumeUsd.value,
   )[0];
   $("#overview-volume-leader").textContent = volumeLeader?.platformName ?? "未知";
   $("#overview-volume-leader-note").textContent = volumeLeader
-    ? `${formatUsd(volumeLeader.volumeUsd.value)} · 三平台份额 ${summaryEvidenceValue(volumeLeader.threePlatformSharePercent, formatPercent)}`
-    : "等待完整日数据";
+    ? `${dayLabel}交易量 ${formatUsd(volumeLeader.volumeUsd.value)} · 占三平台 ${summaryEvidenceValue(volumeLeader.threePlatformSharePercent, formatPercent)}`
+    : `等待 ${dayLabel} 数据`;
 
   const activityRows = platforms.map((platform) => {
     const activity = platformActivitySnapshot(platform.platformId);
@@ -1201,66 +1363,74 @@ function renderLaunchpadOverview() {
     .sort((left, right) => right.point.multiple - left.point.multiple)[0];
   $("#overview-activity-leader").textContent = activityLeader?.platform.platformName ?? "历史不足";
   $("#overview-activity-leader-note").textContent = activityLeader
-    ? `${activityLeader.display.value} · ${activityLeader.display.note}`
-    : "还没有平台形成足够历史基准";
+    ? `最近 ${state.activityWindowDays} 日日均是自身历史常态的 ${activityLeader.display.value}`
+    : "还没有平台累积足够历史数据";
 
   const valuation = state.economics.pairRelativeValuation;
   const gap = valuation?.actualDeviationPercent;
+  const gapDirection = !Number.isFinite(gap) ? null : gap > 0 ? "溢价" : gap < 0 ? "折价" : "持平";
+  $("#overview-valuation-label").textContent = gapDirection
+    ? `PAIR 当前${gapDirection}`
+    : "PAIR 当前溢价 / 折价";
   $("#overview-valuation-gap").textContent = Number.isFinite(gap)
-    ? `实际${gap >= 0 ? "高" : "低"} ${formatPercent(Math.abs(gap))}`
+    ? gapDirection === "持平"
+      ? formatPercent(0)
+      : `${gapDirection} ${formatPercent(Math.abs(gap))}`
     : "暂不可比";
   $("#overview-valuation-gap-note").textContent = Number.isFinite(valuation?.estimateUsd)
-    ? `PONS 规模参考价 ${formatTokenPrice(valuation.estimateUsd)}`
-    : "经营规模对标，不是价格预测";
+    ? `按 PONS 平台规模折算的 PAIR 参考价 ${formatTokenPrice(valuation.estimateUsd)}`
+    : "按 PONS 平台规模折算，不是价格预测";
 
   body.replaceChildren();
   for (const item of activityRows) {
     const token = tokens.find((candidate) => candidate.platformId === item.platform.platformId);
     const row = element("tr");
     const identity = element("td", "overview-platform-identity");
+    identity.dataset.label = "平台 / 代表币";
     identity.append(
       element("i", `overview-platform-dot overview-platform-dot--${item.platform.platformId}`),
       element("strong", "", item.platform.platformName),
       element("small", "", token?.symbol ?? "—"),
     );
     const activity = element("td", `overview-activity-cell ${item.display.className}`);
+    activity.dataset.label = "较自身常态";
     activity.append(
       element("strong", "", item.display.value),
       element("small", "", item.display.note),
     );
-    row.append(
-      identity,
-      element("td", "", summaryEvidenceValue(token?.priceUsd, formatTokenPrice)),
-      element("td", "", summaryEvidenceValue(item.platform.volumeUsd, formatUsd)),
-      element(
-        "td",
-        "",
-        summaryEvidenceValue(item.platform.threePlatformSharePercent, formatPercent),
-      ),
-      activity,
+    const price = element("td", "", summaryEvidenceValue(token?.priceUsd, formatTokenPrice));
+    price.dataset.label = "当前价格";
+    const volume = element("td", "", summaryEvidenceValue(item.platform.volumeUsd, formatUsd));
+    volume.dataset.label = `${dayLabel}交易量`;
+    const share = element(
+      "td",
+      "",
+      summaryEvidenceValue(item.platform.threePlatformSharePercent, formatPercent),
     );
+    share.dataset.label = "三平台交易量占比";
+    row.append(identity, price, volume, share, activity);
     body.append(row);
   }
 
   const insights = [];
   if (volumeLeader) {
     insights.push(
-      `${volumeLeader.platformName} 的闭合日交易量领先，占三平台 ${summaryEvidenceValue(volumeLeader.threePlatformSharePercent, formatPercent)}。`,
+      `${volumeLeader.platformName} 的 ${dayLabel} 交易量最高，占三平台 ${summaryEvidenceValue(volumeLeader.threePlatformSharePercent, formatPercent)}。`,
     );
   }
   if (activityLeader) {
     insights.push(
-      `${activityLeader.platform.platformName} 最近 ${state.activityWindowDays} 日的日均交易量是自身正常水平的 ${activityLeader.display.value}。`,
+      `${activityLeader.platform.platformName} 最近 ${state.activityWindowDays} 日的日均交易量是自身历史常态的 ${activityLeader.display.value}。`,
     );
   } else {
-    insights.push("活跃倍数仍在建立历史基准，暂时只看原始交易量。");
+    insights.push("自身历史常态仍在建立，暂时只看原始交易量。");
   }
   if (Number.isFinite(gap)) {
     insights.push(
-      `PAIR 当前价格比 PONS 规模参考价${gap >= 0 ? "高" : "低"} ${formatPercent(Math.abs(gap))}；共同可比历史 ${formatCount(valuation.totalCommonDayCount)} 日。`,
+      `PAIR 当前价 ${formatTokenPrice(valuation.actualPriceUsd)}，相对按 PONS 平台规模折算的 PAIR 参考价 ${formatTokenPrice(valuation.estimateUsd)} ${gapDirection}${gapDirection === "持平" ? "" : ` ${formatPercent(Math.abs(gap))}`}；已有 ${formatCount(valuation.totalCommonDayCount)} 天双方都具备数据。`,
     );
   } else {
-    insights.push("PAIR 与 PONS 暂无足够的共同闭合日，估值对比停用。");
+    insights.push("PAIR 与 PONS 双方都有数据的日期不足，暂不计算折算参考价。");
   }
   $("#overview-insight-list").replaceChildren(...insights.map((item) => element("li", "", item)));
   renderOverviewTrendChart();
@@ -1270,7 +1440,7 @@ function renderPlatformOperations() {
   const body = $("#platform-operation-body");
   if (!body || !state.economics) return;
   body.replaceChildren();
-  for (const platform of state.economics.platforms) {
+  for (const platform of orderedPlatforms(state.economics.platforms)) {
     const row = element("tr");
     const identity = element("td", "platform-operation__identity");
     identity.append(
@@ -1361,7 +1531,7 @@ function renderPlatformActivityCards() {
     return;
   }
 
-  for (const platform of payload.platforms) {
+  for (const platform of orderedPlatforms(payload.platforms)) {
     const series = currentActivitySeries(platform);
     const current = series?.current ?? null;
     const displayPoint = activityPointForDisplay(series);
@@ -1387,7 +1557,7 @@ function renderPlatformActivityCards() {
     );
     const pointDate = displayPoint?.date ?? platform.latestUsableDate;
     primary.append(
-      element("span", "", `最近 ${state.activityWindowDays} 日相对平时`),
+      element("span", "", `最近 ${state.activityWindowDays} 日相较自身历史常态`),
       multiple,
       element(
         "small",
@@ -1403,12 +1573,12 @@ function renderPlatformActivityCards() {
     const comparison = element("dl", "activity-card__comparison");
     const currentAverage = element("div");
     currentAverage.append(
-      element("dt", "", `${state.activityWindowDays} 日平均`),
+      element("dt", "", `最近 ${state.activityWindowDays} 日日均`),
       element("dd", "", formatUsd(displayPoint?.averageDailyVolumeUsd)),
     );
     const normalAverage = element("div");
     normalAverage.append(
-      element("dt", "", "过去正常水平"),
+      element("dt", "", "自身历史常态日均"),
       element("dd", "", formatUsd(displayPoint?.baselineMedianDailyVolumeUsd)),
     );
     comparison.append(currentAverage, normalAverage);
@@ -1482,7 +1652,7 @@ function renderPlatformActivityChart() {
     return;
   }
 
-  const series = payload.platforms.map((platform) => ({
+  const series = orderedPlatforms(payload.platforms).map((platform) => ({
     platform,
     points: activityChartPoints(platform),
   }));
@@ -1495,7 +1665,7 @@ function renderPlatformActivityChart() {
     empty.hidden = false;
     $("#platform-activity-chart-note").textContent =
       state.activityChartMode === "multiple"
-        ? "倍数至少需要30个历史基准样本；可切换到日交易量查看完整历史。"
+        ? "至少需要 30 个历史样本才能计算；可切换到日交易量查看现有数据。"
         : "尚无可验证日度成交量。";
     return;
   }
@@ -1609,18 +1779,18 @@ function renderPlatformActivityChart() {
 
   $("#platform-activity-chart-title").textContent =
     state.activityChartMode === "multiple"
-      ? `最近${state.activityWindowDays}日相对平时走势`
+      ? `最近${state.activityWindowDays}日活跃度走势`
       : "平台日交易量历史";
   $("#platform-activity-chart").setAttribute(
     "aria-label",
     state.activityChartMode === "multiple"
-      ? `Pons Long PAIR 最近${state.activityWindowDays}日相对各自正常水平走势`
+      ? `Pons Long PAIR 最近${state.activityWindowDays}日相较各自历史常态走势`
       : "Pons Long PAIR 日交易量历史",
   );
   $("#platform-activity-chart-note").textContent =
     state.activityChartMode === "multiple"
-      ? "1.0× 代表和平时相当；悬停数据点可查看每一天，高倍数只表示成交放大。"
-      : "悬停数据点可查看每天金额；缺失与可疑零值保留断点。";
+      ? "1.0× 代表和该平台自己的历史常态相当；高倍数只表示该平台自身成交放大。"
+      : "按 UTC 自然日统计；悬停可查看每天金额，没有数据和可疑零值保留断点。";
 }
 
 function volumeDisplay(summary) {
@@ -1632,14 +1802,14 @@ function volumeDisplay(summary) {
           ? "官方累计"
           : summary.window === "lifetime"
             ? "日度账本累计"
-            : "完整窗口",
+            : "日期范围完整",
       className: "",
     };
   }
   if (Number.isFinite(summary.observedValueUsd)) {
     return {
       value: `≥${formatUsd(summary.observedValueUsd)}`,
-      detail: "已观测下限",
+      detail: `已记录 ${summary.observedDays}/${summary.expectedDays} 天`,
       className: "is-partial",
     };
   }
@@ -1653,14 +1823,20 @@ function renderPlatformVolumes() {
   if (!payload) return;
   const windowName = state.activityVolumeWindow;
   const comparison = payload.comparisons[windowName];
-  const labels = {
-    "7d": "最近7个完整 UTC 日",
-    "30d": "最近30个完整 UTC 日",
-    lifetime: "官方累计按采集时点；日度账本截至最近闭合日",
-  };
-  $("#platform-volume-window-note").textContent = `${labels[windowName]} · ${comparison.note}`;
+  const firstSummary = payload.platforms[0]?.volumes?.[windowName];
+  const periodLabel =
+    windowName === "lifetime"
+      ? `各平台上线以来 · 数据截至 ${formatUtcDay(payload.targetDate, true)}（UTC）`
+      : `${formatUtcRange(firstSummary?.startDate, firstSummary?.endDate)} · UTC`;
+  const comparisonLabel =
+    comparison.state === "available"
+      ? "三平台均有完整数据"
+      : comparison.state === "not_comparable"
+        ? "上线日期不同，不计算累计占比"
+        : "日期范围不完整，暂不计算三平台占比";
+  $("#platform-volume-window-note").textContent = `${periodLabel} · ${comparisonLabel}`;
 
-  for (const platform of payload.platforms) {
+  for (const platform of orderedPlatforms(payload.platforms)) {
     const summary = platform.volumes[windowName];
     const display = volumeDisplay(summary);
     const row = element("tr");
@@ -1694,7 +1870,9 @@ function renderPlatformVolumes() {
 
 function renderPlatformActivity() {
   const payload = state.platformActivity;
-  $("#platform-activity-date").textContent = payload ? `闭合日 ${payload.targetDate}` : "闭合日 —";
+  $("#platform-activity-date").textContent = payload
+    ? `数据截至 ${formatUtcDay(payload.targetDate, true)}（UTC）`
+    : "数据截至 —";
   const status = $("#platform-activity-state");
   status.className = "";
   const hasBuildingBaseline = payload?.platforms.some((platform) => {
@@ -1713,8 +1891,11 @@ function renderPlatformActivity() {
   if (payload?.stale) status.classList.add("is-stale");
   if (hasBuildingBaseline && !payload?.stale) status.classList.add("is-building");
   $("#platform-activity-formula").textContent = payload
-    ? `相对平时 = 最近 ${state.activityWindowDays} 日平均交易量 ÷ 过去同周期正常水平 · 至少需要 ${payload.benchmark.baselineMinimumObservations} 个历史样本`
-    : "相对平时 = 当前周期日均交易量 ÷ 过去同周期正常水平";
+    ? `1.0× = 最近 ${state.activityWindowDays} 日日均交易量与自身历史常态相同 · 至少需要 ${payload.benchmark.baselineMinimumObservations} 个历史样本`
+    : "1.0× = 和该平台自己的历史常态相当";
+  $("#platform-operation-title").textContent = payload
+    ? `${formatUtcDay(payload.targetDate)}经营数据`
+    : "最近一天经营数据";
   renderPlatformActivityCards();
   renderPlatformActivityChart();
   renderPlatformVolumes();
@@ -1848,8 +2029,8 @@ function renderValuationHistory() {
 
   for (const point of points) {
     for (const [key, label, className] of [
-      ["estimateUsd", "现价 PONS 锚", ""],
-      ["actualPriceUsd", "PAIR 实际", " is-actual"],
+      ["estimateUsd", "PAIR 折算参考价", ""],
+      ["actualPriceUsd", "PAIR 实际价", " is-actual"],
     ]) {
       if (!Number.isFinite(point[key])) continue;
       const marker = svgElement("circle", {
@@ -1977,8 +2158,8 @@ function renderPonsForecast() {
     ? formatPriceRange(adjusted?.rangeLowUsd, adjusted?.rangeHighUsd)
     : "等待足够的相似历史";
   $("#pair-adjusted-anchor").title = Number.isFinite(adjusted?.actualDeviationPercent)
-    ? `PAIR 实际相对调整锚 ${formatSignedPercent(adjusted.actualDeviationPercent)}`
-    : (adjusted?.formula ?? "等待调整锚");
+    ? `PAIR 实际价相对预测后折算参考价 ${formatSignedPercent(adjusted.actualDeviationPercent)}`
+    : (adjusted?.formula ?? "等待预测后折算参考价");
   $("#pons-forecast-chain").textContent = forecast
     ? `${forecast.chainLabel}${Number.isFinite(forecast.ponsActivityMultiple) ? ` · Pons ${forecast.ponsActivityMultiple.toFixed(2)}×` : ""}`
     : "—";
@@ -2102,18 +2283,18 @@ function renderValuationWindow(valuation) {
   if (!valuation?.platformWindowStart || !valuation?.platformWindowEnd) {
     const dayCount = Number.isFinite(valuation?.commonDayCount) ? valuation.commonDayCount : 0;
     const minimum = Number.isFinite(valuation?.minimumCommonDays) ? valuation.minimumCommonDays : 5;
-    target.textContent = `共同窗口不可用 · ${dayCount}/${minimum} 日`;
+    target.textContent = `双方都有数据的日期不足 · ${dayCount}/${minimum} 天`;
     target.classList.add("is-unavailable");
     return;
   }
 
   const lag = closedDayLag(valuation.platformWindowEnd, valuation.observedAt);
   const history = Number.isFinite(valuation.totalCommonDayCount)
-    ? ` · 可比历史 ${valuation.totalCommonDayCount} 日`
+    ? ` · 已有 ${valuation.totalCommonDayCount} 天可对比数据`
     : "";
   const lagLabel =
-    lag === null ? "" : lag === 0 ? " · 已覆盖最近闭合日" : ` · 落后最近闭合日 ${lag} 日`;
-  target.textContent = `共同窗口 ${valuation.platformWindowStart}—${valuation.platformWindowEnd} · ${valuation.commonDayCount} 日${history}${lagLabel}`;
+    lag === null ? "" : lag === 0 ? " · 已更新到最新可统计日期" : ` · 距最新可统计日期 ${lag} 天`;
+  target.textContent = `对比日期 ${formatUtcRange(valuation.platformWindowStart, valuation.platformWindowEnd)} · ${valuation.commonDayCount} 天${history}${lagLabel}`;
   target.classList.add(lag === null ? "is-unavailable" : lag > 0 ? "is-delayed" : "is-current");
 }
 
@@ -2176,7 +2357,7 @@ function renderValuationCalculation(valuation) {
   ].every((value) => Number.isFinite(value));
   $("#valuation-equation-substitution").textContent = inputsReady
     ? `${substitution} = ${formatTokenPrice(valuation?.estimateUsd)}`
-    : "输入不足，暂不计算参考价";
+    : "输入不足，暂不计算 PAIR 折算参考价";
 
   const ponsPolicy = valuation?.policyScenario?.ponsFeeAllocationPercent;
   const pairPolicy = valuation?.policyScenario?.pairFeeAllocationPercent;
@@ -2186,7 +2367,7 @@ function renderValuationCalculation(valuation) {
     Number.isFinite(ponsPolicy) &&
     Number.isFinite(pairPolicy)
       ? `${formatTokenPrice(valuation?.estimateUsd)} × (PAIR ${formatCount(pairPolicy)}% ÷ PONS ${formatCount(ponsPolicy)}%) = ${formatTokenPrice(valuation?.policyScenario?.estimateUsd)}`
-      : "基础参考价不可用，情景暂不计算";
+      : "PAIR 折算参考价不可用，情景暂不计算";
 
   const reasons = $("#valuation-reasons");
   const reasonItems = valuation?.reasons ?? [];
@@ -2213,19 +2394,34 @@ function renderPairRelativeValuation() {
     valuation?.rangeHighUsd,
   );
   const deviation = $("#valuation-deviation");
-  deviation.textContent = formatSignedPercent(valuation?.actualDeviationPercent);
+  const deviationValue = valuation?.actualDeviationPercent;
+  const deviationDirection = !Number.isFinite(deviationValue)
+    ? null
+    : deviationValue > 0
+      ? "溢价"
+      : deviationValue < 0
+        ? "折价"
+        : "持平";
+  $("#valuation-deviation-label").textContent = deviationDirection
+    ? `PAIR 当前${deviationDirection}`
+    : "PAIR 当前溢价 / 折价";
+  deviation.textContent = Number.isFinite(deviationValue)
+    ? formatPercent(Math.abs(deviationValue))
+    : "—";
   deviation.classList.remove("is-premium", "is-discount", "is-unavailable");
   deviation.classList.add(
-    !Number.isFinite(valuation?.actualDeviationPercent)
+    !Number.isFinite(deviationValue)
       ? "is-unavailable"
-      : valuation.actualDeviationPercent >= 0
+      : deviationValue >= 0
         ? "is-premium"
         : "is-discount",
   );
-  deviation.title = Number.isFinite(valuation?.actualDeviationPercent)
-    ? valuation.actualDeviationPercent >= 0
-      ? "PAIR 实际价格高于相对估值中枢"
-      : "PAIR 实际价格低于相对估值中枢"
+  deviation.title = Number.isFinite(deviationValue)
+    ? deviationValue > 0
+      ? "PAIR 当前价格高于按 PONS 平台规模折算的 PAIR 参考价"
+      : deviationValue < 0
+        ? "PAIR 当前价格低于按 PONS 平台规模折算的 PAIR 参考价"
+        : "PAIR 当前价格与折算参考价相同"
     : "缺少可比结果";
   $("#valuation-policy-price").textContent = formatTokenPrice(
     valuation?.policyScenario?.estimateUsd,
@@ -3518,12 +3714,14 @@ function renderPairAlpha() {
 function renderEconomics() {
   if (!state.economics) return;
   $("#economics-empty-state").hidden = true;
-  $("#economics-target-date").textContent = state.economics.targetDate;
+  $("#economics-target-date").textContent = `${formatUtcDay(state.economics.targetDate, true)} UTC`;
   $("#economics-denominator").textContent = state.economics.shareReady
     ? formatUsd(state.economics.shareDenominatorUsd)
     : "未齐";
   $("#economics-observed-at").textContent = formatDateTime(state.economics.observedAt);
   $("#header-date").textContent = state.economics.targetDate;
+  $("#platform-economics-date").textContent =
+    `${formatUtcDay(state.economics.targetDate)} · 三个平台使用同一数据日期`;
   renderPlatformActivity();
   renderLaunchpadOverview();
   renderPairFlow();
@@ -3664,7 +3862,7 @@ function coverageMark(metric) {
     metric.observedDays === 0 ? "is-empty" : metric.coverage >= 1 ? "is-full" : "is-partial";
   const mark = element("span", `coverage-mark ${className}`);
   mark.textContent = metric.observedDays === 0 ? "—" : `${metric.observedDays}/30`;
-  mark.title = `最近 ${metric.windowDays} 个闭合 UTC 日中有 ${metric.observedDays} 日观测`;
+  mark.title = `最近 ${metric.windowDays} 天中有 ${metric.observedDays} 天具备数据`;
   return mark;
 }
 
@@ -4892,6 +5090,7 @@ function syncInitialView() {
 }
 
 syncInitialView();
+bindMetricHelp();
 bindEvents();
 
 let economicsPollInFlight = false;

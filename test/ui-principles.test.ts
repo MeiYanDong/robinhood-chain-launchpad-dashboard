@@ -32,6 +32,12 @@ test("launchpad dashboard is split into four task views and defaults to a concis
   assert.match(html, /id="overview-platform-body"/);
   assert.match(html, /id="overview-insight-list"/);
   assert.match(html, /id="overview-trend-chart"/);
+  assert.match(html, /id="overview-volume-date-heading"/);
+  assert.match(html, /id="overview-valuation-label"/);
+  assert.match(html, /id="valuation-deviation-label"/);
+  assert.match(html, /id="metric-help-popover"[^>]*role="tooltip"[^>]*hidden/);
+  assert.match(html, /data-help-title="什么是相较自身历史常态？"/);
+  assert.match(html, /data-help-title="为什么这是 PAIR 的参考价？"/);
   assert.match(html, /id="platform-activity-cards"/);
   assert.match(html, /data-activity-window="7"/);
   assert.match(html, /data-activity-window="30"/);
@@ -77,6 +83,7 @@ test("launchpad dashboard is split into four task views and defaults to a concis
   assert.match(html, /<details[\s\S]*id="buyback-disclosure"/);
   assert.match(html, /七日预测实验（样本不足时自动停用）/);
   assert.doesNotMatch(html, /日估值中间 50%|独立七日上涨占比|90% \/ 80% 情景|三强快照/);
+  assert.doesNotMatch(html, /闭合日|相对平时|PONS 规模参考价|现价 PONS 锚|现价锚/);
   assert.doesNotMatch(
     html,
     /COVERAGE BEFORE|先看覆盖|数字先上桌|Launchpad ledger|ACCOUNTING NOTES|SOURCE ROUTES|TOKEN VALUE|PLATFORM ECONOMICS|PLATFORM ACTIVITY|BUYBACK PROOF/,
@@ -124,8 +131,44 @@ test("economics client keeps unknown, not-applicable, and refresh routes distinc
   assert.match(app, /pairEffectiveSupply/);
   assert.match(app, /ponsPlatformVolumeUsd/);
   assert.match(app, /pairPlatformVolumeUsd/);
-  assert.match(app, /落后最近闭合日/);
+  assert.match(app, /距最新可统计日期/);
   assert.doesNotMatch(app, /PRIA/);
+});
+
+test("launchpad wording, chart scale, and platform colors share one semantic contract", async () => {
+  const [app, styles] = await Promise.all([
+    readFile(appUrl, "utf8"),
+    readFile(stylesV2Url, "utf8"),
+  ]);
+  const overviewChart = app.match(
+    /function renderOverviewTrendChart\(\) \{[\s\S]*?\n\}\n\nfunction renderLaunchpadOverview/,
+  )?.[0];
+
+  assert.ok(overviewChart);
+  assert.match(overviewChart, /chartMax = rawMax > 0 \? rawMax \* 1\.08 : 1/);
+  assert.match(overviewChart, /Math\.max\(0, value\) \/ Math\.max\(1, chartMax\)/);
+  assert.match(overviewChart, /overview-trend-end--\$\{endpoint\.platform\.platformId\}/);
+  assert.doesNotMatch(overviewChart, /Math\.log|logMin|logMax/);
+  assert.match(app, /`\$\{dayLabel\}交易量`/);
+  assert.match(app, /dataset\.label = "三平台交易量占比"/);
+  assert.match(app, /gapDirection[\s\S]*"溢价"[\s\S]*"折价"/);
+  assert.match(app, /bindMetricHelp\(\)/);
+  assert.doesNotMatch(app, /闭合日|相对平时|PONS 规模参考价|现价 PONS 锚|现价锚/);
+
+  assert.match(styles, /--platform-pons: var\(--acid\)/);
+  assert.match(styles, /--platform-long: var\(--amber\)/);
+  assert.match(styles, /--platform-pair: var\(--cyan\)/);
+  assert.match(
+    styles,
+    /activity-legend \[data-platform-id="long"\][\s\S]*background: var\(--platform-long\)/,
+  );
+  assert.match(
+    styles,
+    /activity-legend \[data-platform-id="pair"\][\s\S]*background: var\(--platform-pair\)/,
+  );
+  assert.match(styles, /overview-trend-line--long[\s\S]*stroke: var\(--platform-long\)/);
+  assert.match(styles, /overview-trend-line--pair[\s\S]*stroke: var\(--platform-pair\)/);
+  assert.match(styles, /content: attr\(data-label\)/);
 });
 
 test("coverage and source audit stay on demand", async () => {

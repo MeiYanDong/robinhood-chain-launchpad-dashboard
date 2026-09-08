@@ -8,6 +8,9 @@
   --cyan: #63d4e4;
   --coral: #ff7b77;
   --amber: #f1c569;
+  --platform-pons: var(--acid);
+  --platform-long: var(--amber);
+  --platform-pair: var(--cyan);
   --line: rgba(151, 173, 163, 0.13);
   --line-strong: rgba(151, 173, 163, 0.22);
   --display: "Avenir Next", "SF Pro Text", "PingFang SC", "Hiragino Sans GB", sans-serif;
@@ -67,6 +70,68 @@ input:focus-visible,
 [role="button"]:focus-visible {
   outline: 2px solid var(--acid);
   outline-offset: 2px;
+}
+
+.metric-label {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.38rem;
+}
+
+.metric-help {
+  display: inline-grid;
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(145, 160, 153, 0.46);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--paper-muted);
+  cursor: help;
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.metric-help:hover,
+.metric-help:focus-visible,
+.metric-help[aria-expanded="true"] {
+  border-color: var(--acid);
+  background: var(--accent-soft);
+  color: var(--acid);
+}
+
+.metric-help-popover {
+  position: fixed;
+  z-index: 100;
+  width: min(340px, calc(100vw - 20px));
+  padding: 13px 14px;
+  border: 1px solid rgba(131, 237, 176, 0.3);
+  border-radius: 10px;
+  background: rgba(13, 20, 18, 0.98);
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.42);
+}
+
+.metric-help-popover[hidden] {
+  display: none;
+}
+
+.metric-help-popover strong {
+  display: block;
+  color: var(--paper);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.metric-help-popover p {
+  margin: 0.42rem 0 0;
+  color: #a4b2ab;
+  font-size: 0.6875rem;
+  line-height: 1.65;
 }
 
 .skip-link {
@@ -1202,15 +1267,15 @@ td,
 }
 
 .economics-table tbody tr[data-platform-id="pons"] td:first-child::before {
-  background: var(--acid);
+  background: var(--platform-pons);
 }
 
 .economics-table tbody tr[data-platform-id="pair"] td:first-child::before {
-  background: var(--coral);
+  background: var(--platform-pair);
 }
 
 .economics-table tbody tr[data-platform-id="long"] td:first-child::before {
-  background: var(--cyan);
+  background: var(--platform-long);
 }
 
 .economics-token-link strong,
@@ -4191,17 +4256,17 @@ body[data-product-context="leaders"] .intelligence-section {
   position: absolute;
   inset: 0 0 auto;
   height: 2px;
-  background: var(--acid);
+  background: var(--platform-pons);
   opacity: 0.72;
   content: "";
 }
 
 .triad-card[data-platform-id="long"]::before {
-  background: var(--cyan);
+  background: var(--platform-long);
 }
 
 .triad-card[data-platform-id="pair"]::before {
-  background: var(--coral);
+  background: var(--platform-pair);
 }
 
 .triad-card__head {
@@ -4226,18 +4291,18 @@ body[data-product-context="leaders"] .intelligence-section {
   height: 6px;
   flex: 0 0 auto;
   border-radius: 50%;
-  background: var(--acid);
+  background: var(--platform-pons);
   box-shadow: 0 0 0 4px rgba(131, 237, 176, 0.07);
 }
 
 .triad-card[data-platform-id="long"] .triad-card__head i {
-  background: var(--cyan);
-  box-shadow: 0 0 0 4px rgba(99, 212, 228, 0.07);
+  background: var(--platform-long);
+  box-shadow: 0 0 0 4px rgba(241, 197, 105, 0.07);
 }
 
 .triad-card[data-platform-id="pair"] .triad-card__head i {
-  background: var(--coral);
-  box-shadow: 0 0 0 4px rgba(255, 123, 119, 0.07);
+  background: var(--platform-pair);
+  box-shadow: 0 0 0 4px rgba(99, 212, 228, 0.07);
 }
 
 .triad-card__head strong {
@@ -6503,6 +6568,14 @@ body[data-product-context="pair-flow"] .economics-section {
   text-align: right;
 }
 
+.activity-explainer {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
 .activity-card-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -6532,17 +6605,17 @@ body[data-product-context="pair-flow"] .economics-section {
   right: 16px;
   left: 16px;
   height: 1px;
-  background: var(--acid);
+  background: var(--platform-pons);
   content: "";
   opacity: 0.68;
 }
 
 .activity-card[data-platform-id="long"]::before {
-  background: var(--cyan);
+  background: var(--platform-long);
 }
 
 .activity-card[data-platform-id="pair"]::before {
-  background: var(--coral);
+  background: var(--platform-pair);
 }
 
 .activity-card__head,
@@ -6566,22 +6639,22 @@ body[data-product-context="pair-flow"] .economics-section {
   height: 7px;
   flex: 0 0 auto;
   border-radius: 50%;
-  background: var(--acid);
+  background: var(--platform-pons);
   box-shadow: 0 0 10px rgba(131, 237, 176, 0.36);
 }
 
 .activity-card[data-platform-id="long"] .activity-card__identity i,
 .activity-legend [data-platform-id="long"] i,
 .activity-volume-table tr[data-platform-id="long"] .activity-volume-platform > i {
-  background: var(--cyan);
-  box-shadow: 0 0 10px rgba(99, 212, 228, 0.32);
+  background: var(--platform-long);
+  box-shadow: 0 0 10px rgba(241, 197, 105, 0.3);
 }
 
 .activity-card[data-platform-id="pair"] .activity-card__identity i,
 .activity-legend [data-platform-id="pair"] i,
 .activity-volume-table tr[data-platform-id="pair"] .activity-volume-platform > i {
-  background: var(--coral);
-  box-shadow: 0 0 10px rgba(255, 123, 119, 0.3);
+  background: var(--platform-pair);
+  box-shadow: 0 0 10px rgba(99, 212, 228, 0.32);
 }
 
 .activity-card__identity strong {
@@ -6798,7 +6871,7 @@ body[data-product-context="pair-flow"] .economics-section {
 
 .activity-chart-line {
   fill: none;
-  stroke: var(--acid);
+  stroke: var(--platform-pons);
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2;
@@ -6806,25 +6879,25 @@ body[data-product-context="pair-flow"] .economics-section {
 }
 
 .activity-chart-line--long {
-  stroke: var(--cyan);
+  stroke: var(--platform-long);
 }
 
 .activity-chart-line--pair {
-  stroke: var(--coral);
+  stroke: var(--platform-pair);
 }
 
 .activity-chart-dot {
-  fill: var(--acid);
+  fill: var(--platform-pons);
   stroke: #0c1210;
   stroke-width: 2;
 }
 
 .activity-chart-dot--long {
-  fill: var(--cyan);
+  fill: var(--platform-long);
 }
 
 .activity-chart-dot--pair {
-  fill: var(--coral);
+  fill: var(--platform-pair);
 }
 
 .activity-chart-empty {
@@ -6954,8 +7027,12 @@ body[data-product-context="pair-flow"] .economics-section {
     grid-template-columns: auto auto;
   }
 
-  #platform-activity-formula {
+  .activity-explainer {
     grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
+  #platform-activity-formula {
     text-align: left;
   }
 
@@ -6985,7 +7062,7 @@ body[data-product-context="pair-flow"] .economics-section {
     grid-template-columns: 1fr;
   }
 
-  #platform-activity-formula {
+  .activity-explainer {
     grid-column: auto;
   }
 
@@ -7443,15 +7520,15 @@ body[data-launchpad-view="tokens"] #economics-view > .economics-tape {
 }
 
 .overview-platform-dot--pons {
-  background: var(--acid) !important;
+  background: var(--platform-pons) !important;
 }
 
 .overview-platform-dot--pair {
-  background: var(--cyan) !important;
+  background: var(--platform-pair) !important;
 }
 
 .overview-platform-dot--long {
-  background: var(--amber) !important;
+  background: var(--platform-long) !important;
 }
 
 .overview-platform-identity strong {
@@ -7548,22 +7625,59 @@ body[data-launchpad-view="tokens"] #economics-view > .economics-tape {
 
 .overview-trend-line--pons,
 .overview-trend-point--pons {
-  stroke: var(--acid);
+  stroke: var(--platform-pons);
 }
 
 .overview-trend-line--pair,
 .overview-trend-point--pair {
-  stroke: var(--cyan);
+  stroke: var(--platform-pair);
 }
 
 .overview-trend-line--long,
 .overview-trend-point--long {
-  stroke: var(--amber);
+  stroke: var(--platform-long);
 }
 
 .overview-trend-point {
   fill: var(--ink);
   stroke-width: 2;
+}
+
+.overview-trend-connector {
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  opacity: 0.58;
+  vector-effect: non-scaling-stroke;
+}
+
+.overview-trend-end {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.overview-trend-connector--pons {
+  stroke: var(--platform-pons);
+}
+
+.overview-trend-connector--long {
+  stroke: var(--platform-long);
+}
+
+.overview-trend-connector--pair {
+  stroke: var(--platform-pair);
+}
+
+.overview-trend-end--pons {
+  fill: var(--platform-pons);
+}
+
+.overview-trend-end--long {
+  fill: var(--platform-long);
+}
+
+.overview-trend-end--pair {
+  fill: var(--platform-pair);
 }
 
 .overview-trend-point:focus {
@@ -7761,10 +7875,23 @@ body[data-launchpad-view="platforms"] #buyback-disclosure {
 }
 
 body[data-launchpad-view="valuation"] .valuation-panel {
+  width: 100%;
+  min-width: 0;
   max-width: 1180px;
   margin-inline: auto;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-panel);
+}
+
+body[data-launchpad-view="valuation"] #economics-view,
+body[data-launchpad-view="valuation"] .valuation-panel > *,
+body[data-launchpad-view="valuation"] .valuation-calculation,
+body[data-launchpad-view="valuation"] .valuation-calculation__detail,
+body[data-launchpad-view="valuation"] .valuation-input-table-wrap,
+body[data-launchpad-view="valuation"] .valuation-chart-panel,
+body[data-launchpad-view="valuation"] .valuation-daily-table-wrap {
+  min-width: 0;
+  max-width: 100%;
 }
 
 body[data-launchpad-view="valuation"] .valuation-panel__head {
@@ -8007,26 +8134,11 @@ body[data-launchpad-view="tokens"] #long-view {
   }
 
   .overview-comparison__table td::before {
+    content: attr(data-label);
     margin-bottom: 0.24rem;
     color: #6d7a74;
     font-family: var(--display);
     font-size: 0.5625rem;
-  }
-
-  .overview-comparison__table td:nth-child(2)::before {
-    content: "当前价格";
-  }
-
-  .overview-comparison__table td:nth-child(3)::before {
-    content: "闭合日交易量";
-  }
-
-  .overview-comparison__table td:nth-child(4)::before {
-    content: "市场份额";
-  }
-
-  .overview-comparison__table td:nth-child(5)::before {
-    content: "相对平时";
   }
 
   .platform-operation__table {
