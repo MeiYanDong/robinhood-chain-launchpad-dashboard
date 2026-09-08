@@ -284,6 +284,27 @@ async function withService(
     {
       now: () => now,
       collect: async () => economicsBatch(now.toISOString()),
+      collectPonsPriceHistory: async () => ({
+        value: [
+          {
+            tokenAddress: settings.ponsTokenAddress,
+            date: "2026-09-02",
+            openedAt: "2026-09-02T00:00:00.000Z",
+            openUsd: 0.18,
+            highUsd: 0.22,
+            lowUsd: 0.17,
+            closeUsd: 0.2,
+            volumeUsd: 1_000,
+            amountTokens: 5_000,
+            state: "closed",
+            observedAt: now.toISOString(),
+            source: "gmgn.tokenKline",
+            quality: "third_party",
+          },
+        ],
+        fetchedAt: now.toISOString(),
+        latencyMs: 1,
+      }),
       warn: () => undefined,
     },
   );
@@ -385,6 +406,7 @@ test("economics service calculates and persists the seven-common-day PAIR anchor
     assert.ok(Math.abs((valuation.estimateUsd ?? 0) - 0.0375) < 1e-12);
     assert.equal(database.valuationHistory()[0]?.estimateUsd, valuation.estimateUsd);
     assert.equal(service.valuationHistory().points.length, 1);
+    assert.equal(service.valuationHistory().daily[0]?.pons?.closeUsd, 0.2);
 
     setNow("2026-09-03T01:31:00.000Z");
     const expiredPrice = service.snapshot();

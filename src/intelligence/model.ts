@@ -1,10 +1,12 @@
-import type { EconomicsResponse } from "../economics/types.js";
+import type { EconomicsResponse, TokenDailyCandle } from "../economics/types.js";
 import type { LongLeaderboardResponse } from "../long-tokens/types.js";
 import type {
   PairLeaderboardResponse,
   PairRankingEntry,
   PairTokenMetricName,
 } from "../pair/types.js";
+import type { PlatformActivityResponse } from "../platform-activity/types.js";
+import { buildPonsPriceForecast } from "./pons-forecast.js";
 import type {
   ChainHeatModel,
   HeatDimension,
@@ -35,6 +37,8 @@ export interface IntelligenceBuildInput {
   economics: EconomicsResponse | null;
   pair: PairLeaderboardResponse;
   long: LongLeaderboardResponse;
+  platformActivity: PlatformActivityResponse | null;
+  ponsPriceHistory: TokenDailyCandle[];
 }
 
 interface TokenFact {
@@ -993,6 +997,16 @@ export function buildIntelligence(input: IntelligenceBuildInput): IntelligenceRe
       "相对折价或溢价不是绝对低估或高估，也不是目标价。",
     ],
   };
+  const ponsForecast = buildPonsPriceForecast({
+    now: input.now,
+    chainPayload: input.chain.payload,
+    chainUsable: source("chain_radar").status !== "failed" && !source("chain_radar").stale,
+    chainHeat,
+    economics: input.economics,
+    pair: input.pair,
+    platformActivity: input.platformActivity,
+    ponsCandles: input.ponsPriceHistory,
+  });
   const usableCohortRows = relativeValuation.cohorts.flatMap((cohort) => cohort.rows);
   const unavailable =
     leader.structuralLeader.state === "unknown" &&
@@ -1016,6 +1030,7 @@ export function buildIntelligence(input: IntelligenceBuildInput): IntelligenceRe
     chainHeat,
     tokenHeat,
     relativeValuation,
+    ponsForecast,
     sources,
     warnings,
   };

@@ -83,7 +83,12 @@ const economics = new EconomicsService(
   economicsCollector,
 );
 const intelligenceSettings = intelligenceSettingsFromEnv();
-const intelligence = new IntelligenceService(intelligenceSettings, { economics, pair, long });
+const intelligence = new IntelligenceService(intelligenceSettings, {
+  economics,
+  pair,
+  long,
+  dashboard,
+});
 const server = createServer(
   createDashboardRequestHandler({
     dashboard,

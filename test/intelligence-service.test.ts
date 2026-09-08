@@ -36,7 +36,8 @@ test("intelligence service coalesces source reads and honors its cache TTL", asy
   const service = new IntelligenceService(
     { ...DEFAULT_INTELLIGENCE_SETTINGS, refreshTtlMinutes: 5 },
     {
-      economics: { snapshot: () => null },
+      economics: { snapshot: () => null, ponsPriceHistory: () => [] },
+      dashboard: { platformActivity: () => null as never },
       pair: { rankings: () => emptyRadar("pair") as PairLeaderboardResponse },
       long: { rankings: () => emptyRadar("long") as LongLeaderboardResponse },
       now: () => now,
@@ -62,7 +63,8 @@ test("intelligence service coalesces source reads and honors its cache TTL", asy
 test("intelligence service degrades unavailable JSON sources without leaking errors", async () => {
   const warnings: Array<Record<string, unknown>> = [];
   const service = new IntelligenceService(DEFAULT_INTELLIGENCE_SETTINGS, {
-    economics: { snapshot: () => null },
+    economics: { snapshot: () => null, ponsPriceHistory: () => [] },
+    dashboard: { platformActivity: () => null as never },
     pair: { rankings: () => emptyRadar("pair") as PairLeaderboardResponse },
     long: { rankings: () => emptyRadar("long") as LongLeaderboardResponse },
     now: () => new Date("2026-09-04T03:00:00.000Z"),

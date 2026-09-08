@@ -6,6 +6,7 @@ import { lastClosedUtcDate, shiftUtcDate } from "../utils/time.js";
 import type { EconomicsSettings } from "./config.js";
 import type { EconomicsCollector } from "./collector.js";
 import type { EconomicsDatabase } from "./database.js";
+import { aggregateValuationDaily } from "./history.js";
 import type {
   BuybackPolicy,
   BuybackSummaryRow,
@@ -19,6 +20,7 @@ import type {
   PlatformEconomicsRow,
   ProtocolTokenMarketObservation,
   TokenEconomicsRow,
+  TokenDailyCandle,
   TokenSupplyObservation,
 } from "./types.js";
 import {
@@ -56,6 +58,7 @@ export interface EconomicsServiceDependencies {
   pair: EconomicsPairProvider;
   long: EconomicsLongProvider;
   collect?: EconomicsCollector["collect"];
+  collectPonsPriceHistory?: EconomicsCollector["collectPonsPriceHistory"];
   now?: () => Date;
   warn?: (event: string, context: Record<string, unknown>) => void;
 }
@@ -545,6 +548,7 @@ function platformSource(
 export class EconomicsService {
   private refreshPromise: Promise<EconomicsResponse> | null = null;
   private readonly collect: EconomicsCollector["collect"];
+  private readonly collectPonsPriceHistory: EconomicsCollector["collectPonsPriceHistory"];
   private readonly now: () => Date;
   private readonly warn: (event: string, context: Record<string, unknown>) => void;
 
@@ -556,6 +560,8 @@ export class EconomicsService {
     dependencies: Omit<EconomicsServiceDependencies, "dashboard" | "pair" | "long"> = {},
   ) {
     this.collect = dependencies.collect ?? collector.collect.bind(collector);
+    this.collectPonsPriceHistory =
+      dependencies.collectPonsPriceHistory ?? collector.collectPonsPriceHistory.bind(collector);
     this.now = dependencies.now ?? (() => new Date());
     this.warn = dependencies.warn ?? ((event, context) => console.warn(event, context));
   }
@@ -599,10 +605,70 @@ export class EconomicsService {
   }
 
   private async refreshNow(): Promise<EconomicsResponse> {
+    const now = this.now();
+    // GMGN applies an IP-wide rate limit. Keep spot and K-line reads serial,
+    // while the hourly K-line cache prevents redundant history requests.
     const batch = await this.collect();
-    const response = this.buildResponse(batch);
+    const priceHistoryHealth = await this.refreshPonsPriceHistory(now);
+    const response = this.buildResponse({
+      ...batch,
+      sourceHealth: [...batch.sourceHealth, priceHistoryHealth],
+      warnings:
+        priceHistoryHealth.status === "ok"
+          ? batch.warnings
+          : [...batch.warnings, "gmgn.ponsPriceHistory_unavailable"],
+    });
     this.database.save(response);
     return response;
+  }
+
+  private async refreshPonsPriceHistory(now: Date): Promise<EconomicsSourceHealth> {
+    const source = "gmgn.ponsPriceHistory";
+    const label = "GMGN PONS 日线";
+    const url = this.settings.ponsTokenUrl;
+    const cachedAt = this.database.tokenDailyCandlesFetchedAt(this.settings.ponsTokenAddress);
+    const cachedAge = cachedAt ? now.valueOf() - Date.parse(cachedAt) : Number.POSITIVE_INFINITY;
+    if (
+      cachedAt &&
+      Number.isFinite(cachedAge) &&
+      cachedAge >= -60_000 &&
+      cachedAge < this.settings.priceHistoryTtlMinutes * 60_000
+    ) {
+      return {
+        source,
+        label,
+        status: "ok",
+        fetchedAt: cachedAt,
+        message: "小时级日线缓存可用。",
+        url,
+      };
+    }
+    try {
+      const result = await this.collectPonsPriceHistory();
+      this.database.upsertTokenDailyCandles(this.settings.ponsTokenAddress, result.value);
+      return {
+        source,
+        label,
+        status: "ok",
+        fetchedAt: result.fetchedAt,
+        message: `${result.value.length} 个日线价格点可用。`,
+        url,
+      };
+    } catch (error) {
+      const cached = this.database.tokenDailyCandles(this.settings.ponsTokenAddress, 1);
+      this.warn("pons_price_history_refresh_failed", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        cached: cached.length > 0,
+      });
+      return {
+        source,
+        label,
+        status: cached.length > 0 ? "degraded" : "failed",
+        fetchedAt: cachedAt ?? now.toISOString(),
+        message: cached.length > 0 ? "刷新失败，继续使用已保存日线。" : "日线暂不可用。",
+        url,
+      };
+    }
   }
 
   private buildResponse(batch: EconomicsCollectionBatch): EconomicsResponse {
@@ -791,14 +857,28 @@ export class EconomicsService {
 
   valuationHistory(): PairRelativeValuationHistoryResponse {
     const now = this.now();
+    const endDate = now.toISOString().slice(0, 10);
+    const startDate = shiftUtcDate(endDate, -6);
+    const points = this.database.valuationHistory(`${startDate}T00:00:00.000Z`);
     return {
       service: "rhc-launchpad-economics",
       generatedAt: now.toISOString(),
       window: "7d",
-      points: this.database.valuationHistory(
-        new Date(now.valueOf() - 7 * 24 * 60 * 60_000).toISOString(),
-      ),
+      points,
+      daily: aggregateValuationDaily({
+        points,
+        ponsCandles: this.ponsPriceHistory(),
+        startDate,
+        endDate,
+      }),
     };
+  }
+
+  ponsPriceHistory(): TokenDailyCandle[] {
+    return this.database.tokenDailyCandles(
+      this.settings.ponsTokenAddress,
+      Math.ceil(this.settings.priceHistoryDays),
+    );
   }
 
   sources() {

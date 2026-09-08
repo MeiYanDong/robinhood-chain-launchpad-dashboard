@@ -557,6 +557,162 @@ main {
   border-bottom: 1px solid var(--line);
 }
 
+.pons-forecast {
+  border-bottom: 1px solid var(--line);
+  background:
+    linear-gradient(110deg, rgba(99, 212, 228, 0.04), transparent 42%),
+    rgba(6, 11, 9, 0.18);
+}
+
+.pons-forecast__head {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.pons-forecast__head > div {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.pons-forecast__head span {
+  color: var(--cyan);
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.06em;
+}
+
+.pons-forecast__head h2 {
+  color: var(--paper);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.pons-forecast__metrics {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  border-bottom: 1px solid var(--line);
+}
+
+.pons-forecast__metrics article {
+  display: grid;
+  min-width: 0;
+  min-height: 92px;
+  align-content: center;
+  gap: 0.38rem;
+  padding: 13px 14px;
+  border-right: 1px solid var(--line);
+}
+
+.pons-forecast__metrics article:last-child {
+  border-right: 0;
+}
+
+.pons-forecast__metrics span,
+.pons-forecast__metrics small {
+  overflow: hidden;
+  color: var(--paper-muted);
+  font-size: 0.6875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pons-forecast__metrics strong {
+  overflow: visible;
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: clamp(0.75rem, 1vw, 0.9375rem);
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+#pons-forecast-chain,
+#pons-forecast-range,
+#pair-adjusted-range {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.pons-forecast__metrics .is-primary strong {
+  color: var(--cyan);
+}
+
+.pons-forecast__metrics .is-pair-anchor strong {
+  color: var(--acid);
+}
+
+.pons-forecast__evidence {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.75fr) minmax(0, 1.35fr);
+}
+
+.pons-forecast__method {
+  display: grid;
+  align-content: center;
+  gap: 0.36rem;
+  padding: 13px 16px;
+  border-right: 1px solid var(--line);
+}
+
+.pons-forecast__method strong {
+  color: var(--paper);
+  font-size: 0.75rem;
+}
+
+.pons-forecast__method span {
+  color: #76847d;
+  font-size: 0.65625rem;
+  line-height: 1.45;
+}
+
+#pons-forecast-drivers {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#pons-forecast-drivers li {
+  display: grid;
+  min-height: 72px;
+  align-content: center;
+  gap: 0.28rem;
+  padding: 11px 12px;
+  border-right: 1px solid var(--line);
+}
+
+#pons-forecast-drivers li:last-child {
+  border-right: 0;
+}
+
+#pons-forecast-drivers span {
+  color: #75827c;
+  font-size: 0.625rem;
+}
+
+#pons-forecast-drivers strong {
+  color: var(--paper-muted);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+}
+
+#pons-forecast-drivers .is-supportive strong {
+  color: var(--acid);
+}
+
+#pons-forecast-drivers .is-headwind strong {
+  color: var(--coral);
+}
+
 .valuation-metric {
   min-height: 88px;
   gap: 0.5rem;
@@ -571,9 +727,18 @@ main {
 }
 
 .valuation-metric > strong {
+  overflow: visible;
   color: var(--paper);
   font-size: clamp(0.8125rem, 1.05vw, 1rem);
   letter-spacing: -0.02em;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+#valuation-range {
+  font-size: clamp(0.6875rem, 0.9vw, 0.875rem);
 }
 
 .valuation-metric--estimate,
@@ -883,6 +1048,60 @@ main {
 
 .valuation-chart-band {
   fill: rgba(131, 237, 176, 0.07);
+}
+
+.valuation-chart-point {
+  fill: var(--surface);
+  stroke: var(--acid);
+  stroke-width: 1.5;
+}
+
+.valuation-chart-point.is-actual {
+  stroke: var(--coral);
+}
+
+.valuation-daily-table-wrap {
+  margin: 8px -16px -8px;
+  overflow-x: auto;
+  border-top: 1px solid var(--line);
+}
+
+.valuation-daily-table {
+  width: 100%;
+  min-width: 690px;
+  border-collapse: collapse;
+}
+
+.valuation-daily-table th,
+.valuation-daily-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--paper-muted);
+  font-family: var(--mono);
+  font-size: 0.65625rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.valuation-daily-table th:first-child,
+.valuation-daily-table td:first-child {
+  padding-left: 16px;
+  text-align: left;
+}
+
+.valuation-daily-table td:nth-child(2),
+.valuation-daily-table td:nth-child(5) {
+  color: var(--paper);
+}
+
+.valuation-daily-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.valuation-daily-table .is-forming::after {
+  content: " 进行中";
+  color: var(--amber);
+  font-family: var(--display);
 }
 
 .valuation-chart-label,
@@ -6859,4 +7078,59 @@ body[data-product-context="pair-flow"] .economics-section {
   .activity-volume-table td:nth-child(4)::before { content: "三平台份额"; }
   .activity-volume-table td:nth-child(5)::before { content: "覆盖"; }
   .activity-volume-table td:nth-child(6)::before { content: "数据起点"; }
+}
+
+@media (max-width: 1120px) {
+  .pons-forecast__metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .pons-forecast__metrics article:nth-child(3n) {
+    border-right: 0;
+  }
+
+  .pons-forecast__metrics article:nth-child(-n + 3) {
+    border-bottom: 1px solid var(--line);
+  }
+
+  .pons-forecast__evidence {
+    grid-template-columns: 1fr;
+  }
+
+  .pons-forecast__method {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+}
+
+@media (max-width: 680px) {
+  .pons-forecast__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pons-forecast__metrics article,
+  .pons-forecast__metrics article:nth-child(3n) {
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .pons-forecast__metrics article:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .pons-forecast__metrics article:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+
+  #pons-forecast-drivers {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #pons-forecast-drivers li:nth-child(2) {
+    border-right: 0;
+  }
+
+  #pons-forecast-drivers li:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--line);
+  }
 }
