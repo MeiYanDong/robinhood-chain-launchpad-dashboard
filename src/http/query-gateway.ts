@@ -33,6 +33,7 @@ export const QUERY_CACHE_PATHS = [
 ] as const;
 export const QUERY_UPSTREAM_TIMEOUT_MS = 15_000;
 export const QUERY_CACHE_MAX_AGE_MS = 60_000;
+export const QUERY_CACHE_STALE_IF_ERROR_MS = 5 * 60_000;
 interface CachedResponse {
   body: Buffer;
   status: number;
@@ -45,6 +46,7 @@ interface GatewayOptions {
   now?: () => number;
   timeoutMs?: number;
   cacheMaxAgeMs?: number;
+  staleIfErrorMs?: number;
 }
 
 /** No database or upstream credentials in this process. Bounded immutable reads. */
@@ -65,6 +67,7 @@ export function createQueryGateway(options: GatewayOptions) {
   const pending = new Map<string, Promise<CachedResponse>>();
   let refreshRunning = false;
   const maxAge = options.cacheMaxAgeMs ?? QUERY_CACHE_MAX_AGE_MS;
+  const staleIfErrorAge = options.staleIfErrorMs ?? QUERY_CACHE_STALE_IF_ERROR_MS;
   async function read(path: string, method = "GET"): Promise<CachedResponse> {
     const key = `${method} ${path}`;
     const existing = pending.get(key);
@@ -120,7 +123,12 @@ export function createQueryGateway(options: GatewayOptions) {
       refreshRunning = false;
     }
   }
-  async function send(response: ServerResponse, entry: CachedResponse, encoding: string) {
+  async function send(
+    response: ServerResponse,
+    entry: CachedResponse,
+    encoding: string,
+    stale = false,
+  ) {
     const zipped = /\bgzip\b/.test(encoding) && !/gzip\s*;\s*q=0(?:[.,\s]|$)/.test(encoding);
     const body = zipped ? await compress(entry.body) : entry.body;
     response.writeHead(entry.status, {
@@ -130,6 +138,7 @@ export function createQueryGateway(options: GatewayOptions) {
       "x-content-type-options": "nosniff",
       vary: "Accept-Encoding",
       "x-ledger-query-age-ms": String(Math.max(0, now() - entry.refreshedAt)),
+      "x-ledger-query-stale": String(stale),
       ...(zipped ? { "content-encoding": "gzip" } : {}),
     });
     response.end(body);
@@ -174,9 +183,16 @@ export function createQueryGateway(options: GatewayOptions) {
       }
       const key = `${path}${url.search}`;
       const cached = request.method === "GET" ? cache.get(key) : null;
-      const entry =
-        cached && now() - cached.refreshedAt < maxAge ? cached : await read(key, request.method);
-      await send(response, entry, request.headers["accept-encoding"] ?? "");
+      const age = cached ? Math.max(0, now() - cached.refreshedAt) : Number.POSITIVE_INFINITY;
+      let stale = false;
+      let entry: CachedResponse;
+      if (cached && age < maxAge) entry = cached;
+      else if (cached && age < staleIfErrorAge) {
+        stale = true;
+        entry = cached;
+        void read(key, request.method).catch(() => undefined);
+      } else entry = await read(key, request.method);
+      await send(response, entry, request.headers["accept-encoding"] ?? "", stale);
     } catch {
       if (response.headersSent) {
         response.destroy();

@@ -6,6 +6,7 @@ import {
   createQueryGateway,
   QUERY_CACHE_MAX_AGE_MS,
   QUERY_CACHE_PATHS,
+  QUERY_CACHE_STALE_IF_ERROR_MS,
   QUERY_UPSTREAM_TIMEOUT_MS,
 } from "../src/http/query-gateway.js";
 
@@ -28,6 +29,7 @@ test("query prewarm covers every decision page without caching mutations", () =>
   assert.ok(QUERY_CACHE_PATHS.every((path) => !path.includes("refresh")));
   assert.equal(QUERY_UPSTREAM_TIMEOUT_MS, 15_000);
   assert.equal(QUERY_CACHE_MAX_AGE_MS, 60_000);
+  assert.equal(QUERY_CACHE_STALE_IF_ERROR_MS, 300_000);
 });
 
 test("query cache serves during collector failure then fails closed at expiry; static remains available", async () => {
@@ -42,6 +44,7 @@ test("query cache serves during collector failure then fails closed at expiry; s
     fetcher,
     now: () => now,
     cacheMaxAgeMs: 1000,
+    staleIfErrorMs: 2000,
     staticHandler: (_req, res) => {
       res.end("static");
     },
@@ -62,6 +65,11 @@ test("query cache serves during collector failure then fails closed at expiry; s
       assert.equal((await result.json()).padding.length, 14000);
     }
     now = 1001;
+    const stale = await fetch(`${url}/api/economics`);
+    assert.equal(stale.status, 200);
+    assert.equal(stale.headers.get("x-ledger-query-stale"), "true");
+    assert.equal((await stale.json()).padding.length, 14000);
+    now = 2001;
     const expired = await fetch(`${url}/api/economics`);
     assert.equal(expired.status, 503);
     assert.equal((await expired.json()).code, "COLLECTOR_UNAVAILABLE");
