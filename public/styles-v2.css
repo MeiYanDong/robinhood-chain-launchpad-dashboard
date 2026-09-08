@@ -7134,3 +7134,961 @@ body[data-product-context="pair-flow"] .economics-section {
     border-bottom: 1px solid var(--line);
   }
 }
+
+/* Launchpad task architecture · v0.18 */
+
+.launchpad-task-nav {
+  position: sticky;
+  z-index: 18;
+  top: 0;
+  display: flex;
+  gap: 6px;
+  padding: 14px 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line-strong);
+  background: rgba(9, 13, 12, 0.94);
+  backdrop-filter: blur(18px);
+  scrollbar-width: none;
+}
+
+.launchpad-task-nav[hidden] {
+  display: none !important;
+}
+
+.launchpad-task-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.launchpad-task-nav a {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: #829089;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.launchpad-task-nav a:hover,
+.launchpad-task-nav a:focus-visible {
+  color: var(--paper);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.launchpad-task-nav a.is-active {
+  border-color: rgba(131, 237, 176, 0.2);
+  background: var(--accent-soft);
+  color: var(--acid);
+}
+
+body[data-product-context="launchpads"] #economics-view {
+  gap: 14px;
+  padding-top: 14px;
+}
+
+body[data-product-context="launchpads"] #economics-view > * {
+  display: none !important;
+}
+
+body[data-launchpad-view="overview"] #economics-view > .economics-tape,
+body[data-launchpad-view="overview"] #economics-view > .launchpad-overview,
+body[data-launchpad-view="platforms"] #economics-view > .economics-tape,
+body[data-launchpad-view="platforms"] #economics-view > .activity-board,
+body[data-launchpad-view="platforms"] #economics-view > #platform-economics-disclosure,
+body[data-launchpad-view="platforms"] #economics-view > #buyback-disclosure,
+body[data-launchpad-view="valuation"] #economics-view > .economics-tape,
+body[data-launchpad-view="valuation"] #economics-view > .valuation-panel,
+body[data-launchpad-view="tokens"] #economics-view > .economics-tape,
+body[data-launchpad-view="tokens"] #economics-view > .token-economics-block {
+  display: block !important;
+}
+
+body[data-launchpad-view="overview"] #economics-view > .economics-tape,
+body[data-launchpad-view="platforms"] #economics-view > .economics-tape,
+body[data-launchpad-view="valuation"] #economics-view > .economics-tape,
+body[data-launchpad-view="tokens"] #economics-view > .economics-tape {
+  display: grid !important;
+}
+
+.launchpad-overview {
+  display: grid;
+  gap: 14px;
+}
+
+.launchpad-page-head {
+  display: flex;
+  min-height: 108px;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 18px 20px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-panel);
+}
+
+.launchpad-page-head > div {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.launchpad-page-head span,
+.overview-comparison header span,
+.overview-insights header span,
+.overview-trend header span,
+.launchpad-token-head > div > span {
+  color: var(--acid);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.launchpad-page-head h1,
+.launchpad-token-head h1 {
+  margin: 0;
+  color: var(--paper);
+  font-size: clamp(1.45rem, 2.6vw, 2.2rem);
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+}
+
+.launchpad-page-head p,
+.launchpad-token-head p {
+  max-width: 420px;
+  margin: 0;
+  color: var(--paper-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+.decision-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.decision-card {
+  position: relative;
+  display: grid;
+  min-height: 142px;
+  align-content: center;
+  gap: 0.55rem;
+  padding: 20px;
+  border-right: 1px solid var(--line);
+}
+
+.decision-card:last-child {
+  border-right: 0;
+}
+
+.decision-card::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--acid);
+  content: "";
+}
+
+.decision-card--activity::before {
+  background: var(--amber);
+}
+
+.decision-card--valuation::before {
+  background: var(--cyan);
+}
+
+.decision-card > span {
+  color: var(--paper-muted);
+  font-size: 0.75rem;
+}
+
+.decision-card > strong {
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: clamp(1.45rem, 3vw, 2.35rem);
+  font-weight: 650;
+  letter-spacing: -0.05em;
+}
+
+.decision-card > small {
+  color: #75837c;
+  font-size: 0.6875rem;
+  line-height: 1.5;
+}
+
+.overview-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.7fr);
+  gap: 14px;
+}
+
+.overview-comparison,
+.overview-insights,
+.overview-trend {
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.overview-comparison > header,
+.overview-insights > header,
+.overview-trend > header {
+  display: flex;
+  min-height: 66px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.overview-comparison header > div,
+.overview-insights header,
+.overview-trend header > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.overview-comparison h2,
+.overview-insights h2,
+.overview-trend h2,
+.platform-operation h2 {
+  margin: 0;
+  color: var(--paper);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.overview-comparison header a {
+  color: var(--acid);
+  font-size: 0.6875rem;
+  text-decoration: none;
+}
+
+.overview-comparison__table-wrap,
+.platform-operation__table-wrap {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.overview-comparison__table,
+.platform-operation__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.overview-comparison__table th,
+.overview-comparison__table td,
+.platform-operation__table th,
+.platform-operation__table td {
+  padding: 13px 15px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.overview-comparison__table th:last-child,
+.overview-comparison__table td:last-child,
+.platform-operation__table th:last-child,
+.platform-operation__table td:last-child {
+  border-right: 0;
+}
+
+.overview-comparison__table tbody tr:last-child td,
+.platform-operation__table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.overview-comparison__table th,
+.platform-operation__table th {
+  color: #718079;
+  font-size: 0.625rem;
+  font-weight: 500;
+}
+
+.overview-comparison__table td,
+.platform-operation__table td {
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.overview-platform-identity {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.1rem 0.5rem;
+  font-family: var(--display) !important;
+}
+
+.overview-platform-identity i {
+  grid-row: 1 / 3;
+  align-self: center;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--paper-muted);
+}
+
+.overview-platform-dot--pons {
+  background: var(--acid) !important;
+}
+
+.overview-platform-dot--pair {
+  background: var(--cyan) !important;
+}
+
+.overview-platform-dot--long {
+  background: var(--amber) !important;
+}
+
+.overview-platform-identity strong {
+  font-size: 0.8125rem;
+}
+
+.overview-platform-identity small,
+.overview-activity-cell small,
+.platform-operation__identity small,
+.platform-operation__value small {
+  display: block;
+  margin-top: 0.16rem;
+  color: #6f7d76;
+  font-family: var(--display);
+  font-size: 0.59375rem;
+}
+
+.overview-activity-cell strong {
+  color: var(--paper);
+}
+
+.overview-activity-cell.is-hot strong {
+  color: var(--coral);
+}
+
+.overview-activity-cell.is-active strong,
+.overview-activity-cell.is-normal strong {
+  color: var(--acid);
+}
+
+.overview-activity-cell.is-quiet strong,
+.overview-activity-cell.is-unknown strong {
+  color: var(--paper-muted);
+}
+
+.overview-insights ol {
+  display: grid;
+  margin: 0;
+  padding: 4px 18px 12px 46px;
+}
+
+.overview-insights li {
+  min-height: 66px;
+  padding: 14px 4px 12px 8px;
+  border-bottom: 1px solid var(--line);
+  color: #bac6c0;
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+.overview-insights li:last-child {
+  border-bottom: 0;
+}
+
+.overview-insights li::marker {
+  color: var(--acid);
+  font-family: var(--mono);
+  font-weight: 700;
+}
+
+.overview-trend {
+  padding-bottom: 8px;
+}
+
+.overview-trend > header {
+  border-bottom: 0;
+}
+
+#overview-trend-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 210px;
+  overflow: visible;
+}
+
+.overview-trend-grid {
+  stroke: rgba(151, 173, 163, 0.12);
+  stroke-width: 1;
+}
+
+.overview-trend-label,
+.overview-trend-date {
+  fill: #6d7a74;
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+.overview-trend-line {
+  fill: none;
+  stroke-width: 2.4;
+  vector-effect: non-scaling-stroke;
+}
+
+.overview-trend-line--pons,
+.overview-trend-point--pons {
+  stroke: var(--acid);
+}
+
+.overview-trend-line--pair,
+.overview-trend-point--pair {
+  stroke: var(--cyan);
+}
+
+.overview-trend-line--long,
+.overview-trend-point--long {
+  stroke: var(--amber);
+}
+
+.overview-trend-point {
+  fill: var(--ink);
+  stroke-width: 2;
+}
+
+.overview-trend-point:focus {
+  r: 6;
+  outline: none;
+}
+
+.overview-trend > p,
+.overview-trend > footer {
+  margin: 0;
+  padding: 0 16px 8px;
+  color: #6e7b75;
+  font-size: 0.625rem;
+}
+
+.overview-next-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.overview-next-actions a {
+  display: grid;
+  gap: 0.28rem;
+  padding: 14px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  text-decoration: none;
+}
+
+.overview-next-actions a:hover,
+.overview-next-actions a:focus-visible {
+  border-color: rgba(131, 237, 176, 0.38);
+}
+
+.overview-next-actions span {
+  color: var(--paper-muted);
+  font-size: 0.625rem;
+}
+
+.overview-next-actions strong {
+  color: var(--paper);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+body[data-launchpad-view="platforms"] .activity-board {
+  margin: 0;
+  box-shadow: var(--shadow-panel);
+}
+
+body[data-launchpad-view="platforms"] .activity-board::before {
+  display: none;
+}
+
+body[data-launchpad-view="platforms"] .activity-board__head h1 {
+  margin: 0;
+  color: var(--paper);
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+
+.activity-card-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.activity-card__comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.activity-card__comparison > div {
+  display: grid;
+  gap: 0.3rem;
+  padding: 12px 14px;
+  border-right: 1px solid var(--line);
+}
+
+.activity-card__comparison > div:last-child {
+  border-right: 0;
+}
+
+.activity-card__comparison dt {
+  color: #718079;
+  font-size: 0.625rem;
+}
+
+.activity-card__comparison dd {
+  margin: 0;
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+}
+
+.activity-card__details {
+  padding: 0 14px;
+}
+
+.activity-card__details summary {
+  padding: 11px 0;
+  color: var(--paper-muted);
+  cursor: pointer;
+  font-size: 0.625rem;
+}
+
+.activity-card__details dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  padding-bottom: 12px;
+}
+
+.activity-card__details dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 5px 8px;
+  color: #75827c;
+  font-size: 0.59375rem;
+}
+
+.activity-card__details dd {
+  margin: 0;
+  color: var(--paper-muted);
+  font-family: var(--mono);
+}
+
+.platform-operation {
+  border-top: 1px solid var(--line-strong);
+}
+
+.platform-operation > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.platform-operation > header small {
+  display: block;
+  margin-top: 0.25rem;
+  color: #718079;
+  font-size: 0.625rem;
+}
+
+.platform-operation__identity strong,
+.platform-operation__value strong {
+  color: var(--paper);
+  font-weight: 500;
+}
+
+.platform-operation__state {
+  color: var(--paper-muted) !important;
+  font-family: var(--display) !important;
+  font-size: 0.6875rem !important;
+}
+
+.platform-operation__state.is-partial {
+  color: var(--amber) !important;
+}
+
+body[data-launchpad-view="platforms"] #platform-view {
+  margin-top: 0;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+}
+
+body[data-launchpad-view="platforms"] #platform-view::before {
+  display: block;
+  padding: 15px 16px 0;
+  color: var(--paper);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  content: "所有发射台";
+}
+
+body[data-launchpad-view="platforms"] #platform-economics-disclosure,
+body[data-launchpad-view="platforms"] #buyback-disclosure {
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+}
+
+.valuation-panel__head > div > p {
+  max-width: 650px;
+  margin: 0.45rem 0 0;
+  color: var(--paper-muted);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+body[data-launchpad-view="valuation"] .valuation-panel {
+  max-width: 1180px;
+  margin-inline: auto;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+}
+
+body[data-launchpad-view="valuation"] .valuation-panel__head {
+  min-height: 104px;
+  align-items: center;
+}
+
+body[data-launchpad-view="valuation"] .valuation-panel__head > div {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2rem 0.75rem;
+}
+
+body[data-launchpad-view="valuation"] .valuation-panel__head > div > span {
+  grid-column: 1 / -1;
+}
+
+body[data-launchpad-view="valuation"] .valuation-panel__head h1 {
+  font-size: clamp(1.35rem, 2.2vw, 1.9rem);
+}
+
+body[data-launchpad-view="valuation"] .valuation-panel__head > div > p {
+  align-self: end;
+}
+
+body[data-launchpad-view="valuation"] .valuation-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+body[data-launchpad-view="valuation"] .valuation-metric:nth-child(4) {
+  border-right: 1px solid var(--line);
+}
+
+body[data-launchpad-view="valuation"] .valuation-metric:last-child {
+  border-right: 0;
+}
+
+.valuation-reference-state--ready {
+  color: var(--acid) !important;
+}
+
+.valuation-reference-state--caution {
+  color: var(--amber) !important;
+}
+
+.valuation-reference-state--off {
+  color: var(--coral) !important;
+}
+
+.valuation-research {
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.valuation-research > summary {
+  padding: 13px 16px;
+  color: var(--paper-muted);
+  cursor: pointer;
+  font-size: 0.6875rem;
+}
+
+.valuation-research[open] > summary {
+  border-bottom: 1px solid var(--line);
+  color: var(--paper);
+}
+
+.valuation-research .pons-forecast {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.launchpad-token-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin: 14px 0;
+  padding: 18px 20px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.launchpad-token-head[hidden] {
+  display: none !important;
+}
+
+.launchpad-token-head > div:first-child {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.launchpad-token-switch {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--ink);
+}
+
+.launchpad-token-switch button {
+  min-height: 36px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--paper-muted);
+  font-size: 0.6875rem;
+}
+
+.launchpad-token-switch button.is-active {
+  background: var(--accent-soft);
+  color: var(--acid);
+}
+
+body[data-launchpad-view="tokens"] .token-economics-block,
+body[data-launchpad-view="tokens"] #pair-view,
+body[data-launchpad-view="tokens"] #long-view {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+}
+
+@media (max-width: 1080px) {
+  .overview-workbench {
+    grid-template-columns: 1fr;
+  }
+
+  .overview-insights ol {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding-left: 38px;
+  }
+
+  .overview-insights li {
+    border-right: 1px solid var(--line);
+    border-bottom: 0;
+  }
+
+  .overview-insights li:last-child {
+    border-right: 0;
+  }
+
+  .activity-card-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .launchpad-task-nav {
+    margin-inline: -10px;
+    padding-inline: 10px;
+  }
+
+  body[data-product-context="launchpads"] #economics-view {
+    padding-top: 10px;
+  }
+
+  .launchpad-page-head,
+  .launchpad-token-head {
+    min-height: 0;
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 16px;
+  }
+
+  .launchpad-page-head h1,
+  .launchpad-token-head h1 {
+    font-size: 1.55rem;
+  }
+
+  .decision-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .decision-card {
+    min-height: 104px;
+    padding: 16px 18px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .decision-card:last-child {
+    border-bottom: 0;
+  }
+
+  .decision-card > strong {
+    font-size: 1.7rem;
+  }
+
+  .overview-comparison__table-wrap {
+    overflow: visible;
+  }
+
+  .overview-comparison__table {
+    display: block;
+    min-width: 0;
+  }
+
+  .overview-comparison__table thead {
+    display: none;
+  }
+
+  .overview-comparison__table tbody {
+    display: grid;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .overview-comparison__table tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+
+  .overview-comparison__table td {
+    display: grid;
+    min-width: 0;
+    min-height: 60px;
+    align-content: center;
+    padding: 10px 12px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .overview-comparison__table td:nth-child(odd) {
+    border-right: 0;
+  }
+
+  .overview-comparison__table td:first-child {
+    grid-column: 1 / -1;
+    min-height: 52px;
+    border-right: 0;
+  }
+
+  .overview-comparison__table td:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+
+  .overview-comparison__table td::before {
+    margin-bottom: 0.24rem;
+    color: #6d7a74;
+    font-family: var(--display);
+    font-size: 0.5625rem;
+  }
+
+  .overview-comparison__table td:nth-child(2)::before {
+    content: "当前价格";
+  }
+
+  .overview-comparison__table td:nth-child(3)::before {
+    content: "闭合日交易量";
+  }
+
+  .overview-comparison__table td:nth-child(4)::before {
+    content: "市场份额";
+  }
+
+  .overview-comparison__table td:nth-child(5)::before {
+    content: "相对平时";
+  }
+
+  .platform-operation__table {
+    min-width: 720px;
+  }
+
+  .overview-insights ol {
+    grid-template-columns: 1fr;
+    padding-left: 44px;
+  }
+
+  .overview-insights li {
+    min-height: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .overview-next-actions {
+    grid-template-columns: 1fr;
+  }
+
+  #overview-trend-chart {
+    min-height: 180px;
+  }
+
+  .overview-trend > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  body[data-launchpad-view="valuation"] .valuation-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body[data-launchpad-view="valuation"] .valuation-panel__head,
+  body[data-launchpad-view="valuation"] .valuation-panel__head > div {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  body[data-launchpad-view="valuation"] .valuation-metric {
+    border-bottom: 1px solid var(--line);
+  }
+
+  body[data-launchpad-view="valuation"] .valuation-metric:nth-of-type(4) {
+    border-right: 0;
+  }
+
+  .valuation-calculation__detail {
+    grid-template-columns: 1fr;
+  }
+
+  .valuation-window-state {
+    max-width: 100%;
+    text-align: left;
+  }
+
+  .launchpad-token-switch {
+    width: 100%;
+  }
+
+  .launchpad-token-switch button {
+    flex: 1;
+  }
+}
