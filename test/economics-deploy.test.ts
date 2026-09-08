@@ -6,7 +6,7 @@ async function deploymentFile(name: string): Promise<string> {
   return readFile(new URL(`../deploy/${name}`, import.meta.url), "utf8");
 }
 
-test("economics production config pins the market CLI and separates public from scheduled refreshes", async () => {
+test("economics production config pins the market CLI and separates public from resilient scheduled refreshes", async () => {
   const [applicationService, refreshService, refreshTimer, nginx] = await Promise.all([
     deploymentFile("robinhood-chain-launchpad.service"),
     deploymentFile("robinhood-chain-economics-refresh.service"),
@@ -22,6 +22,10 @@ test("economics production config pins the market CLI and separates public from 
   assert.match(nginx, /location = \/api\/economics\/refresh[\s\S]*proxy_read_timeout 180s/);
   assert.match(nginx, /location = \/api\/economics\/rebuild[\s\S]*return 403/);
   assert.match(nginx, /gzip_types application\/json/);
-  assert.match(refreshService, /POST http:\/\/127\.0\.0\.1:4175\/api\/economics\/rebuild/);
+  assert.match(refreshService, /--retry 5/);
+  assert.match(refreshService, /--retry-delay 30/);
+  assert.match(refreshService, /--retry-max-time 210/);
+  assert.match(refreshService, /--retry-all-errors/);
+  assert.match(refreshService, /POST http:\/\/127\.0\.0\.1:4176\/api\/economics\/rebuild/);
   assert.match(refreshTimer, /OnCalendar=\*-\*-\* \*:10,25,40,55:00 UTC/);
 });

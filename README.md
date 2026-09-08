@@ -2,7 +2,7 @@
 
 Robinhood Chain 发射台数据看板。首页直接展示平台、成交量、用户手续费与平台收入；口径、来源和覆盖信息按需查看。
 
-仓库代码 `0.17.0` 在独立 PAIR V2 与创建者监控之外新增跨代 PAIR Alpha 雷达，并为 PONS / PAIR 加入每日价格历史、七日影子预测与双锚估值：官方目录
+仓库代码 `0.17.1` 在独立 PAIR V2 与创建者监控之外新增跨代 PAIR Alpha 雷达，并为 PONS / PAIR 加入每日价格历史、七日影子预测与双锚估值：官方目录
 全量发现 V1/V2，以 15 秒热候选、60 秒完整目录和 8 秒链上事件三层后台更新；点火、回踩、
 研究候选、过热勿追和风险停止互斥展示。飞书链路只允许已核验的 PAIR 项目方主发行钱包，
 其它项目创建者只入证据层，并采用精选、限频、过期封存；买入游标
@@ -318,7 +318,8 @@ npm run dev
 - Long 实时榜定时器：`robinhood-chain-long-refresh.timer`，每 15 分钟执行；
 - Long 日报定时器：`robinhood-chain-long-daily.timer`，北京时间 08:12 执行；
 - 三强对比快照定时器：`robinhood-chain-economics-refresh.timer`，在 PAIR、Long 榜单刷新后
-  错峰每 15 分钟执行；
+  错峰每 15 分钟执行；内部直连 loopback collector，临时 5xx 或网络错误每 30 秒有界重试，
+  不受公网查询网关并发上限影响；
 - 龙头情报聚合缓存 5 分钟，只读访问同机 `4173` 的全链日度雷达与 `8010` 的 CashCat
   行情状态，不读取其它服务数据库；
 - 发布目录：`/opt/robinhood-chain-launchpad/current`；
