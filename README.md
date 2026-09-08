@@ -3,8 +3,9 @@
 Robinhood Chain 发射台数据看板。首页先给出成交量龙头、相较自身历史常态最活跃的平台和
 PAIR 对比 PONS 的结果；经营、估值和代币排行各自进入独立任务页，口径与审计信息按需查看。
 
-仓库代码 `0.18.1` 将发射台前端重构为“今日概览 / 平台经营 / PAIR vs PONS / 平台代币”四个
-可分享视图。首页不再同时堆叠研究模型和审计表；PONS 七日预测只有在相似样本与回测误差同时
+仓库代码 `0.19.3` 在既有四个发射台任务视图之外，统一重构“龙头与热度 / PAIR Alpha /
+PAIR V2 / 资金闭环”四个决策页：首屏先给结论和前 5 个对象，模型、历史回放与链上证据按需展开；
+移动端将高优先级表格改成无横向滚动的卡片。PONS 七日预测只有在相似样本与回测误差同时
 过关时才展示结果，否则明确停用。独立 PAIR V2 与创建者监控之外仍保留跨代 PAIR Alpha 雷达：官方目录
 全量发现 V1/V2，以 15 秒热候选、60 秒完整目录和 8 秒链上事件三层后台更新；点火、回踩、
 研究候选、过热勿追和风险停止互斥展示。飞书链路只允许已核验的 PAIR 项目方主发行钱包，
@@ -360,6 +361,8 @@ DEV 通知根因、1,401 条历史队列封存、飞书业务码 `0`、限频策
 [`docs/evidence/dev-monitor-attention-production-deployment-2026-09-07-v2.md`](docs/evidence/dev-monitor-attention-production-deployment-2026-09-07-v2.md)。
 发射台具体日期、指标解释、平台颜色、线性图表和 `0.18.1` 公网回读见
 [`docs/evidence/launchpad-language-production-deployment-2026-09-08.md`](docs/evidence/launchpad-language-production-deployment-2026-09-08.md)。
+龙头、PAIR Alpha、PAIR V2、资金闭环的统一视觉重构、查询空窗修正和 `0.19.3` 公网回读见
+[`docs/evidence/workbench-ui-production-deployment-2026-09-09.md`](docs/evidence/workbench-ui-production-deployment-2026-09-09.md)。
 
 部署配置固化在 [`deploy/`](deploy/)；新版本应使用不可变 release 目录并原子切换
 `current` 软链接，保留上一版用于回滚。发布后必须同时验证公网首页、`/healthz`、
@@ -481,7 +484,7 @@ npm run build
 npm run verify:live
 ```
 
-测试覆盖 Pons 合并、协议级 summary 的 Robinhood Chain 筛选、UTC 当前日排除、`null ≠ 0`、Bankr 官方 volume、LetsCash 官方日序列/实时快照、Long integrator 归属与闭合日筛选、确定性来源优先级、StonkBrokers 不进入 tracked totals，以及 PAIR 全分页发现、Long 活跃样本与 Launcher 核验、经济活跃门槛、四榜独立排序、同日市场份额、回购证据状态、缓存降级和 08:00 日报对比。PAIR V2/Alpha 另覆盖 release 校验、V1/V2 身份分层、canonical 多池聚合、ABI 解码、短重组替换、估算与链上事实分离、过热勿追、首次信号回放、状态跃迁告警和公开路由权限。DEV 雷达覆盖各平台事件字段、来源独立游标、质量分层、receipt 买入核验、首次基线抑制、通知去重与失败重试。`verify:runtime` 当前检查 19 个运行合同；因此只能在服务器完成同版本部署后作为上线回执。
+测试覆盖 Pons 合并、协议级 summary 的 Robinhood Chain 筛选、UTC 当前日排除、`null ≠ 0`、Bankr 官方 volume、LetsCash 官方日序列/实时快照、Long integrator 归属与闭合日筛选、确定性来源优先级、StonkBrokers 不进入 tracked totals，以及 PAIR 全分页发现、Long 活跃样本与 Launcher 核验、经济活跃门槛、四榜独立排序、同日市场份额、回购证据状态、缓存降级和 08:00 日报对比。PAIR V2/Alpha 另覆盖 release 校验、V1/V2 身份分层、canonical 多池聚合、ABI 解码、短重组替换、估算与链上事实分离、过热勿追、首次信号回放、状态跃迁告警和公开路由权限。DEV 雷达覆盖各平台事件字段、来源独立游标、质量分层、receipt 买入核验、首次基线抑制、通知去重与失败重试。`verify:runtime` 当前检查 20 个运行合同；因此只能在服务器完成同版本部署后作为上线回执。
 
 ## 安全边界
 

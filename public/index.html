@@ -11,8 +11,9 @@
     <title>Robinhood Chain 发射台</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css?v=0.11.0" />
-    <link rel="stylesheet" href="./styles-v2.css?v=0.18.1" />
-    <script src="./app.js?v=0.18.1" type="module"></script>
+    <link rel="stylesheet" href="./styles-v2.css?v=0.19.3" />
+    <link rel="stylesheet" href="./workbench.css?v=0.19.3" />
+    <script src="./app.js?v=0.19.3" type="module"></script>
   </head>
   <body class="radar-v2">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -79,9 +80,9 @@
       <section class="pair-alpha-terminal" id="pair-alpha-view" aria-label="PAIR 跨代 Alpha 雷达" hidden>
         <header class="pair-alpha-command">
           <div>
-            <span class="pair-alpha-kicker">PAIR · ALL GENERATIONS · SHADOW</span>
-            <h1>Alpha Radar</h1>
-            <p>捕捉点火、回踩与确认；暴涨和风险项目进入独立拦截通道。</p>
+            <span class="pair-alpha-kicker">PAIR · V1 + V2 · 实时筛选</span>
+            <h1>今天先看哪些新币</h1>
+            <p>先看最强异动与前 5 个候选；过热和风险项目会明确拦截。</p>
           </div>
           <div class="pair-alpha-command__status">
             <span id="pair-alpha-live-state">等待行情</span>
@@ -101,7 +102,7 @@
         <section class="pair-alpha-hero-grid" aria-label="当前信号概览">
           <article class="pair-alpha-leader" id="pair-alpha-leader">
             <div>
-              <span>当前最强异常</span>
+              <span>当前最强异动</span>
               <strong id="pair-alpha-leader-symbol">—</strong>
               <small id="pair-alpha-leader-address">等待短周期行情</small>
             </div>
@@ -124,8 +125,8 @@
         <section class="pair-alpha-board" aria-labelledby="pair-alpha-board-title">
           <header>
             <div>
-              <span class="pair-alpha-kicker">SIGNAL LANES</span>
-              <h2 id="pair-alpha-board-title">跨代候选矩阵</h2>
+              <span class="pair-alpha-kicker">TOP SIGNALS</span>
+              <h2 id="pair-alpha-board-title">当前候选 · 先看前 5 个</h2>
             </div>
             <label class="pair-alpha-search">
               <span class="sr-only">搜索代币或地址</span>
@@ -156,7 +157,7 @@
                   <th>价格 / 市值</th>
                   <th>5M / 1H 成交</th>
                   <th>1H / 6H 涨幅</th>
-                  <th>官方 / canonical 24H</th>
+                  <th>官方 / 已核验池 24H</th>
                   <th>流动性 / 跨池价差</th>
                   <th>质量 / 证据</th>
                   <th>首次点火</th>
@@ -167,7 +168,7 @@
           </div>
           <footer class="pair-alpha-table-footer" id="pair-alpha-table-footer">
             <span id="pair-alpha-token-count">—</span>
-            <button id="pair-alpha-load-more" type="button">再显示 25 个</button>
+            <button id="pair-alpha-load-more" type="button">再看 10 个</button>
           </footer>
           <div class="empty-state" id="pair-alpha-empty" hidden>
             <strong>当前筛选没有候选</strong>
@@ -175,47 +176,53 @@
           </div>
         </section>
 
-        <div class="pair-alpha-lower-grid">
-          <section class="pair-alpha-board" aria-labelledby="pair-alpha-replay-title">
-            <header>
-              <div>
-                <span class="pair-alpha-kicker">FIRST IGNITION REPLAY</span>
-                <h2 id="pair-alpha-replay-title">首次信号回放</h2>
+        <details class="workspace-disclosure pair-alpha-research">
+          <summary>
+            <span><b>模型与数据口径</b><small>回放结果、成交范围、来源状态</small></span>
+            <i aria-hidden="true">展开</i>
+          </summary>
+          <div class="pair-alpha-lower-grid">
+            <section class="pair-alpha-board" aria-labelledby="pair-alpha-replay-title">
+              <header>
+                <div>
+                  <span class="pair-alpha-kicker">FIRST IGNITION REPLAY</span>
+                  <h2 id="pair-alpha-replay-title">首次信号回放</h2>
+                </div>
+                <code id="pair-alpha-model-version">—</code>
+              </header>
+              <div class="pair-alpha-replay-meta">
+                <span>观察天数<strong id="pair-alpha-model-days">—</strong></span>
+                <span>首次信号<strong id="pair-alpha-model-signals">—</strong></span>
+                <span>24H 样本<strong id="pair-alpha-model-matured">—</strong></span>
               </div>
-              <code id="pair-alpha-model-version">—</code>
-            </header>
-            <div class="pair-alpha-replay-meta">
-              <span>观察天数<strong id="pair-alpha-model-days">—</strong></span>
-              <span>首次信号<strong id="pair-alpha-model-signals">—</strong></span>
-              <span>24H 样本<strong id="pair-alpha-model-matured">—</strong></span>
-            </div>
-            <div class="pair-alpha-horizons" id="pair-alpha-horizons"></div>
-          </section>
+              <div class="pair-alpha-horizons" id="pair-alpha-horizons"></div>
+            </section>
 
-          <aside class="pair-alpha-board pair-alpha-volume-board" aria-labelledby="pair-alpha-volume-title">
-            <header>
-              <div>
-                <span class="pair-alpha-kicker">VOLUME EVIDENCE</span>
-                <h2 id="pair-alpha-volume-title">成交口径</h2>
-              </div>
-            </header>
-            <dl>
-              <div><dt>主池 24H</dt><dd id="pair-alpha-primary-volume">—</dd></div>
-              <div><dt>canonical 池毛额 24H</dt><dd id="pair-alpha-gross-volume">—</dd></div>
-              <div><dt>canonical 池毛额 5M</dt><dd id="pair-alpha-gross-volume-5m">—</dd></div>
-              <div class="is-unknown"><dt>净 Quote 流入</dt><dd>UNKNOWN</dd></div>
-            </dl>
-            <div class="pair-alpha-source-list" id="pair-alpha-source-list"></div>
-          </aside>
-        </div>
+            <aside class="pair-alpha-board pair-alpha-volume-board" aria-labelledby="pair-alpha-volume-title">
+              <header>
+                <div>
+                  <span class="pair-alpha-kicker">VOLUME EVIDENCE</span>
+                  <h2 id="pair-alpha-volume-title">成交口径</h2>
+                </div>
+              </header>
+              <dl>
+                <div><dt>主池 24H</dt><dd id="pair-alpha-primary-volume">—</dd></div>
+                <div><dt>已核验池合计 24H</dt><dd id="pair-alpha-gross-volume">—</dd></div>
+                <div><dt>已核验池合计 5M</dt><dd id="pair-alpha-gross-volume-5m">—</dd></div>
+                <div class="is-unknown"><dt>净流入</dt><dd>暂不可得</dd></div>
+              </dl>
+              <div class="pair-alpha-source-list" id="pair-alpha-source-list"></div>
+            </aside>
+          </div>
+        </details>
       </section>
 
       <section class="pair-v2-terminal" id="pair-v2-view" aria-label="PAIR V2 Alpha 观察台" hidden>
         <header class="pair-v2-command">
           <div class="pair-v2-command__copy">
-            <span class="pair-v2-eyebrow">PAIR V2 · SHADOW RESEARCH</span>
-            <h1>早期 Alpha 观察台</h1>
-            <p>先过质量门槛，再看信号形成；过热、风险与证据缺口单独拦截。</p>
+            <span class="pair-v2-eyebrow">PAIR V2 · 新币与协议动作</span>
+            <h1>项目方发了什么，哪些新币值得看</h1>
+            <p>项目方发行优先展示；候选只看前 5 个，机制与链上凭证分层核验。</p>
           </div>
           <div class="pair-v2-command__state">
             <span class="pair-v2-shadow-state" id="pair-v2-model-state">SHADOW</span>
@@ -238,14 +245,14 @@
           <article class="pair-v2-funnel-panel">
             <header>
               <div>
-                <span class="pair-v2-panel-kicker">LIVE FUNNEL</span>
-                <h2>当前候选漏斗</h2>
+                <span class="pair-v2-panel-kicker">QUICK FILTER</span>
+                <h2>先把不值得看的筛掉</h2>
               </div>
               <small>各阶段不是买入建议</small>
             </header>
             <div class="pair-v2-funnel">
               <button class="is-active" type="button" data-v2-lens="all">
-                <span>发行全集</span><strong id="pair-v2-funnel-all">—</strong><small>当前 release</small>
+                <span>全部新币</span><strong id="pair-v2-funnel-all">—</strong><small>当前版本</small>
               </button>
               <button type="button" data-v2-lens="qualified">
                 <span>通过质量门槛</span><strong id="pair-v2-funnel-qualified">—</strong><small>流动性 + 采用 + 资料</small>
@@ -259,24 +266,30 @@
             </div>
           </article>
 
-          <article class="pair-v2-validation-panel">
-            <header>
-              <div>
-                <span class="pair-v2-panel-kicker">MODEL PROOF</span>
-                <h2>信号仍在验证</h2>
+          <details class="workspace-disclosure pair-v2-model-disclosure">
+            <summary>
+              <span><b>这套筛选是否已经验证</b><small>观察天数与成熟样本</small></span>
+              <i aria-hidden="true">展开</i>
+            </summary>
+            <article class="pair-v2-validation-panel">
+              <header>
+                <div>
+                  <span class="pair-v2-panel-kicker">MODEL PROOF</span>
+                  <h2>信号仍在验证</h2>
+                </div>
+                <code id="pair-v2-model-version">—</code>
+              </header>
+              <div class="pair-v2-validation-stats">
+                <div><span>观察天数</span><strong id="pair-v2-model-days">—</strong></div>
+                <div><span>首次信号</span><strong id="pair-v2-model-signals">—</strong></div>
+                <div><span>24H 成熟样本</span><strong id="pair-v2-model-matured">—</strong></div>
               </div>
-              <code id="pair-v2-model-version">—</code>
-            </header>
-            <div class="pair-v2-validation-stats">
-              <div><span>观察天数</span><strong id="pair-v2-model-days">—</strong></div>
-              <div><span>首次信号</span><strong id="pair-v2-model-signals">—</strong></div>
-              <div><span>24H 成熟样本</span><strong id="pair-v2-model-matured">—</strong></div>
-            </div>
-            <div class="pair-v2-proof-progress">
-              <label><span>时间门槛</span><b id="pair-v2-model-day-label">—</b><i><em id="pair-v2-model-day-progress"></em></i></label>
-              <label><span>样本门槛</span><b id="pair-v2-model-sample-label">—</b><i><em id="pair-v2-model-sample-progress"></em></i></label>
-            </div>
-          </article>
+              <div class="pair-v2-proof-progress">
+                <label><span>时间门槛</span><b id="pair-v2-model-day-label">—</b><i><em id="pair-v2-model-day-progress"></em></i></label>
+                <label><span>样本门槛</span><b id="pair-v2-model-sample-label">—</b><i><em id="pair-v2-model-sample-progress"></em></i></label>
+              </div>
+            </article>
+          </details>
         </section>
 
         <section class="pair-v2-kpis" aria-label="PAIR V2 短周期关键指标">
@@ -315,8 +328,8 @@
         <section class="pair-v2-board pair-dev-board" aria-labelledby="pair-team-title">
           <header>
             <div>
-              <span class="pair-v2-panel-kicker">OFFICIAL ISSUER WATCH</span>
-              <h2 id="pair-team-title">PAIR 项目方发币</h2>
+              <span class="pair-v2-panel-kicker">VERIFIED ISSUER</span>
+              <h2 id="pair-team-title">PAIR 项目方新发行</h2>
             </div>
             <div class="pair-dev-live" aria-label="新币流状态">
               <i aria-hidden="true"></i>
@@ -369,7 +382,7 @@
           </div>
           <footer class="pair-v2-table-footer" id="pair-team-launch-footer">
             <span id="pair-team-launch-count">—</span>
-            <button type="button" id="pair-team-load-more">再显示 20 个</button>
+            <button type="button" id="pair-team-load-more">再看 10 个</button>
           </footer>
           <div class="empty-state pair-dev-empty" id="pair-team-launch-empty" hidden>
             <strong>项目方发币数据暂不可用</strong>
@@ -380,8 +393,8 @@
         <section class="pair-v2-board pair-v2-candidate-board" aria-labelledby="pair-v2-alpha-title">
           <header>
             <div>
-              <span class="pair-v2-panel-kicker">CANDIDATE MATRIX</span>
-              <h2 id="pair-v2-alpha-title">候选项目证据矩阵</h2>
+              <span class="pair-v2-panel-kicker">ALPHA SHORTLIST</span>
+              <h2 id="pair-v2-alpha-title">当前候选 · 先看前 5 个</h2>
             </div>
             <div class="pair-v2-legend" aria-label="评分说明">
               <span><i class="is-quality"></i>质量</span>
@@ -422,7 +435,7 @@
           </div>
           <footer class="pair-v2-table-footer" id="pair-v2-token-footer">
             <span id="pair-v2-token-count">—</span>
-            <button type="button" id="pair-v2-load-more">再显示 20 个</button>
+            <button type="button" id="pair-v2-load-more">再看 10 个</button>
           </footer>
           <div class="empty-state" id="pair-v2-token-empty" hidden>
             <strong>当前筛选没有候选</strong>
@@ -430,70 +443,82 @@
           </div>
         </section>
 
-        <section class="pair-v2-board pair-v2-outcome-board" aria-labelledby="pair-v2-outcome-title">
-          <header>
-            <div>
-              <span class="pair-v2-panel-kicker">FIRST-SIGNAL REPLAY</span>
-              <h2 id="pair-v2-outcome-title">首次信号结果回放</h2>
-            </div>
-            <span class="pair-v2-fee-note">中位收益已扣双边 1% 平台费，未扣滑点与 Gas</span>
-          </header>
-          <div class="pair-v2-horizons" id="pair-v2-horizons"></div>
-        </section>
+        <details class="workspace-disclosure pair-v2-outcome-disclosure">
+          <summary>
+            <span><b id="pair-v2-outcome-title">查看历史信号表现</b><small>首次信号回放，含 5 分钟至 24 小时窗口</small></span>
+            <i aria-hidden="true">展开</i>
+          </summary>
+          <section class="pair-v2-board pair-v2-outcome-board" aria-labelledby="pair-v2-outcome-title">
+            <header>
+              <div>
+                <span class="pair-v2-panel-kicker">FIRST-SIGNAL REPLAY</span>
+                <h2>首次信号结果回放</h2>
+              </div>
+              <span class="pair-v2-fee-note">中位收益已扣双边 1% 平台费，未扣滑点与 Gas</span>
+            </header>
+            <div class="pair-v2-horizons" id="pair-v2-horizons"></div>
+          </section>
+        </details>
 
         <section class="pair-v2-mechanism-strip" aria-label="PAIR V2 协议动作">
           <article><span>回购模式理论新增</span><strong id="pair-v2-buyback-budget">—</strong><small>成交 × 1% × 70% · 计算值</small></article>
           <article><span>链上待执行回购桶</span><strong id="pair-v2-pending-buckets">—</strong><small id="pair-v2-pending-assets">按资产分列</small></article>
-          <article><span>已执行回购销毁</span><strong id="pair-v2-buyback-count">—</strong><small>BuybackExecuted · 链上</small></article>
-          <article><span>持有人领取</span><strong id="pair-v2-claim-count">—</strong><small>HolderDistributionClaimed · 链上</small></article>
+          <article><span>已执行回购销毁</span><strong id="pair-v2-buyback-count">—</strong><small>链上回购事件</small></article>
+          <article><span>持有人领取</span><strong id="pair-v2-claim-count">—</strong><small>链上领取事件</small></article>
         </section>
 
-        <div class="pair-v2-lower-grid">
-          <section class="pair-v2-board pair-v2-events" aria-labelledby="pair-v2-events-title">
-            <header>
-              <div>
-                <span class="pair-v2-panel-kicker">CHAIN RECEIPTS</span>
-                <h2 id="pair-v2-events-title">最近链上动作</h2>
+        <details class="workspace-disclosure pair-v2-evidence-disclosure">
+          <summary>
+            <span><b>查看链上凭证与数据状态</b><small>归集、回购、领取、升级和采集健康</small></span>
+            <i aria-hidden="true">展开</i>
+          </summary>
+          <div class="pair-v2-lower-grid">
+            <section class="pair-v2-board pair-v2-events" aria-labelledby="pair-v2-events-title">
+              <header>
+                <div>
+                  <span class="pair-v2-panel-kicker">CHAIN RECEIPTS</span>
+                  <h2 id="pair-v2-events-title">最近链上动作</h2>
+                </div>
+                <div class="pair-v2-event-switch" aria-label="事件筛选">
+                  <button class="is-active" type="button" data-v2-event="all">全部</button>
+                  <button type="button" data-v2-event="fee_collected">归集</button>
+                  <button type="button" data-v2-event="buyback_executed">回购</button>
+                  <button type="button" data-v2-event="holder_claim">领取</button>
+                  <button type="button" data-v2-event="upgrade">升级</button>
+                </div>
+              </header>
+              <div class="pair-v2-table-wrap">
+                <table class="pair-v2-table pair-v2-event-table">
+                  <thead>
+                    <tr><th>时间</th><th>动作</th><th>项目</th><th>数量</th><th>区块 / 交易</th></tr>
+                  </thead>
+                  <tbody id="pair-v2-event-body"></tbody>
+                </table>
               </div>
-              <div class="pair-v2-event-switch" aria-label="事件筛选">
-                <button class="is-active" type="button" data-v2-event="all">全部</button>
-                <button type="button" data-v2-event="fee_collected">归集</button>
-                <button type="button" data-v2-event="buyback_executed">回购</button>
-                <button type="button" data-v2-event="holder_claim">领取</button>
-                <button type="button" data-v2-event="upgrade">升级</button>
-              </div>
-            </header>
-            <div class="pair-v2-table-wrap">
-              <table class="pair-v2-table pair-v2-event-table">
-                <thead>
-                  <tr><th>时间</th><th>动作</th><th>项目</th><th>数量</th><th>区块 / 交易</th></tr>
-                </thead>
-                <tbody id="pair-v2-event-body"></tbody>
-              </table>
-            </div>
-            <p class="pair-v2-inline-empty" id="pair-v2-event-empty" hidden>当前筛选没有链上事件。</p>
-          </section>
+              <p class="pair-v2-inline-empty" id="pair-v2-event-empty" hidden>当前筛选没有链上事件。</p>
+            </section>
 
-          <aside class="pair-v2-board pair-v2-source-board" aria-labelledby="pair-v2-source-title">
-            <header>
-              <div>
-                <span class="pair-v2-panel-kicker">DATA HEALTH</span>
-                <h2 id="pair-v2-source-title">采集与告警</h2>
-              </div>
-            </header>
-            <div id="pair-v2-source-list" class="pair-v2-source-list"></div>
-            <footer class="pair-v2-alert-state">
-              <span>Alpha 告警</span>
-              <strong id="pair-v2-alert-state">未配置</strong>
-              <small id="pair-v2-alert-detail">只在服务端保存 webhook</small>
-            </footer>
-            <footer class="pair-v2-alert-state pair-v2-alert-state--dev">
-              <span>DEV 雷达</span>
-              <strong id="dev-monitor-state">等待服务</strong>
-              <small id="dev-monitor-detail">自动发现创建者，买入需核验资金两条腿</small>
-            </footer>
-          </aside>
-        </div>
+            <aside class="pair-v2-board pair-v2-source-board" aria-labelledby="pair-v2-source-title">
+              <header>
+                <div>
+                  <span class="pair-v2-panel-kicker">DATA HEALTH</span>
+                  <h2 id="pair-v2-source-title">采集与告警</h2>
+                </div>
+              </header>
+              <div id="pair-v2-source-list" class="pair-v2-source-list"></div>
+              <footer class="pair-v2-alert-state">
+                <span>Alpha 告警</span>
+                <strong id="pair-v2-alert-state">未配置</strong>
+                <small id="pair-v2-alert-detail">只在服务端保存 webhook</small>
+              </footer>
+              <footer class="pair-v2-alert-state pair-v2-alert-state--dev">
+                <span>DEV 雷达</span>
+                <strong id="dev-monitor-state">等待服务</strong>
+                <small id="dev-monitor-detail">自动发现创建者，买入需核验资金两条腿</small>
+              </footer>
+            </aside>
+          </div>
+        </details>
       </section>
 
       <section
@@ -502,6 +527,18 @@
         aria-label="Robinhood Chain 龙头、热度与相对估值"
         hidden
       >
+        <header class="workspace-intro workspace-intro--leaders">
+          <div>
+            <span>CHAIN DECISION</span>
+            <h1>谁是龙头，市场热不热</h1>
+            <p>先给当前判断，再展开排行、交易压力和估值依据。</p>
+          </div>
+          <div class="workspace-intro__status">
+            <span>当前判断</span>
+            <strong id="leaders-summary-state">等待数据</strong>
+          </div>
+        </header>
+
         <div class="intelligence-tape" aria-label="情报快照">
           <span>链状态<strong id="intelligence-chain-state">—</strong></span>
           <span>市场快照<strong id="intelligence-live-at">—</strong></span>
@@ -511,7 +548,7 @@
         <div class="intelligence-signal-grid">
           <article class="leader-signal" aria-labelledby="structural-leader-title">
             <header>
-              <span>结构龙头</span>
+              <span>当前综合龙头</span>
               <i id="structural-leader-status">等待数据</i>
             </header>
             <div class="leader-signal__body">
@@ -520,14 +557,23 @@
               <p id="structural-leader-reason">—</p>
             </div>
             <footer>
-              <span>断崖龙头</span><strong id="cliff-leader-symbol">—</strong>
+              <span>是否领先一档</span><strong id="cliff-leader-symbol">—</strong>
             </footer>
           </article>
 
           <article class="heat-signal" aria-labelledby="chain-heat-title">
             <header>
               <span>链上温度</span>
-              <i id="chain-heat-confidence">置信度 —</i>
+              <span class="signal-confidence">
+                <i id="chain-heat-confidence">判断可靠度 —</i>
+                <button
+                  class="metric-help"
+                  type="button"
+                  aria-label="解释判断可靠度"
+                  data-help-title="判断可靠度是什么？"
+                  data-help="它表示本次冷热判断用了多少项有效数据，以及这些数据是否足够新。可靠度低时，只说明证据不够，不代表市场一定冷或热。"
+                >?</button>
+              </span>
             </header>
             <div class="heat-signal__body">
               <strong id="chain-heat-state">—</strong>
@@ -540,7 +586,7 @@
 
         <section class="intelligence-block" aria-labelledby="category-leaders-title">
           <header class="intelligence-block__head">
-            <h2 id="category-leaders-title">分项龙头</h2>
+            <h2 id="category-leaders-title">谁在哪个维度领先</h2>
             <small id="leader-universe-count">样本 —</small>
           </header>
           <div class="category-leader-grid" id="category-leader-grid"></div>
@@ -548,8 +594,8 @@
 
         <section class="intelligence-block" aria-labelledby="token-heat-title">
           <header class="intelligence-block__head">
-            <h2 id="token-heat-title">龙头代币交易压力</h2>
-            <small>缺价格动量时最高只判高热</small>
+            <h2 id="token-heat-title">龙头代币是否过热</h2>
+            <small>成交越快、换手越高，追高风险越大</small>
           </header>
           <div class="intelligence-table-wrap">
             <table class="intelligence-table token-pressure-table">
@@ -571,27 +617,28 @@
           </div>
         </section>
 
-        <section class="intelligence-block" aria-labelledby="relative-valuation-title">
-          <header class="intelligence-block__head">
-            <h2 id="relative-valuation-title">同角色相对估值</h2>
-            <small>相对区间，不是目标价</small>
-          </header>
+        <details class="workspace-disclosure intelligence-valuation-disclosure">
+          <summary>
+            <span><b id="relative-valuation-title">查看相对估值</b><small>PAIR 对比 PONS，以及同类代币高估或低估</small></span>
+            <i aria-hidden="true">展开</i>
+          </summary>
+          <section class="intelligence-block" aria-labelledby="relative-valuation-title">
+            <article class="platform-token-anchor">
+              <div>
+                <span>PAIR 对比 PONS</span>
+                <strong id="intelligence-pair-state">—</strong>
+              </div>
+              <dl>
+                <div><dt>PAIR 当前价格</dt><dd id="intelligence-pair-actual">—</dd></div>
+                <div><dt>按 PONS 平台规模折算</dt><dd id="intelligence-pair-implied">—</dd></div>
+                <div><dt>合理波动区间</dt><dd id="intelligence-pair-range">—</dd></div>
+                <div><dt>当前溢价 / 折价</dt><dd id="intelligence-pair-gap">—</dd></div>
+              </dl>
+            </article>
 
-          <article class="platform-token-anchor">
-            <div>
-              <span>PAIR / PONS 平台币</span>
-              <strong id="intelligence-pair-state">—</strong>
-            </div>
-            <dl>
-              <div><dt>PAIR 实际</dt><dd id="intelligence-pair-actual">—</dd></div>
-              <div><dt>PONS 同倍数</dt><dd id="intelligence-pair-implied">—</dd></div>
-              <div><dt>区间</dt><dd id="intelligence-pair-range">—</dd></div>
-              <div><dt>偏离</dt><dd id="intelligence-pair-gap">—</dd></div>
-            </dl>
-          </article>
-
-          <div class="cohort-grid" id="cohort-grid"></div>
-        </section>
+            <div class="cohort-grid" id="cohort-grid"></div>
+          </section>
+        </details>
 
         <div class="empty-state" id="intelligence-empty-state" hidden>
           <strong>情报数据尚未就绪</strong>
@@ -868,10 +915,10 @@
         <section class="pair-flow-panel pair-flow-panel--standalone" aria-labelledby="pair-flow-title">
           <div class="pair-flow-page-intro">
             <div>
-              <span>PAIR CAPITAL LOOP / TRANSACTION AUDIT</span>
-              <h1>钱从哪里来，买了多少，烧到哪里</h1>
+              <span>PAIR CAPITAL LOOP</span>
+              <h1>已回购多少，还剩多少</h1>
             </div>
-            <p>政策预算、已执行回购、死亡地址销毁分别记账；没有交易哈希的数字不算成交。</p>
+            <p>回购、销毁、待回购、待销毁分开记账；没有交易哈希的数字不算已成交。</p>
           </div>
           <header class="pair-flow-panel__head">
             <div>
@@ -884,28 +931,57 @@
             </div>
           </header>
 
-          <div class="pair-flow-volume-grid" aria-label="成交量与理论新增预算">
-            <article>
-              <span>今日主池成交</span>
-              <strong id="pair-flow-main-today">—</strong>
-              <small>北京时间 00:00 起</small>
+          <section class="pair-flow-answer-grid" aria-label="PAIR 资金闭环四个核心答案">
+            <article class="is-confirmed">
+              <span>市场已回购</span>
+              <strong id="pair-flow-answer-bought">—</strong>
+              <small>累计买入 PAIR</small>
             </article>
-            <article>
-              <span>主池 24H</span>
-              <strong id="pair-flow-main-24h">—</strong>
-              <small>PAIR / SPY</small>
-            </article>
-            <article>
-              <span id="pair-flow-platform-label">全平台 24H</span>
-              <strong id="pair-flow-platform-24h">—</strong>
-              <small id="pair-flow-platform-coverage">可见代币 —</small>
+            <article class="is-burned">
+              <span>死亡地址已有</span>
+              <strong id="pair-flow-answer-burned">—</strong>
+              <small>累计销毁 / 锁死 PAIR</small>
             </article>
             <article class="is-policy">
-              <span id="pair-flow-budget-label">24H 理论回购新增</span>
-              <strong id="pair-flow-budget-24h">—</strong>
-              <small>成交 × 1% × 30% × 90%</small>
+              <span>政策口径待回购</span>
+              <strong id="pair-flow-answer-pending-buyback">—</strong>
+              <small>报价资产估值，不等于已下单</small>
             </article>
-          </div>
+            <article class="is-pending">
+              <span>已买待销毁</span>
+              <strong id="pair-flow-answer-pending-burn">—</strong>
+              <small>已识别回购批次余额</small>
+            </article>
+          </section>
+
+          <details class="workspace-disclosure pair-flow-volume-disclosure">
+            <summary>
+              <span><b>查看成交量与理论新增预算</b><small>用于解释资金为什么会增加，不把理论值冒充实际回购</small></span>
+              <i aria-hidden="true">展开</i>
+            </summary>
+            <div class="pair-flow-volume-grid" aria-label="成交量与理论新增预算">
+              <article>
+                <span>今日主池成交</span>
+                <strong id="pair-flow-main-today">—</strong>
+                <small>北京时间 00:00 起</small>
+              </article>
+              <article>
+                <span>主池 24H</span>
+                <strong id="pair-flow-main-24h">—</strong>
+                <small>PAIR / SPY</small>
+              </article>
+              <article>
+                <span id="pair-flow-platform-label">全平台 24H</span>
+                <strong id="pair-flow-platform-24h">—</strong>
+                <small id="pair-flow-platform-coverage">可见代币 —</small>
+              </article>
+              <article class="is-policy">
+                <span id="pair-flow-budget-label">24H 理论回购新增</span>
+                <strong id="pair-flow-budget-24h">—</strong>
+                <small>成交 × 1% × 30% × 90%</small>
+              </article>
+            </div>
+          </details>
 
           <div class="pair-flow-body">
             <article class="pair-flow-card pair-flow-card--pair">
