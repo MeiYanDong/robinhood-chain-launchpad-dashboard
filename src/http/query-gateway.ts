@@ -7,6 +7,16 @@ export const QUERY_CACHE_PATHS = [
   "/healthz",
   "/api/meta",
   "/api/platform-activity",
+  "/api/intelligence/health",
+  "/api/intelligence",
+  "/api/pair/alpha/health",
+  "/api/pair/alpha",
+  "/api/pair/v2/health",
+  "/api/pair/v2",
+  "/api/dev-monitor/health",
+  "/api/dev-monitor/pair-team-launches?limit=5&offset=0",
+  "/api/pair/flow",
+  "/api/pair/flow/events?type=all&window=today&limit=50&offset=0",
   "/api/economics",
   "/api/economics/health",
   "/api/economics/valuation",
@@ -17,6 +27,8 @@ export const QUERY_CACHE_PATHS = [
   "/api/long/health",
   "/api/long/rankings",
 ] as const;
+export const QUERY_UPSTREAM_TIMEOUT_MS = 15_000;
+export const QUERY_CACHE_MAX_AGE_MS = 60_000;
 interface CachedResponse {
   body: Buffer;
   status: number;
@@ -48,7 +60,7 @@ export function createQueryGateway(options: GatewayOptions) {
   const cache = new Map<string, CachedResponse>();
   const pending = new Map<string, Promise<CachedResponse>>();
   let refreshRunning = false;
-  const maxAge = options.cacheMaxAgeMs ?? 20_000;
+  const maxAge = options.cacheMaxAgeMs ?? QUERY_CACHE_MAX_AGE_MS;
   async function read(path: string, method = "GET"): Promise<CachedResponse> {
     const key = `${method} ${path}`;
     const existing = pending.get(key);
@@ -58,7 +70,9 @@ export function createQueryGateway(options: GatewayOptions) {
       const response = await fetcher(new URL(path, upstream), {
         method,
         redirect: "error",
-        signal: AbortSignal.timeout(method === "GET" ? (options.timeoutMs ?? 5_000) : 180_000),
+        signal: AbortSignal.timeout(
+          method === "GET" ? (options.timeoutMs ?? QUERY_UPSTREAM_TIMEOUT_MS) : 180_000,
+        ),
       });
       // Stream with a bound rather than allocate an arbitrary upstream response.
       const reader = response.body?.getReader();

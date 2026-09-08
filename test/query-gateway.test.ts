@@ -2,7 +2,29 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import test from "node:test";
-import { createQueryGateway } from "../src/http/query-gateway.js";
+import {
+  createQueryGateway,
+  QUERY_CACHE_MAX_AGE_MS,
+  QUERY_CACHE_PATHS,
+  QUERY_UPSTREAM_TIMEOUT_MS,
+} from "../src/http/query-gateway.js";
+
+test("query prewarm covers every decision page without caching mutations", () => {
+  const decisionPaths = [
+    "/api/intelligence",
+    "/api/pair/alpha",
+    "/api/pair/v2",
+    "/api/dev-monitor/pair-team-launches?limit=5&offset=0",
+    "/api/pair/flow",
+    "/api/pair/flow/events?type=all&window=today&limit=50&offset=0",
+  ];
+  const cachedPaths = new Set<string>(QUERY_CACHE_PATHS);
+  for (const path of decisionPaths) assert.ok(cachedPaths.has(path));
+  assert.equal(new Set(QUERY_CACHE_PATHS).size, QUERY_CACHE_PATHS.length);
+  assert.ok(QUERY_CACHE_PATHS.every((path) => !path.includes("refresh")));
+  assert.equal(QUERY_UPSTREAM_TIMEOUT_MS, 15_000);
+  assert.equal(QUERY_CACHE_MAX_AGE_MS, 60_000);
+});
 
 test("query cache serves during collector failure then fails closed at expiry; static remains available", async () => {
   let now = 0;
