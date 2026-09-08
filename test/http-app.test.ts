@@ -28,6 +28,7 @@ function fakeDashboard(overrides: Partial<DashboardHttpApi> = {}): DashboardHttp
     health: () => ({ ok: true, service: "fixture" }),
     meta: () => ({ route: "meta", apiContractVersion: 1 }),
     overview: (windowDays) => ({ route: "overview", windowDays }),
+    platformActivity: () => ({ route: "platform-activity" }),
     platformDetail: (platformId) =>
       platformId === "pons" ? { route: "platform", platformId } : null,
     coverage: () => ({ route: "coverage" }),
@@ -454,6 +455,10 @@ test("HTTP API routes return their business results", async () => {
     const meta = await fetch(`${baseUrl}/api/meta`);
     assert.equal(meta.status, 200);
     assert.deepEqual(await meta.json(), { route: "meta", apiContractVersion: 1 });
+
+    const platformActivity = await fetch(`${baseUrl}/api/platform-activity`);
+    assert.equal(platformActivity.status, 200);
+    assert.deepEqual(await platformActivity.json(), { route: "platform-activity" });
 
     const platform = await fetch(`${baseUrl}/api/platforms/pons`);
     assert.equal(platform.status, 200);

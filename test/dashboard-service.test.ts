@@ -113,6 +113,14 @@ test("degraded source data remains usable while public messages are sanitized", 
     assert.doesNotMatch(JSON.stringify(sources), /secret upstream|private upstream/);
     assert.equal(service.platformDetail("pons")?.series.volume_usd[0]?.value, 250);
     assert.equal(service.platformDetail("missing"), null);
+    const activity = service.platformActivity();
+    assert.equal(activity.service, "rhc-platform-activity");
+    assert.deepEqual(
+      activity.platforms.map((platform) => platform.platformId),
+      ["pons", "pair", "long"],
+    );
+    assert.equal(activity.platforms[0]?.daily[0]?.valueUsd, 250);
+    assert.equal(activity.platforms[0]?.activity["7d"].current?.status, "building_window");
     const meta = service.meta();
     assert.equal(meta.apiContractVersion, 1);
     assert.deepEqual(meta.supportedWindows, [1, 7, 30]);

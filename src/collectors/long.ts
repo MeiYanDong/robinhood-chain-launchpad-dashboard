@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { withSession, type Session } from "wreq-js";
 import { findRegisteredPlatform, metricPolicyFor } from "../config/platforms.js";
+import { assessDailyMetrics } from "../domain/data-quality.js";
 import type {
   CollectionBatch,
   DailyMetric,
@@ -9,6 +10,7 @@ import type {
   SourceHealth,
 } from "../domain/types.js";
 import { finiteNumber, isRecord } from "../utils/http.js";
+import { utcDateRange } from "../utils/time.js";
 
 export const LONG_GRAPHQL_URL = "https://api.long.xyz/v1/graphql";
 export const LONG_APP_URL = "https://app.long.xyz/";
@@ -21,6 +23,7 @@ const PAGE_SIZE = 1_000;
 const MAX_PAGES = 100;
 const ASSET_CHUNK_SIZE = 400;
 const USD_SCALE = 10n ** 18n;
+export const LONG_HISTORY_MAX_DAYS_PER_REQUEST = 7;
 
 export interface LongHourRow {
   poolId: string;
@@ -425,6 +428,98 @@ export async function collectLong(targetDate: string): Promise<CollectionBatch> 
           sourceHealth,
           raw,
           warnings,
+        };
+      },
+      {
+        browser: "chrome",
+        os: "macos",
+        timeout: 30_000,
+      },
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return failedBatch(message);
+  }
+}
+
+/**
+ * Historical-only Long collection. It batches a bounded UTC date range into one
+ * official GraphQL session and deliberately omits rolling-current statistics.
+ */
+export async function collectLongHistory(
+  startDate: string,
+  endDate: string,
+): Promise<CollectionBatch> {
+  const platform = findRegisteredPlatform("Long");
+  if (!platform) return failedBatch("Long registry entry is missing");
+  const dates = utcDateRange(startDate, endDate);
+  if (dates.length === 0 || dates.length > LONG_HISTORY_MAX_DAYS_PER_REQUEST) {
+    return failedBatch(
+      `Long history range must contain 1-${LONG_HISTORY_MAX_DAYS_PER_REQUEST} UTC days`,
+    );
+  }
+  const started = performance.now();
+
+  try {
+    return await withSession(
+      async (session) => {
+        const startHour = dateHourBounds(startDate).startHour;
+        const endHour = dateHourBounds(endDate).endHour;
+        const allHourRows = await fetchAllHourRows(session, startHour, endHour);
+        const activeAddresses = [...new Set(allHourRows.map((row) => row.tokenAddress))];
+        const longAssets = await fetchLongMembership(session, activeAddresses);
+        const rowsByDate = new Map<string, LongHourRow[]>();
+        for (const row of allHourRows) {
+          const date = new Date(row.hourTimestamp * 3_600_000).toISOString().slice(0, 10);
+          const rows = rowsByDate.get(date) ?? [];
+          rows.push(row);
+          rowsByDate.set(date, rows);
+        }
+        const fetchedAt = new Date().toISOString();
+        const policy = metricPolicyFor(platform, "volume_usd");
+        const summaries = dates.map((date) => ({
+          date,
+          summary: summarizeLongDaily(rowsByDate.get(date) ?? [], longAssets),
+        }));
+        const metrics = assessDailyMetrics(
+          summaries.map(({ date, summary }) => ({
+            platformId: platform.id,
+            metric: "volume_usd" as const,
+            date,
+            value: summary.volumeUsd,
+            source: LONG_DAILY_SOURCE,
+            quality: policy.quality,
+            scope: policy.scope,
+            derivation: policy.note ?? null,
+            collectedAt: fetchedAt,
+          })),
+        );
+        const matchedRows = summaries.flatMap(({ summary }) => summary.matchedRows);
+        return {
+          platforms: [platform],
+          metrics,
+          stats: [],
+          sourceHealth: [
+            {
+              source: LONG_DAILY_SOURCE,
+              status: metrics.some((metric) => metric.quality === "unknown") ? "degraded" : "ok",
+              fetchedAt,
+              latestDataDate: endDate,
+              latencyMs: Math.round(performance.now() - started),
+              message: `${dates.length} historical UTC days, ${matchedRows.length} matched hourly observations`,
+            },
+          ],
+          raw: [
+            rawObservation(`${LONG_DAILY_SOURCE}.history`, fetchedAt, {
+              startDate,
+              endDate,
+              allHourRowCount: allHourRows.length,
+              activeAddressCount: activeAddresses.length,
+              longAssetCount: longAssets.size,
+              matchedRows,
+            }),
+          ],
+          warnings: [],
         };
       },
       {

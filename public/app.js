@@ -94,6 +94,20 @@ const PAIR_ALPHA_ACTION_LABELS = {
   evidence_wait: "等待证据",
   cold_watch: "冷启动观察",
 };
+const PLATFORM_ACTIVITY_BAND_LABELS = {
+  quiet: "偏冷",
+  normal: "常态",
+  active: "活跃",
+  unusually_active: "异常活跃",
+  unknown: "未知",
+};
+const PLATFORM_ACTIVITY_STATUS_LABELS = {
+  available: "可用",
+  building_window: "窗口建立中",
+  building_baseline: "基准建立中",
+  partial: "覆盖不完整",
+  unknown: "未知",
+};
 const METRIC_SHORT = {
   volume_usd: "VOL",
   fees_usd: "FEE",
@@ -143,6 +157,10 @@ const state = {
   intelligence: null,
   windowDays: 1,
   economics: null,
+  platformActivity: null,
+  activityWindowDays: 7,
+  activityChartMode: "multiple",
+  activityVolumeWindow: "30d",
   pairFlow: null,
   pairV2: null,
   pairAlpha: null,
@@ -1099,6 +1117,403 @@ function renderTriadSummary() {
       buyback?.note ?? buyback?.policy?.basis ?? "",
     );
   }
+}
+
+function currentActivitySeries(platform) {
+  return platform?.activity?.[`${state.activityWindowDays}d`] ?? null;
+}
+
+function activityPointForDisplay(series) {
+  if (!series) return null;
+  return series.current?.status === "available" ? series.current : series.latestAvailable;
+}
+
+function activityStatusLabel(series) {
+  const current = series?.current;
+  if (!current) return "暂无历史";
+  if (current.status === "available") {
+    return PLATFORM_ACTIVITY_BAND_LABELS[current.band] ?? "可用";
+  }
+  if (current.status === "building_baseline") {
+    return `基准 ${current.baselineObservationCount}/${current.baselineRequired}`;
+  }
+  if (current.status === "partial") {
+    return `覆盖 ${current.observedDays}/${current.expectedDays}`;
+  }
+  return PLATFORM_ACTIVITY_STATUS_LABELS[current.status] ?? "未知";
+}
+
+function renderPlatformActivityCards() {
+  const host = $("#platform-activity-cards");
+  host.replaceChildren();
+  const payload = state.platformActivity;
+  if (!payload) {
+    host.append(element("p", "activity-panel-empty", "平台活跃度暂不可用。"));
+    return;
+  }
+
+  for (const platform of payload.platforms) {
+    const series = currentActivitySeries(platform);
+    const current = series?.current ?? null;
+    const displayPoint = activityPointForDisplay(series);
+    const card = element("article", "activity-card");
+    card.dataset.platformId = platform.platformId;
+
+    const header = element("header", "activity-card__head");
+    const identity = element("div", "activity-card__identity");
+    identity.append(element("i"), element("strong", "", platform.platformName));
+    const status = element(
+      "span",
+      `activity-state activity-state--${current?.status ?? "unknown"} activity-state--band-${current?.band ?? "unknown"}`,
+      activityStatusLabel(series),
+    );
+    header.append(identity, status);
+
+    const primary = element("div", "activity-card__primary");
+    const multiple = element(
+      "strong",
+      `activity-multiple activity-multiple--${displayPoint?.band ?? "unknown"}`,
+      formatRatio(displayPoint?.multiple),
+    );
+    const pointDate = displayPoint?.date ?? platform.latestUsableDate;
+    primary.append(
+      element("span", "", `${state.activityWindowDays}日活跃倍数`),
+      multiple,
+      element(
+        "small",
+        "",
+        displayPoint?.multiple === null || displayPoint?.multiple === undefined
+          ? "等待足够历史建立基准"
+          : pointDate === payload.targetDate
+            ? `截至 ${pointDate}`
+            : `最近可算 ${pointDate}`,
+      ),
+    );
+
+    const details = element("dl", "activity-card__metrics");
+    const metrics = [
+      ["周期日均", formatUsd(displayPoint?.averageDailyVolumeUsd)],
+      ["历史中位", formatUsd(displayPoint?.baselineMedianDailyVolumeUsd)],
+      [
+        "历史百分位",
+        Number.isFinite(displayPoint?.percentile) ? `P${Math.round(displayPoint.percentile)}` : "—",
+      ],
+      [
+        "历史覆盖",
+        platform.calendarDays > 0 ? `${platform.observedDays}/${platform.calendarDays} 日` : "—",
+      ],
+    ];
+    for (const [label, value] of metrics) {
+      const item = element("div");
+      item.append(element("dt", "", label), element("dd", "", value));
+      details.append(item);
+    }
+
+    const baselineCount = current?.baselineObservationCount ?? 0;
+    const baselineRequired =
+      current?.baselineRequired ?? payload.benchmark.baselineMinimumObservations;
+    const progress = element("div", "activity-baseline-progress");
+    const track = element("span");
+    const fill = element("i");
+    fill.style.width = `${Math.min(100, (baselineCount / baselineRequired) * 100)}%`;
+    track.append(fill);
+    progress.append(element("small", "", `基准样本 ${baselineCount}/${baselineRequired}`), track);
+
+    const footer = element("footer", "activity-card__foot");
+    footer.append(
+      element(
+        "span",
+        "",
+        platform.firstObservedDate ? `起点 ${platform.firstObservedDate}` : "暂无起点",
+      ),
+      element(
+        "span",
+        "",
+        platform.latestUsableDate ? `最新 ${platform.latestUsableDate}` : "暂无数据",
+      ),
+    );
+    card.append(header, primary, details, progress, footer);
+    host.append(card);
+  }
+}
+
+function activityChartPoints(platform) {
+  if (state.activityChartMode === "daily") {
+    return platform.daily.map((point) => ({
+      date: point.date,
+      value: point.valueUsd,
+      label: formatUsd(point.valueUsd, false),
+    }));
+  }
+  const series = currentActivitySeries(platform);
+  return (series?.points ?? []).map((point) => ({
+    date: point.date,
+    value: point.multiple,
+    label: formatRatio(point.multiple),
+  }));
+}
+
+function activityChartPath(points, x, y) {
+  let drawing = false;
+  return points
+    .map((point) => {
+      if (!Number.isFinite(point.value)) {
+        drawing = false;
+        return "";
+      }
+      const command = drawing ? "L" : "M";
+      drawing = true;
+      return `${command}${x(point.date).toFixed(2)},${y(point.value).toFixed(2)}`;
+    })
+    .filter(Boolean)
+    .join(" ");
+}
+
+function renderPlatformActivityChart() {
+  const svg = $("#platform-activity-chart");
+  const empty = $("#platform-activity-chart-empty");
+  const payload = state.platformActivity;
+  svg.replaceChildren();
+  if (!payload) {
+    svg.hidden = true;
+    empty.hidden = false;
+    return;
+  }
+
+  const series = payload.platforms.map((platform) => ({
+    platform,
+    points: activityChartPoints(platform),
+  }));
+  const values = series.flatMap(({ points }) =>
+    points.map((point) => point.value).filter((value) => Number.isFinite(value) && value >= 0),
+  );
+  const allDates = series.flatMap(({ points }) => points.map((point) => point.date));
+  if (values.length === 0 || allDates.length === 0) {
+    svg.hidden = true;
+    empty.hidden = false;
+    $("#platform-activity-chart-note").textContent =
+      state.activityChartMode === "multiple"
+        ? "倍数至少需要30个历史基准样本；可切换到日交易量查看完整历史。"
+        : "尚无可验证日度成交量。";
+    return;
+  }
+  svg.hidden = false;
+  empty.hidden = true;
+
+  const width = 960;
+  const height = 300;
+  const padding = { top: 24, right: 26, bottom: 34, left: 82 };
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  const minDate = [...allDates].sort()[0];
+  const maxDate = payload.targetDate;
+  const minTime = Date.parse(`${minDate}T00:00:00Z`);
+  const maxTime = Date.parse(`${maxDate}T00:00:00Z`);
+  const rawMax = Math.max(...values, state.activityChartMode === "multiple" ? 1 : 0);
+  const chartMax = rawMax > 0 ? rawMax * 1.08 : 1;
+  const logMax = Math.log1p(chartMax);
+  const x = (date) => {
+    const timestamp = Date.parse(`${date}T00:00:00Z`);
+    return (
+      padding.left +
+      (maxTime === minTime
+        ? plotWidth / 2
+        : ((timestamp - minTime) / (maxTime - minTime)) * plotWidth)
+    );
+  };
+  const y = (value) => padding.top + plotHeight - (Math.log1p(value) / logMax) * plotHeight;
+
+  for (const fraction of [0, 0.5, 1]) {
+    const gridY = padding.top + plotHeight * fraction;
+    const grid = svgElement("line", {
+      x1: padding.left,
+      x2: width - padding.right,
+      y1: gridY,
+      y2: gridY,
+      class: "activity-chart-grid",
+    });
+    const rawValue = Math.expm1(logMax * (1 - fraction));
+    const label = svgElement("text", {
+      x: padding.left - 12,
+      y: gridY + 4,
+      class: "activity-chart-label",
+      "text-anchor": "end",
+    });
+    label.textContent =
+      state.activityChartMode === "multiple" ? formatRatio(rawValue) : formatUsd(rawValue);
+    svg.append(grid, label);
+  }
+
+  if (state.activityChartMode === "multiple" && chartMax >= 1) {
+    const baselineY = y(1);
+    svg.append(
+      svgElement("line", {
+        x1: padding.left,
+        x2: width - padding.right,
+        y1: baselineY,
+        y2: baselineY,
+        class: "activity-chart-baseline",
+      }),
+    );
+    const baselineLabel = svgElement("text", {
+      x: width - padding.right,
+      y: baselineY - 7,
+      class: "activity-chart-baseline-label",
+      "text-anchor": "end",
+    });
+    baselineLabel.textContent = "自身常态 1.0×";
+    svg.append(baselineLabel);
+  }
+
+  for (const { platform, points } of series) {
+    const path = activityChartPath(points, x, y);
+    if (!path) continue;
+    svg.append(
+      svgElement("path", {
+        d: path,
+        class: `activity-chart-line activity-chart-line--${platform.platformId}`,
+      }),
+    );
+    const last = [...points].reverse().find((point) => Number.isFinite(point.value));
+    if (!last) continue;
+    const dot = svgElement("circle", {
+      cx: x(last.date),
+      cy: y(last.value),
+      r: 4.5,
+      class: `activity-chart-dot activity-chart-dot--${platform.platformId}`,
+    });
+    const title = svgElement("title");
+    title.textContent = `${platform.platformName} · ${last.date} · ${last.label}`;
+    dot.append(title);
+    svg.append(dot);
+  }
+
+  const startLabel = svgElement("text", {
+    x: padding.left,
+    y: height - 8,
+    class: "activity-chart-label",
+  });
+  startLabel.textContent = minDate;
+  const endLabel = svgElement("text", {
+    x: width - padding.right,
+    y: height - 8,
+    class: "activity-chart-label",
+    "text-anchor": "end",
+  });
+  endLabel.textContent = maxDate;
+  svg.append(startLabel, endLabel);
+
+  $("#platform-activity-chart-title").textContent =
+    state.activityChartMode === "multiple"
+      ? `${state.activityWindowDays}日活跃倍数历史`
+      : "平台日交易量历史";
+  $("#platform-activity-chart").setAttribute(
+    "aria-label",
+    state.activityChartMode === "multiple"
+      ? `Pons Long PAIR ${state.activityWindowDays}日活跃倍数历史`
+      : "Pons Long PAIR 日交易量历史",
+  );
+  $("#platform-activity-chart-note").textContent =
+    state.activityChartMode === "multiple"
+      ? "1.0× 为平台自身历史常态；高倍数只表示成交放大。"
+      : "从各平台首个已验证日展示；缺失与可疑零值保留断点。";
+}
+
+function volumeDisplay(summary) {
+  if (summary.status === "available" && Number.isFinite(summary.valueUsd)) {
+    return {
+      value: formatUsd(summary.valueUsd),
+      detail:
+        summary.valueKind === "reported_all_time"
+          ? "官方累计"
+          : summary.window === "lifetime"
+            ? "日度账本累计"
+            : "完整窗口",
+      className: "",
+    };
+  }
+  if (Number.isFinite(summary.observedValueUsd)) {
+    return {
+      value: `≥${formatUsd(summary.observedValueUsd)}`,
+      detail: "已观测下限",
+      className: "is-partial",
+    };
+  }
+  return { value: "—", detail: "暂无观测", className: "is-unknown" };
+}
+
+function renderPlatformVolumes() {
+  const body = $("#platform-volume-body");
+  body.replaceChildren();
+  const payload = state.platformActivity;
+  if (!payload) return;
+  const windowName = state.activityVolumeWindow;
+  const comparison = payload.comparisons[windowName];
+  const labels = {
+    "7d": "最近7个完整 UTC 日",
+    "30d": "最近30个完整 UTC 日",
+    lifetime: "官方累计按采集时点；日度账本截至最近闭合日",
+  };
+  $("#platform-volume-window-note").textContent = `${labels[windowName]} · ${comparison.note}`;
+
+  for (const platform of payload.platforms) {
+    const summary = platform.volumes[windowName];
+    const display = volumeDisplay(summary);
+    const row = element("tr");
+    row.dataset.platformId = platform.platformId;
+    const identity = element("td", "activity-volume-platform");
+    identity.append(
+      element("i"),
+      element("strong", "", platform.platformName),
+      element("small", "", platform.sources[0] ?? "未核验来源"),
+    );
+    const value = element("td", `activity-volume-value ${display.className}`.trim());
+    value.append(element("strong", "", display.value), element("small", "", display.detail));
+    const average = element("td", "activity-volume-number");
+    average.textContent = formatUsd(summary.averageDailyUsd);
+    const share = element("td", "activity-volume-number");
+    share.textContent =
+      comparison.state === "not_comparable"
+        ? "不适用"
+        : formatPercent(comparison.sharesPercent[platform.platformId]);
+    const coverage = element("td", "activity-volume-coverage");
+    coverage.append(
+      element("strong", "", `${summary.observedDays}/${summary.expectedDays || "—"} 日`),
+      element("small", "", summary.expectedDays > 0 ? formatPercent(summary.coverage * 100) : "—"),
+    );
+    const start = element("td", "activity-volume-number");
+    start.textContent = platform.firstObservedDate ?? "—";
+    row.append(identity, value, average, share, coverage, start);
+    body.append(row);
+  }
+}
+
+function renderPlatformActivity() {
+  const payload = state.platformActivity;
+  $("#platform-activity-date").textContent = payload ? `闭合日 ${payload.targetDate}` : "闭合日 —";
+  const status = $("#platform-activity-state");
+  status.className = "";
+  const hasBuildingBaseline = payload?.platforms.some((platform) => {
+    const current = platform.activity?.[`${state.activityWindowDays}d`]?.current;
+    return current && current.status !== "available";
+  });
+  status.textContent = !payload
+    ? "不可用"
+    : payload.stale
+      ? "数据过期"
+      : payload.platforms.some((platform) => platform.firstObservedDate === null)
+        ? "部分可用"
+        : hasBuildingBaseline
+          ? "部分倍数待建立"
+          : "已更新";
+  if (payload?.stale) status.classList.add("is-stale");
+  if (hasBuildingBaseline && !payload?.stale) status.classList.add("is-building");
+  $("#platform-activity-formula").textContent = payload
+    ? `倍数 = ${state.activityWindowDays}日均量 ÷ 此前同周期历史中位数 · 最少 ${payload.benchmark.baselineMinimumObservations} 个基准样本`
+    : "倍数 = 当前周期日均交易量 ÷ 自身历史同周期中位数";
+  renderPlatformActivityCards();
+  renderPlatformActivityChart();
+  renderPlatformVolumes();
 }
 
 function formatPriceRange(low, high) {
@@ -2718,6 +3133,7 @@ function renderEconomics() {
   $("#economics-observed-at").textContent = formatDateTime(state.economics.observedAt);
   $("#header-date").textContent = state.economics.targetDate;
   renderTriadSummary();
+  renderPlatformActivity();
   renderPairFlow();
   renderPairRelativeValuation();
   renderTokenEconomics();
@@ -3553,12 +3969,14 @@ async function loadPairTeamLaunches() {
 }
 
 async function loadEconomics() {
-  const [economics, valuationHistory, pairFlow] = await Promise.all([
+  const [economics, platformActivity, valuationHistory, pairFlow] = await Promise.all([
     api("/api/economics"),
+    api("/api/platform-activity"),
     api("/api/economics/valuation/history").catch(() => null),
     api("/api/pair/flow").catch(() => null),
   ]);
   state.economics = economics;
+  state.platformActivity = platformActivity;
   state.valuationHistory = valuationHistory;
   if (pairFlow) state.pairFlow = pairFlow;
   renderEconomics();
@@ -3895,6 +4313,47 @@ function bindEvents() {
     } finally {
       button.disabled = false;
     }
+  });
+
+  $$("[data-activity-window]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const windowDays = Number(button.dataset.activityWindow);
+      if (![7, 30].includes(windowDays) || windowDays === state.activityWindowDays) return;
+      state.activityWindowDays = windowDays;
+      $$("[data-activity-window]").forEach((candidate) => {
+        candidate.classList.toggle("is-active", candidate === button);
+      });
+      renderPlatformActivity();
+    });
+  });
+
+  $$("[data-activity-chart]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const mode = button.dataset.activityChart;
+      if (!["multiple", "daily"].includes(mode) || mode === state.activityChartMode) return;
+      state.activityChartMode = mode;
+      $$("[data-activity-chart]").forEach((candidate) => {
+        candidate.classList.toggle("is-active", candidate === button);
+      });
+      renderPlatformActivityChart();
+    });
+  });
+
+  $$("[data-volume-window]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const windowName = button.dataset.volumeWindow;
+      if (
+        !["7d", "30d", "lifetime"].includes(windowName) ||
+        windowName === state.activityVolumeWindow
+      ) {
+        return;
+      }
+      state.activityVolumeWindow = windowName;
+      $$("[data-volume-window]").forEach((candidate) => {
+        candidate.classList.toggle("is-active", candidate === button);
+      });
+      renderPlatformVolumes();
+    });
   });
 
   $$("[data-window]").forEach((button) => {

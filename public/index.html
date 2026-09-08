@@ -11,8 +11,8 @@
     <title>Robinhood Chain 发射台</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css?v=0.11.0" />
-    <link rel="stylesheet" href="./styles-v2.css?v=0.15.3" />
-    <script src="./app.js?v=0.15.3" type="module"></script>
+    <link rel="stylesheet" href="./styles-v2.css?v=0.16.0" />
+    <script src="./app.js?v=0.16.0" type="module"></script>
   </head>
   <body class="radar-v2">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -673,6 +673,87 @@
               </dl>
             </article>
           </div>
+        </section>
+
+        <section class="activity-board" aria-labelledby="platform-activity-title">
+          <header class="activity-board__head">
+            <div>
+              <span>自身历史基准</span>
+              <h2 id="platform-activity-title">平台活跃度</h2>
+            </div>
+            <div class="activity-board__meta">
+              <small id="platform-activity-date">闭合日 —</small>
+              <span id="platform-activity-state">等待数据</span>
+            </div>
+          </header>
+
+          <div class="activity-board__controls">
+            <div class="activity-control" aria-label="活跃倍数窗口">
+              <span>活跃窗口</span>
+              <div>
+                <button class="is-active" type="button" data-activity-window="7">7日</button>
+                <button type="button" data-activity-window="30">30日</button>
+              </div>
+            </div>
+            <div class="activity-control" aria-label="历史图指标">
+              <span>历史图</span>
+              <div>
+                <button class="is-active" type="button" data-activity-chart="multiple">活跃倍数</button>
+                <button type="button" data-activity-chart="daily">日交易量</button>
+              </div>
+            </div>
+            <p id="platform-activity-formula">倍数 = 当前周期日均交易量 ÷ 自身历史同周期中位数</p>
+          </div>
+
+          <div class="activity-card-grid" id="platform-activity-cards" aria-live="polite"></div>
+
+          <div class="activity-history">
+            <div class="activity-history__head">
+              <strong id="platform-activity-chart-title">7日活跃倍数历史</strong>
+              <div class="activity-legend" aria-label="平台图例">
+                <span data-platform-id="pons"><i></i>Pons</span>
+                <span data-platform-id="pair"><i></i>PAIR</span>
+                <span data-platform-id="long"><i></i>Long</span>
+              </div>
+            </div>
+            <svg
+              id="platform-activity-chart"
+              role="img"
+              aria-label="Pons Long PAIR 平台活跃度历史"
+              viewBox="0 0 960 300"
+            ></svg>
+            <p class="activity-chart-empty" id="platform-activity-chart-empty" hidden>尚未形成可计算历史。</p>
+            <footer id="platform-activity-chart-note">完整 UTC 日；缺失数据不补零。</footer>
+          </div>
+
+          <section class="activity-volume" aria-labelledby="platform-volume-title">
+            <header class="activity-volume__head">
+              <div>
+                <h3 id="platform-volume-title">平台交易量</h3>
+                <small id="platform-volume-window-note">最近30个完整 UTC 日</small>
+              </div>
+              <div class="activity-volume-switch" aria-label="平台交易量窗口">
+                <button type="button" data-volume-window="7d">7日</button>
+                <button class="is-active" type="button" data-volume-window="30d">30日</button>
+                <button type="button" data-volume-window="lifetime">上线以来</button>
+              </div>
+            </header>
+            <div class="activity-volume__table-wrap">
+              <table class="activity-volume-table">
+                <thead>
+                  <tr>
+                    <th>平台</th>
+                    <th>交易量</th>
+                    <th>日均交易量</th>
+                    <th>三平台份额</th>
+                    <th>覆盖</th>
+                    <th>数据起点</th>
+                  </tr>
+                </thead>
+                <tbody id="platform-volume-body"></tbody>
+              </table>
+            </div>
+          </section>
         </section>
 
         <a class="pair-flow-teaser" href="/pair-flow/" aria-label="打开 PAIR 资金闭环逐笔账本">
