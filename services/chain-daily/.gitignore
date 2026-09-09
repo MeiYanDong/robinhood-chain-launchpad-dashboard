@@ -1,0 +1,14 @@
+node_modules/
+dist/
+runs/
+data/raw/
+data/snapshots/
+data/latest.json
+reports/*.md
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+coverage/
+.DS_Store

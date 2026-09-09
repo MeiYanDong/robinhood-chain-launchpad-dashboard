@@ -79,6 +79,12 @@ export interface IntelligenceHttpApi {
   refresh(): Promise<unknown>;
 }
 
+export interface ProductHttpApi {
+  health(): { ok: boolean; [key: string]: unknown };
+  ensureFresh(): Promise<unknown>;
+  refresh(): Promise<unknown>;
+}
+
 export interface SafeLogger {
   error(event: string, context: Record<string, unknown>): void;
 }
@@ -92,6 +98,7 @@ export interface DashboardRequestHandlerOptions {
   long?: LongTokenHttpApi;
   economics?: EconomicsHttpApi;
   intelligence?: IntelligenceHttpApi;
+  product?: ProductHttpApi;
   publicDirectory: string;
   logger?: SafeLogger;
 }
@@ -133,11 +140,36 @@ function parseWindow(value: string | null): WindowDays | null {
 }
 
 function stripApplicationPrefix(pathname: string): string {
-  for (const prefix of ["/leaders", "/launchpads", "/pair-flow", "/pair-v2", "/pair-alpha"]) {
+  for (const prefix of [
+    "/assets/cashcat",
+    "/leaders",
+    "/launchpads",
+    "/pair-flow",
+    "/pair-v2",
+    "/pair-alpha",
+    "/market",
+    "/alpha",
+    "/assets",
+  ]) {
     if (pathname === prefix || pathname === `${prefix}/`) return "/";
     if (pathname.startsWith(`${prefix}/`)) return pathname.slice(prefix.length);
   }
   return pathname;
+}
+
+function headerValue(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
+}
+
+function servesProductWorkbench(pathname: string, forwardedPrefix: string): boolean {
+  if (pathname === "/") return true;
+  return ["/market", "/alpha", "/assets"].some(
+    (prefix) =>
+      pathname === prefix ||
+      pathname.startsWith(`${prefix}/`) ||
+      forwardedPrefix === prefix ||
+      forwardedPrefix.startsWith(`${prefix}/`),
+  );
 }
 
 function parsePairFlowEventsQuery(url: URL): PairFlowEventsQuery | null {
@@ -175,9 +207,10 @@ function serveStatic(
   pathname: string,
   publicDirectory: string,
   logger: SafeLogger,
+  entryDocument = "index.html",
 ): void {
   const publicRoot = resolve(publicDirectory);
-  const requested = pathname === "/" ? "index.html" : pathname.replace(/^\/+/, "");
+  const requested = pathname === "/" ? entryDocument : pathname.replace(/^\/+/, "");
   const filePath = resolve(publicRoot, requested);
 
   if (pathname.includes("\0") || isOutsideRoot(publicRoot, filePath)) {
@@ -221,10 +254,12 @@ export function createDashboardRequestHandler(
 
   return async (request, response) => {
     let pathname = "/";
+    let requestedPathname = "/";
     try {
       const url = new URL(request.url ?? "/", "http://localhost");
       try {
-        pathname = stripApplicationPrefix(decodeURIComponent(url.pathname));
+        requestedPathname = decodeURIComponent(url.pathname);
+        pathname = stripApplicationPrefix(requestedPathname);
       } catch {
         sendError(response, 400, "INVALID_PATH", "Invalid request path");
         return;
@@ -308,6 +343,31 @@ export function createDashboardRequestHandler(
       if (request.method === "GET" && pathname === "/api/meta") {
         sendJson(response, 200, options.dashboard.meta());
         return;
+      }
+
+      if (pathname.startsWith("/api/product")) {
+        if (!options.product) {
+          sendError(
+            response,
+            503,
+            "PRODUCT_WORKBENCH_UNAVAILABLE",
+            "Product workbench unavailable",
+          );
+          return;
+        }
+        if (request.method === "GET" && pathname === "/api/product/health") {
+          const health = options.product.health();
+          sendJson(response, health.ok ? 200 : 503, health);
+          return;
+        }
+        if (request.method === "GET" && pathname === "/api/product/today") {
+          sendJson(response, 200, await options.product.ensureFresh());
+          return;
+        }
+        if (request.method === "POST" && pathname === "/api/product/refresh") {
+          sendJson(response, 200, await options.product.refresh());
+          return;
+        }
       }
 
       if (pathname.startsWith("/api/intelligence")) {
@@ -638,7 +698,18 @@ export function createDashboardRequestHandler(
         (request.method === "GET" || request.method === "HEAD") &&
         !pathname.startsWith("/api/")
       ) {
-        serveStatic(request, response, pathname, options.publicDirectory, logger);
+        const productSurface = servesProductWorkbench(
+          requestedPathname,
+          headerValue(request.headers["x-forwarded-prefix"]),
+        );
+        serveStatic(
+          request,
+          response,
+          pathname,
+          options.publicDirectory,
+          logger,
+          productSurface ? "product.html" : "index.html",
+        );
         return;
       }
 

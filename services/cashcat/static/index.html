@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#10120f">
+  <link rel="icon" href="data:,">
+  <title>Cash Cat 实盘监控台</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f2efe6;
+      --paper: #10120f;
+      --paper-2: #171a16;
+      --paper-3: #1f231d;
+      --line: #34392f;
+      --muted: #9a9f92;
+      --green: #bbff35;
+      --green-soft: rgba(187,255,53,.12);
+      --amber: #ffc857;
+      --amber-soft: rgba(255,200,87,.12);
+      --red: #ff6f65;
+      --red-soft: rgba(255,111,101,.12);
+      --cyan: #7ee5d8;
+      --shadow: 0 24px 80px rgba(0,0,0,.28);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+        radial-gradient(circle at 78% 0%, rgba(187,255,53,.08), transparent 28rem),
+        var(--paper);
+      background-size: 28px 28px, 28px 28px, auto, auto;
+      font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    button, input { font: inherit; }
+    a { color: inherit; }
+    main { width: min(1240px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 80px; }
+    .suite-nav {
+      display: flex;
+      min-height: 42px;
+      margin-bottom: 12px;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--paper-2);
+    }
+    .suite-nav a {
+      display: flex;
+      min-width: max-content;
+      flex: 1;
+      align-items: center;
+      justify-content: center;
+      padding: 0 15px;
+      border-right: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+      text-decoration: none;
+    }
+    .suite-nav a:last-child { border-right: 0; }
+    .suite-nav a:hover { color: var(--ink); }
+    .suite-nav a.is-active { color: var(--green); }
+    .masthead {
+      display: grid;
+      grid-template-columns: minmax(0,1fr) auto;
+      gap: 28px;
+      align-items: end;
+      padding: 22px 0 26px;
+      border-bottom: 1px solid var(--line);
+    }
+    .kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--green);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .18em;
+    }
+    .kicker::before { content: ""; width: 28px; height: 2px; background: currentColor; }
+    h1 {
+      margin: 8px 0 4px;
+      max-width: 820px;
+      font-family: "Songti SC", "STSong", "Noto Serif CJK SC", serif;
+      font-size: clamp(36px, 6.5vw, 76px);
+      font-weight: 700;
+      letter-spacing: -.065em;
+      line-height: .98;
+    }
+    h2, h3, p { margin-top: 0; }
+    h2 { margin-bottom: 4px; font-size: 19px; letter-spacing: -.02em; }
+    h3 { margin-bottom: 6px; font-size: 14px; }
+    .subtitle { margin: 10px 0 0; color: var(--muted); font-size: 15px; }
+    .refresh {
+      border: 1px solid var(--green);
+      border-radius: 999px;
+      padding: 11px 18px;
+      color: #10120f;
+      background: var(--green);
+      cursor: pointer;
+      font-weight: 800;
+      box-shadow: 0 0 0 0 rgba(187,255,53,.25);
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+    .refresh:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(187,255,53,.16); }
+    .refresh:disabled { opacity: .58; cursor: wait; transform: none; }
+    .masthead-actions { display: flex; gap: 10px; align-items: center; }
+    .daily-report {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 11px 18px;
+      color: var(--ink);
+      background: var(--paper-2);
+      text-decoration: none;
+      font-weight: 750;
+    }
+    .source-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap: 1px;
+      margin: 18px 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--line);
+    }
+    .source {
+      position: relative;
+      min-height: 86px;
+      padding: 15px 16px;
+      background: var(--paper-2);
+    }
+    .source::after {
+      content: "";
+      position: absolute;
+      right: 14px;
+      top: 17px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+    .source.ok::after { background: var(--green); box-shadow: 0 0 18px var(--green); }
+    .source.warn::after { background: var(--amber); box-shadow: 0 0 18px var(--amber); }
+    .source.bad::after { background: var(--red); box-shadow: 0 0 18px var(--red); }
+    .source-label { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .12em; }
+    .source strong { display: block; margin: 5px 0 2px; font-size: 17px; }
+    .source small { color: var(--muted); }
+    .layout { display: grid; grid-template-columns: repeat(12, minmax(0,1fr)); gap: 14px; }
+    .card {
+      grid-column: span 12;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(23,26,22,.92);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .card-head p { margin: 2px 0 0; color: var(--muted); }
+    .card-body { padding: 20px; }
+    .verdict { display: grid; grid-template-columns: minmax(260px,.78fr) minmax(0,1.4fr); min-height: 310px; }
+    .verdict-main {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 26px;
+      border-right: 1px solid var(--line);
+      background: linear-gradient(140deg, rgba(187,255,53,.08), transparent 65%);
+    }
+    .verdict-label { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .16em; }
+    .verdict-action {
+      margin: 18px 0 8px;
+      font-family: "Songti SC", "STSong", serif;
+      font-size: clamp(46px, 7vw, 82px);
+      font-weight: 700;
+      letter-spacing: -.075em;
+      line-height: .95;
+    }
+    .tone-good { color: var(--green); }
+    .tone-watch { color: var(--amber); }
+    .tone-bad { color: var(--red); }
+    .tone-muted { color: var(--muted); }
+    .verdict-time { color: var(--muted); }
+    .verdict-reasons { padding: 26px; }
+    .reason-stack { display: grid; gap: 10px; margin-top: 18px; }
+    .reason {
+      display: grid;
+      grid-template-columns: 26px 1fr;
+      gap: 10px;
+      align-items: start;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255,255,255,.018);
+    }
+    .reason-index { color: var(--green); font-weight: 800; }
+    .safety-note {
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+    }
+    .market-tape {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0,1fr));
+      border-bottom: 1px solid var(--line);
+    }
+    .tape-item { padding: 14px 18px; border-right: 1px solid var(--line); }
+    .tape-item:last-child { border-right: 0; }
+    .tape-item span { display: block; color: var(--muted); font-size: 11px; }
+    .tape-item strong { display: block; margin-top: 4px; font-size: 20px; }
+    .cliff-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+    .cliff {
+      position: relative;
+      min-height: 360px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--paper-3);
+    }
+    .cliff-topline { display: flex; justify-content: space-between; gap: 14px; align-items: center; }
+    .cliff-number { color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .14em; }
+    .cliff h3 { margin: 16px 0 0; font: 700 22px/1.2 "Songti SC", "STSong", serif; }
+    .cliff-signal { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-top: 10px; }
+    .cliff-value { font-size: 31px; font-weight: 800; letter-spacing: -.04em; }
+    .cliff-context { color: var(--muted); font-size: 12px; text-align: right; }
+    .plain-state { display: inline-flex; margin-top: 8px; padding: 4px 8px; border-radius: 999px; font-size: 12px; font-weight: 750; }
+    .plain-state.good { color: var(--green); background: var(--green-soft); }
+    .plain-state.watch { color: var(--amber); background: var(--amber-soft); }
+    .plain-state.bad { color: var(--red); background: var(--red-soft); }
+    .plain-state.muted { color: var(--muted); background: rgba(255,255,255,.05); }
+    .ranking-title { margin-top: 18px; padding-top: 13px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; font-weight: 750; letter-spacing: .1em; }
+    .ranking-list { display: grid; gap: 5px; margin-top: 8px; }
+    .rank-row {
+      display: grid;
+      grid-template-columns: 32px minmax(78px,1fr) auto;
+      gap: 8px 10px;
+      align-items: center;
+      padding: 8px 10px;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      background: rgba(255,255,255,.018);
+    }
+    .rank-row.target { border-color: rgba(187,255,53,.35); background: var(--green-soft); }
+    .rank-row.outside { margin-top: 5px; border-style: dashed; }
+    .rank-number { color: var(--muted); font-size: 11px; font-weight: 800; }
+    .rank-row.target .rank-number, .rank-row.target .rank-symbol { color: var(--green); }
+    .rank-symbol { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 800; }
+    .rank-symbol small { margin-left: 6px; color: var(--muted); font-size: 9px; font-weight: 650; }
+    .rank-value { font-size: 14px; font-weight: 800; }
+    .rank-bar { grid-column: 2 / -1; height: 3px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.06); }
+    .rank-bar i { display: block; width: var(--share); height: 100%; border-radius: inherit; background: #737a6d; }
+    .rank-row.target .rank-bar i { background: var(--green); box-shadow: 0 0 14px rgba(187,255,53,.24); }
+    .cliff-detail { margin: 12px 0 0; color: var(--muted); font-size: 12px; }
+    .volume-switcher { display: flex; gap: 6px; margin-top: 17px; overflow-x: auto; }
+    .volume-tab {
+      flex: 1 0 auto;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 10px;
+      color: var(--muted);
+      background: transparent;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 750;
+    }
+    .volume-tab.active { color: #10120f; border-color: var(--green); background: var(--green); }
+    .volume-ranking { display: none; }
+    .volume-ranking.active { display: block; }
+    .volume-ranking-meta { display: flex; justify-content: space-between; gap: 14px; margin-top: 10px; color: var(--muted); font-size: 11px; }
+    .half { grid-column: span 6; }
+    .evidence-list { display: grid; gap: 1px; background: var(--line); }
+    .evidence-row {
+      display: grid;
+      grid-template-columns: 148px minmax(0,1fr) auto;
+      gap: 18px;
+      align-items: center;
+      padding: 17px 20px;
+      background: var(--paper-2);
+    }
+    .evidence-row p { margin: 4px 0 0; color: var(--muted); }
+    .evidence-link { text-decoration: none; color: var(--cyan); font-weight: 700; white-space: nowrap; }
+    .evidence-link:hover { text-decoration: underline; }
+    .attention-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+    .attention-cell { padding: 14px; border: 1px solid var(--line); border-radius: 12px; }
+    .attention-cell span { color: var(--muted); font-size: 12px; }
+    .attention-cell strong { display: block; margin-top: 5px; font-size: 22px; }
+    .baseline { margin: 14px 0 0; color: var(--muted); }
+    .twitter-summary {
+      display: grid;
+      grid-template-columns: repeat(4,minmax(0,1fr));
+      gap: 1px;
+      background: var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+    .twitter-stat { padding: 15px 18px; background: var(--paper-2); }
+    .twitter-stat span { color: var(--muted); font-size: 11px; }
+    .twitter-stat strong { display: block; margin-top: 4px; font-size: 20px; }
+    .twitter-security {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 13px 20px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      background: rgba(88, 199, 255, .05);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+    .twitter-security strong { color: var(--cyan); white-space: nowrap; }
+    .twitter-security.bad { background: var(--red-soft); color: #ffd1d1; }
+    .twitter-security.bad strong { color: var(--red); }
+    .twitter-security a { color: var(--cyan); font-weight: 750; text-decoration: none; white-space: nowrap; }
+    .feed-tabs { display: flex; gap: 8px; padding: 16px 20px 0; overflow-x: auto; }
+    .feed-tab {
+      flex: 0 0 auto;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 7px 11px;
+      color: var(--muted);
+      background: transparent;
+      cursor: pointer;
+    }
+    .feed-tab.active { color: #10120f; border-color: var(--green); background: var(--green); font-weight: 800; }
+    .tweet-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; padding: 16px 20px 20px; }
+    .tweet {
+      display: flex;
+      min-height: 190px;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 15px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--paper-3);
+      text-decoration: none;
+      transition: border-color .18s ease, transform .18s ease;
+    }
+    .tweet:hover { border-color: var(--cyan); transform: translateY(-2px); }
+    .tweet-author { display: flex; justify-content: space-between; gap: 12px; color: var(--cyan); font-weight: 800; }
+    .tweet-author b, .tweet-author small { display: block; }
+    .tweet-author small { margin-top: 3px; color: var(--muted); font-size: 10px; font-weight: 500; }
+    .tweet-author time { color: var(--muted); font-size: 11px; font-weight: 500; }
+    .tweet-text { margin: 13px 0 18px; color: #e4e2d9; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .tweet-metrics { display: flex; gap: 14px; color: var(--muted); font-size: 12px; }
+    .empty { padding: 26px; color: var(--muted); text-align: center; border: 1px dashed var(--line); border-radius: 12px; }
+    .footnote { margin-top: 18px; color: var(--muted); text-align: center; font-size: 12px; }
+    @media (max-width: 900px) {
+      .masthead, .verdict { grid-template-columns: 1fr; }
+      .verdict-main { border-right: 0; border-bottom: 1px solid var(--line); }
+      .source-strip, .market-tape, .cliff-grid, .twitter-summary { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .half { grid-column: span 12; }
+      .tweet-grid { grid-template-columns: 1fr; }
+      .evidence-row { grid-template-columns: 1fr; gap: 8px; }
+    }
+    @media (max-width: 560px) {
+      main { width: min(100% - 20px, 1240px); padding-top: 12px; }
+      .source-strip, .market-tape, .cliff-grid, .twitter-summary, .attention-grid { grid-template-columns: 1fr; }
+      .source, .tape-item { border-right: 0; }
+      .masthead { align-items: start; }
+      .masthead-actions { width: 100%; }
+      .refresh, .daily-report { flex: 1; text-align: center; }
+      .card-head { display: block; }
+      .cliff { min-height: 0; }
+      .cliff-signal { align-items: flex-start; flex-direction: column; gap: 2px; }
+      .cliff-context { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <nav class="suite-nav" aria-label="产品入口">
+    <a href="/">全链</a>
+    <a href="/leaders/">龙头与热度</a>
+    <a href="/launchpads/">发射台</a>
+    <a class="is-active" href="/cashcat/">CashCat 日报</a>
+  </nav>
+  <header class="masthead">
+    <div>
+      <div class="kicker">ROBINHOOD CHAIN / CASH CAT</div>
+      <h1>实盘持仓前提监控</h1>
+      <p class="subtitle">只回答一个问题：Cash Cat 的持有逻辑，现在还成立吗？</p>
+    </div>
+    <div class="masthead-actions">
+      <a class="daily-report" href="reports/latest">打开投资判断日报</a>
+      <button class="refresh" id="refresh">立即刷新实盘数据</button>
+    </div>
+  </header>
+
+  <section class="source-strip" id="source-strip">
+    <div class="source warn"><div class="source-label">系统状态</div><strong>正在连接实盘</strong><small>等待首轮回执</small></div>
+    <div class="source warn"><div class="source-label">链上数据</div><strong>GMGN 实时行情</strong><small>正在读取</small></div>
+    <div class="source warn"><div class="source-label">多池核对</div><strong>DEX Screener</strong><small>正在读取</small></div>
+    <div class="source warn"><div class="source-label">推特数据</div><strong>Twitter 实时推文</strong><small>正在读取</small></div>
+  </section>
+
+  <div class="layout">
+    <section class="card verdict">
+      <div class="verdict-main">
+        <div>
+          <div class="verdict-label">当前建议</div>
+          <div class="verdict-action tone-muted" id="verdict-action">等待实盘</div>
+          <p id="verdict-summary">系统正在获取链上行情和最新推文。</p>
+        </div>
+        <div class="verdict-time" id="verdict-time">尚无采集时间</div>
+      </div>
+      <div class="verdict-reasons">
+        <h2>判断依据</h2>
+        <p class="subtitle">不看盈亏，只检查龙头地位、链热度和离场条件。</p>
+        <div class="reason-stack" id="reason-stack"><div class="reason"><span class="reason-index">01</span><span>等待第一份完整实盘快照。</span></div></div>
+        <div class="safety-note">只读监控 · 不读取交易私钥 · 不会自动买卖或清仓</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="market-tape" id="market-tape"></div>
+      <div class="card-head">
+        <div><h2>四个断崖式领先条件</h2><p>每项独立判断，任何优势都不能替另一项补分。</p></div>
+        <span class="plain-state muted" id="leader-state">等待数据</span>
+      </div>
+      <div class="card-body"><div class="cliff-grid" id="cliff-grid"></div></div>
+    </section>
+
+    <section class="card half">
+      <div class="card-head">
+        <div><h2>Robinhood Chain 热度</h2><p>与自身历史比较，不拿绝对规模硬比大链。</p></div>
+        <span class="plain-state muted" id="attention-state">等待数据</span>
+      </div>
+      <div class="card-body">
+        <div class="attention-grid" id="attention-grid"></div>
+        <p class="baseline" id="baseline-note"></p>
+      </div>
+    </section>
+
+    <section class="card half">
+      <div class="card-head">
+        <div><h2>离场条件</h2><p>全部来自实时推文与原帖证据。</p></div>
+        <span class="plain-state muted" id="narrative-state">等待数据</span>
+      </div>
+      <div class="evidence-list" id="evidence-list"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div><h2>Twitter 实盘证据流</h2><p>展示真实作者、发布时间、互动量和原帖链接；营销空投噪音不进入判断。</p></div>
+        <span class="plain-state muted" id="twitter-state">等待数据</span>
+      </div>
+      <div class="twitter-summary" id="twitter-summary"></div>
+      <div class="twitter-security" id="twitter-security"><strong>账号覆盖</strong><span>正在读取公司、负责人和联合创始人账号。</span></div>
+      <div class="feed-tabs" id="feed-tabs"></div>
+      <div class="tweet-grid" id="tweet-grid"><div class="empty">正在读取最新推文…</div></div>
+    </section>
+  </div>
+
+  <p class="footnote">行情来源：GMGN · 多池核对：DEX Screener · 推文来源：TwitterAPI.io · 页面每 30 秒读取最新快照 · 后台每 5 分钟重新采集</p>
+</main>
+
+<script>
+  const pathParts = location.pathname.split('/').filter(Boolean);
+  const appBase = pathParts[0] === 'cashcat' ? '/cashcat' : '';
+  const appUrl = path => `${appBase}${path.startsWith('/') ? path : `/${path}`}`;
+  const publicReadOnly = Boolean(appBase);
+  const refreshButton = document.querySelector('#refresh');
+  const refreshIdleLabel = publicReadOnly ? '读取最新快照' : '立即刷新实盘数据';
+  refreshButton.textContent = refreshIdleLabel;
+
+  const actionMap = {
+    HOLD: { text: '继续持有', tone: 'good', summary: '全部必要前提均得到新鲜实盘证据支持。' },
+    WATCH: { text: '继续观察', tone: 'watch', summary: '持有逻辑尚未被推翻，但仍有条件未完全确认。' },
+    EXIT_CANDIDATE: { text: '准备离场', tone: 'watch', summary: '发现可能的资金或注意力分流，等待连续确认。' },
+    EXIT: { text: '建议清仓', tone: 'bad', summary: '至少一个离场硬条件已被新鲜证据确认。' },
+    UNKNOWN: { text: '暂停判断', tone: 'bad', summary: '关键实盘数据缺失或过期，不能给出持有结论。' }
+  };
+  const reasonMap = {
+    leader_state_leader_not_cliff: 'Cash Cat 仍是龙头，但四项优势尚未全部形成断崖。',
+    leader_state_challenged: 'Cash Cat 的部分龙头指标正在受到同业挑战。',
+    cashcat_leader_status_lost: 'Cash Cat 已失去多数核心指标的领先位置。',
+    leader_state_unknown: '龙头比较所需数据不足。',
+    attention_state_warming_up: '跨链热度历史基线仍在建立，暂不做分流结论。',
+    attention_state_weakening: 'Robinhood Chain 的注意力或交易活跃度正在转弱。',
+    attention_state_unknown: '跨链热度数据不足。',
+    narrative_premise_not_fully_confirmed: '创始人态度、主流讨论或外部热点仍有一项缺少新鲜证据。',
+    cross_chain_attention_and_activity_diversion: 'Robinhood Chain 的注意力和活跃资金同时下降，外部链出现加速。',
+    founder_support_negative: '创始人已出现明确不支持链上 Meme 的新证据。',
+    robinhood_meme_no_longer_mainstream: 'Robinhood Chain Meme 已不再处于市场主流讨论。',
+    external_hotspot_confirmed: '其他 Meme 新热点已连续得到多来源确认。',
+    required_market_data_unavailable: '关键实盘数据不可用，系统拒绝沿用旧数据。',
+    independent_token_safety_alert: '代币安全检查出现独立风险提示。',
+    holder_concentration_above_50pct: '前十大地址持仓集中度超过 50%。',
+    all_required_premises_confirmed: '龙头、链热度和叙事三层前提均已确认。'
+  };
+  const stateMap = {
+    CLIFF: ['形成断崖', 'good'], LEAD: ['暂时领先', 'watch'], CHALLENGED: ['领先受挑战', 'watch'], LOST: ['已失去领先', 'bad'],
+    FOUR_CLIFFS: ['四项均断崖', 'good'], LEADER_NOT_CLIFF: ['龙头但未全断崖', 'watch'],
+    STABLE: ['热度稳定', 'good'], WARMING_UP: ['基线建立中', 'watch'], WEAKENING: ['热度转弱', 'watch'], DIVERSION_CANDIDATE: ['可能被分流', 'bad'],
+    CONFIRMED: ['前提已确认', 'good'], WATCH: ['仍需观察', 'watch'], EXIT: ['已触发离场', 'bad'],
+    OK: ['实盘在线', 'good'], PARTIAL: ['部分源异常', 'watch'], DEGRADED: ['部分源异常', 'watch'], ERROR: ['连接失败', 'bad'],
+    NOT_CONFIGURED: ['尚未接入', 'bad'], UNAVAILABLE: ['暂不可用', 'bad'], STARTING: ['正在连接', 'watch'], STALE: ['数据已过期', 'bad'], UNKNOWN: ['数据不足', 'muted']
+  };
+  const evidenceMap = {
+    founder_support: {
+      title: '创始人是否仍支持', states: { supportive: ['仍明确支持','good'], neutral: ['态度中性','watch'], negative: ['转为反对','bad'], unknown: ['未找到新证据','muted'] }
+    },
+    mainstream_attention: {
+      title: '是否仍是主流讨论', states: { mainstream: ['讨论活跃','good'], fading: ['讨论转弱','watch'], gone: ['退出主流','bad'], unknown: ['样本不足','muted'] }
+    },
+    external_hotspot: {
+      title: '是否出现替代热点', states: { none: ['尚未发现','good'], emerging: ['热点正在形成','watch'], confirmed: ['替代热点已确认','bad'], unknown: ['样本不足','muted'] }
+    }
+  };
+  const feedLabels = { official: '官方与负责人', founder: '创始人立场', ecosystem: '生态伙伴', cashcat: 'Cash Cat', robinhood: 'Robinhood Chain', external: '外部热点' };
+  const chainLabels = { sol: 'Solana', bsc: 'BNB Chain', base: 'Base', eth: 'Ethereum', robinhood: 'Robinhood Chain', tron: 'Tron' };
+  let latestPayload = null;
+  let activeFeed = 'official';
+
+  const esc = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+  const number = (value, digits = 0) => Number.isFinite(Number(value)) ? Number(value).toLocaleString('zh-CN', { maximumFractionDigits: digits }) : '暂无';
+  const money = value => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '暂无';
+    if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
+    if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
+    if (n >= 1e3) return `$${(n / 1e3).toFixed(1)}K`;
+    return `$${n.toFixed(0)}`;
+  };
+  const ratio = value => value == null ? '暂无' : `${Number(value).toFixed(2)} 倍`;
+  const percent = value => value == null ? '暂无' : `${(Number(value) * 100).toFixed(2)}%`;
+  const dateTime = value => {
+    if (!value) return '暂无时间';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? '时间异常' : new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(date);
+  };
+  const state = code => stateMap[code] || ['状态待解释', 'muted'];
+  const stateBadge = code => { const [label, tone] = state(code); return `<span class="plain-state ${tone}">${label}</span>`; };
+
+  const rankingValue = (key, value) => key === 'holder_count' ? number(value) : money(value);
+  function rankingRows(item = {}) {
+    const rows = Array.isArray(item.top3) ? item.top3.slice(0, 3).map(row => ({...row})) : [];
+    const target = item.target_ranking && item.target_ranking.rank
+      ? {...item.target_ranking, is_target: true}
+      : {rank: item.rank || 1, symbol: 'CASHCAT', value: item.target_value, is_target: true};
+    if (!rows.length && Number.isFinite(Number(target.value))) rows.push(target);
+    if (!rows.length || !rows.some(row => !row.is_target)) {
+      const peer = item.peer || {};
+      if (Number.isFinite(Number(peer.value))) {
+        rows.push({rank: target.rank === 1 ? 2 : 1, symbol: peer.symbol || '最强对手', value: peer.value, is_target: false});
+      }
+      rows.sort((left, right) => Number(left.rank || 999) - Number(right.rank || 999));
+    }
+    if (target.rank && !rows.some(row => row.is_target || String(row.symbol || '').toUpperCase() === 'CASHCAT')) {
+      rows.push({...target, outside: true});
+    }
+    return rows;
+  }
+  function rankingList(item, key) {
+    const rows = rankingRows(item);
+    const maximum = Math.max(...rows.map(row => Number(row.value) || 0), 1);
+    return `<div class="ranking-list">${rows.map(row => {
+      const share = Math.max(4, Math.min(100, (Number(row.value) || 0) / maximum * 100));
+      const target = Boolean(row.is_target) || String(row.symbol || '').toUpperCase() === 'CASHCAT';
+      return `<div class="rank-row${target ? ' target' : ''}${row.outside ? ' outside' : ''}">
+        <span class="rank-number">${row.outside ? '本币' : `0${esc(row.rank || '—')}`}</span>
+        <span class="rank-symbol">${esc(row.symbol || '未知代币')}${target ? '<small>Cash Cat</small>' : ''}</span>
+        <strong class="rank-value">${rankingValue(key, row.value)}</strong>
+        <span class="rank-bar"><i style="--share:${share.toFixed(1)}%"></i></span>
+      </div>`;
+    }).join('')}</div>`;
+  }
+
+  function renderSources(health, latest) {
+    const sources = health.data_sources || {};
+    const onchain = sources.onchain || {};
+    const liquidity = sources.liquidity_crosscheck || {};
+    const twitter = sources.twitter || {};
+    const overall = state(health.status || 'STARTING');
+    const sourceCard = (label, title, detail, code) => {
+      const mapped = state(code);
+      const cls = mapped[1] === 'good' ? 'ok' : mapped[1] === 'bad' ? 'bad' : 'warn';
+      return `<div class="source ${cls}"><div class="source-label">${label}</div><strong>${title}</strong><small>${detail}</small></div>`;
+    };
+    document.querySelector('#source-strip').innerHTML = [
+      sourceCard('系统状态', overall[0], health.scheduler_running ? '后台自动监控正在运行' : '后台自动监控未运行', health.status),
+      sourceCard('链上数据', onchain.status === 'OK' ? 'GMGN 实盘在线' : 'GMGN 实盘异常', `${dateTime(onchain.observed_at)} · 非模拟`, onchain.status),
+      sourceCard('多池核对', liquidity.status === 'OK' ? `${number(liquidity.pool_count)} 个池已核对` : '多池核对异常', `${dateTime(liquidity.observed_at)} · 非模拟`, liquidity.status),
+      sourceCard('推特数据', twitter.status === 'OK' ? 'Twitter 实盘在线' : twitter.configured ? 'Twitter 实盘异常' : 'Twitter 尚未接入', `${dateTime(twitter.observed_at)} · 非模拟`, twitter.status)
+    ].join('');
+  }
+
+  function renderVerdict(latest) {
+    const analysis = latest.analysis || {};
+    const mapped = actionMap[analysis.action] || actionMap.UNKNOWN;
+    const action = document.querySelector('#verdict-action');
+    action.textContent = mapped.text;
+    action.className = `verdict-action tone-${mapped.tone}`;
+    document.querySelector('#verdict-summary').textContent = mapped.summary;
+    document.querySelector('#verdict-time').textContent = `本轮实盘采集：${dateTime(latest.observed_at)}`;
+    const reasons = analysis.reasons || [];
+    document.querySelector('#reason-stack').innerHTML = reasons.map((reason, index) => `
+      <div class="reason"><span class="reason-index">${String(index + 1).padStart(2,'0')}</span><span>${esc(reasonMap[reason] || '出现一项需要进一步核实的条件。')}</span></div>`
+    ).join('') || '<div class="reason"><span class="reason-index">01</span><span>本轮没有发现阻碍持有前提的条件。</span></div>';
+  }
+
+  function renderLeader(latest) {
+    const target = (latest.collection || {}).target || {};
+    const leader = (latest.analysis || {}).leader || {};
+    const dims = leader.dimensions || {};
+    const volumes = target.volumes || {};
+    const liquidity = target.liquidity_crosscheck || (latest.collection || {}).liquidity_crosscheck || {};
+    document.querySelector('#market-tape').innerHTML = [
+      ['当前市值', money(target.market_cap)],
+      ['GMGN 最大主池', money(target.liquidity)],
+      ['前 5 池合计', money(liquidity.top5_liquidity_usd)],
+      [`全部索引池（${number(liquidity.pool_count)}）`, money(liquidity.all_pools_liquidity_usd)],
+      ['持币地址', number(target.holder_count)],
+      ['24 小时成交量', money(volumes['24h'])]
+    ].map(item => `<div class="tape-item"><span>${item[0]}</span><strong>${item[1]}</strong></div>`).join('');
+    document.querySelector('#leader-state').outerHTML = stateBadge(leader.state).replace('<span', '<span id="leader-state"');
+    const definitions = [
+      ['01','市值', dims.market_cap, item => ratio(item.ratio), item => `相对最强同业 ${esc((item.peer || {}).symbol || '暂无')} · 当前第 ${item.rank || '—'} 名`],
+      ['02','GMGN 主池流动性', dims.liquidity, item => ratio(item.ratio), item => `同一主池口径 · 相对最强同业 ${esc((item.peer || {}).symbol || '暂无')} · 第 ${item.rank || '—'} 名`],
+      ['03','多周期成交量', dims.multi_window_volume, item => `${item.leading_windows ?? '—'} / 4`, item => `领先窗口数 · 几何领先 ${ratio(item.geometric_ratio)}`],
+      ['04','持币地址', dims.holder_count, item => ratio(item.ratio), item => `相对最强同业 ${esc((item.peer || {}).symbol || '暂无')} · 当前第 ${item.rank || '—'} 名`]
+    ];
+    document.querySelector('#cliff-grid').innerHTML = definitions.map(([index, title, item = {}, value, detail]) => {
+      const mapped = state(item.state || 'UNKNOWN');
+      if (index === '03') {
+        const windows = Array.isArray(item.windows)
+          ? item.windows
+          : Object.entries(item.windows || {}).map(([window, data]) => ({window, ...data}));
+        const defaultWindow = windows.some(window => window.window === '24h') ? '24h' : (windows[0] || {}).window;
+        return `<article class="cliff cliff-volume">
+          <div class="cliff-topline"><div class="cliff-number">条件 ${index}</div><span class="plain-state ${mapped[1]}">${mapped[0]}</span></div>
+          <h3>${title}</h3>
+          <div class="cliff-signal"><div class="cliff-value">${value(item)}</div><div class="cliff-context">${detail(item)}</div></div>
+          <div class="volume-switcher">${windows.map(window => `<button type="button" class="volume-tab${window.window === defaultWindow ? ' active' : ''}" data-volume-tab="${esc(window.window)}">${esc(window.window)}</button>`).join('')}</div>
+          ${windows.map(window => `<div class="volume-ranking${window.window === defaultWindow ? ' active' : ''}" data-volume-panel="${esc(window.window)}">
+            <div class="volume-ranking-meta"><span>同周期前三名</span><span>Cash Cat 第 ${esc(window.rank ?? '—')} 名</span></div>
+            ${rankingList(window, 'multi_window_volume')}
+          </div>`).join('')}
+          <p class="cliff-detail">四个周期分别排名，切换查看每个周期的真实前三名。</p>
+        </article>`;
+      }
+      return `<article class="cliff">
+        <div class="cliff-topline"><div class="cliff-number">条件 ${index}</div><span class="plain-state ${mapped[1]}">${mapped[0]}</span></div>
+        <h3>${title}</h3>
+        <div class="cliff-signal"><div class="cliff-value">${value(item)}</div><div class="cliff-context">${detail(item)}</div></div>
+        <div class="ranking-title">同项前三名</div>
+        ${rankingList(item, index === '04' ? 'holder_count' : index === '02' ? 'liquidity' : 'market_cap')}
+      </article>`;
+    }).join('');
+    document.querySelectorAll('.cliff-volume').forEach(card => {
+      card.querySelectorAll('[data-volume-tab]').forEach(button => button.addEventListener('click', () => {
+        card.querySelectorAll('[data-volume-tab]').forEach(tab => tab.classList.toggle('active', tab === button));
+        card.querySelectorAll('[data-volume-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.volumePanel === button.dataset.volumeTab));
+      }));
+    });
+  }
+
+  function renderAttention(latest) {
+    const attention = (latest.analysis || {}).attention || {};
+    const rh = (attention.chain_shares || {}).robinhood || {};
+    document.querySelector('#attention-state').outerHTML = stateBadge(attention.state).replace('<span', '<span id="attention-state"');
+    const fastest = attention.fastest_external_chain ? (chainLabels[attention.fastest_external_chain] || attention.fastest_external_chain) : '基线建立中';
+    document.querySelector('#attention-grid').innerHTML = [
+      ['全链注意力份额', percent(rh.attention)],
+      ['全链活跃量份额', percent(rh.activity)],
+      ['Cash Cat 链内热度排名', attention.target_hot_rank ? `第 ${attention.target_hot_rank} 名` : '暂无'],
+      ['增长最快的外部链', esc(fastest)]
+    ].map(item => `<div class="attention-cell"><span>${item[0]}</span><strong>${item[1]}</strong></div>`).join('');
+    const points = attention.baseline_points ?? 0;
+    const needed = attention.required_baseline_points ?? 12;
+    document.querySelector('#baseline-note').textContent = attention.state === 'WARMING_UP'
+      ? `历史基线已积累 ${points} / ${needed} 个实盘点；达到门槛前不会贸然判断资金分流。`
+      : `相对自身历史：注意力 ${ratio(attention.robinhood_attention_vs_baseline)}，活跃量 ${ratio(attention.robinhood_activity_vs_baseline)}。`;
+  }
+
+  function renderEvidence(latest) {
+    const narrative = (latest.analysis || {}).narrative || {};
+    const evidence = narrative.evidence || {};
+    document.querySelector('#narrative-state').outerHTML = stateBadge(narrative.state).replace('<span', '<span id="narrative-state"');
+    document.querySelector('#evidence-list').innerHTML = Object.entries(evidenceMap).map(([key, config]) => {
+      const item = evidence[key] || {};
+      const mapped = config.states[item.state] || ['证据不足','muted'];
+      const source = item.source_url ? `<a class="evidence-link" href="${esc(item.source_url)}" target="_blank" rel="noopener">查看原帖 ↗</a>` : '<span class="tone-muted">本轮无原帖</span>';
+      const topic = key === 'external_hotspot' && item.name ? ` · 当前候选 $${esc(item.name)}` : '';
+      return `<div class="evidence-row"><div><strong>${config.title}</strong><br><span class="plain-state ${mapped[1]}">${mapped[0]}</span></div><div><p>${esc(item.note || '尚无可用实盘证据。')}${topic}</p><p>证据时间：${dateTime(item.observed_at)}${item.fresh ? '' : ' · 已过期'}</p></div>${source}</div>`;
+    }).join('');
+  }
+
+  function renderTwitter(latest) {
+    const twitter = latest.twitter || {};
+    const feeds = twitter.feeds || {};
+    document.querySelector('#twitter-state').outerHTML = stateBadge(twitter.status).replace('<span', '<span id="twitter-state"');
+    const cashcat = feeds.cashcat || {};
+    const robinhood = feeds.robinhood || {};
+    const official = feeds.official || {};
+    const signals = twitter.signals || {};
+    const mainstream = signals.mainstream || {};
+    const leadership = signals.leadership_momentum || {};
+    const security = twitter.official_account_security || {};
+    const scope = twitter.account_scope || [];
+    const ecosystemScope = twitter.ecosystem_scope || [];
+    document.querySelector('#twitter-summary').innerHTML = [
+      ['有效讨论', number(mainstream.post_count ?? ((cashcat.credible_count || 0) + (robinhood.credible_count || 0)))],
+      ['独立作者', number(mainstream.unique_authors)],
+      ['加权互动', number(mainstream.engagement)],
+      ['负责人 / 生态动态', number((leadership.direct_post_count || 0) + (leadership.ecosystem_post_count || 0))]
+    ].map(item => `<div class="twitter-stat"><span>${item[0]}</span><strong>${item[1]}</strong></div>`).join('');
+    const securityLink = security.source_url ? `<a href="${esc(security.source_url)}" target="_blank" rel="noopener">查看官方公告 ↗</a>` : '';
+    document.querySelector('#twitter-security').className = `twitter-security ${security.state === 'COMPROMISED' ? 'bad' : ''}`;
+    document.querySelector('#twitter-security').innerHTML = security.state === 'COMPROMISED'
+      ? `<strong>账号安全告警</strong><span>${esc(security.note || 'Vlad 账号被盗；恢复确认前不采信新帖。')}</span>${securityLink}`
+      : `<strong>账号覆盖</strong><span>已监控 ${number(scope.length)} 个公司与负责人账号，并核对 ${number(ecosystemScope.length)} 个官方生态伙伴账号。</span>${securityLink}`;
+    if (!feeds[activeFeed]) activeFeed = Object.keys(feeds)[0] || 'official';
+    document.querySelector('#feed-tabs').innerHTML = Object.keys(feedLabels).map(key => {
+      const feed = feeds[key] || {};
+      const count = feed.credible_count ?? 0;
+      return `<button class="feed-tab ${key === activeFeed ? 'active' : ''}" data-feed="${key}">${feedLabels[key]} · ${count}</button>`;
+    }).join('');
+    document.querySelectorAll('.feed-tab').forEach(button => button.addEventListener('click', () => {
+      activeFeed = button.dataset.feed;
+      renderTwitter(latestPayload.latest);
+    }));
+    const tweets = (feeds[activeFeed] || {}).tweets || [];
+    document.querySelector('#tweet-grid').innerHTML = tweets.length ? tweets.map(item => {
+      const metrics = item.metrics || {};
+      const handle = item.author_username ? `@${item.author_username}` : '未知作者';
+      return `<a class="tweet" href="${esc(item.url || '#')}" target="_blank" rel="noopener"><div><div class="tweet-author"><span><b>${esc(handle)}</b><small>${esc(item.account_role || '公开讨论账号')}</small></span><time>${dateTime(item.created_at)}</time></div><p class="tweet-text">${esc(item.text || '')}</p></div><div class="tweet-metrics"><span>喜欢 ${number(metrics.likes)}</span><span>转发 ${number(metrics.reposts)}</span><span>浏览 ${number(metrics.views)}</span></div></a>`;
+    }).join('') : `<div class="empty">${twitter.status === 'OK' ? '该实盘范围本轮没有返回有效推文。' : 'Twitter 实盘源当前不可用，没有用模拟内容填充。'}</div>`;
+  }
+
+  function render(payload) {
+    latestPayload = payload;
+    const latest = payload.latest;
+    renderSources(payload.health || {}, latest || {});
+    if (!latest) return;
+    renderVerdict(latest);
+    renderLeader(latest);
+    renderAttention(latest);
+    renderEvidence(latest);
+    renderTwitter(latest);
+  }
+
+  async function loadStatus() {
+    const response = await fetch(appUrl('/api/status'), { cache: 'no-store' });
+    if (!response.ok) throw new Error('无法读取监控状态');
+    render(await response.json());
+  }
+
+  refreshButton.addEventListener('click', async event => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.textContent = publicReadOnly ? '正在读取云端最新快照…' : '正在拉取 GMGN 与 Twitter 实盘…';
+    try {
+      if (!publicReadOnly) {
+        const response = await fetch(appUrl('/api/run'), { method: 'POST' });
+        if (!response.ok) throw new Error('实盘刷新失败');
+      }
+      await loadStatus();
+    } catch (error) {
+      button.textContent = '刷新失败，点击重试';
+      setTimeout(() => { button.textContent = refreshIdleLabel; }, 2400);
+      return;
+    } finally {
+      button.disabled = false;
+    }
+    button.textContent = publicReadOnly ? '已读取最新快照' : '实盘已刷新';
+    setTimeout(() => { button.textContent = refreshIdleLabel; }, 1800);
+  });
+
+  loadStatus().catch(error => {
+    document.querySelector('#verdict-action').textContent = '连接失败';
+    document.querySelector('#verdict-summary').textContent = `${error.message}；页面不会展示模拟数据。`;
+  });
+  setInterval(() => loadStatus().catch(() => {}), 30000);
+</script>
+</body>
+</html>

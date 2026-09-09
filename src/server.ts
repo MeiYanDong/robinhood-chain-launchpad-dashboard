@@ -27,6 +27,7 @@ import { PairV2Collector } from "./pair-v2/collector.js";
 import { pairV2SettingsFromEnv } from "./pair-v2/config.js";
 import { PairV2Database } from "./pair-v2/database.js";
 import { PairV2Service } from "./pair-v2/service.js";
+import { ProductService } from "./product/service.js";
 import { DashboardService } from "./services/dashboard.js";
 import { DashboardDatabase } from "./storage/database.js";
 
@@ -89,6 +90,7 @@ const intelligence = new IntelligenceService(intelligenceSettings, {
   long,
   dashboard,
 });
+const product = new ProductService(intelligenceSettings, { intelligence });
 const server = createServer(
   createDashboardRequestHandler({
     dashboard,
@@ -99,6 +101,7 @@ const server = createServer(
     long,
     economics,
     intelligence,
+    product,
     publicDirectory,
   }),
 );
@@ -135,6 +138,7 @@ async function warmInitialData(): Promise<void> {
   await refresh("economics", () => economics.ensureFresh());
   await refresh("pair_flow", () => pairFlow.ensureFresh());
   await refresh("intelligence", () => intelligence.ensureFresh());
+  await refresh("product", () => product.ensureFresh());
 }
 
 function shutdown(signal: string): void {

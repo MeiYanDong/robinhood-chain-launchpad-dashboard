@@ -13,6 +13,7 @@ import {
 test("query prewarm covers every decision page without caching mutations", () => {
   const decisionPaths = [
     "/api/overview?window=30",
+    "/api/product/today",
     "/api/intelligence",
     "/api/pair/alpha",
     "/api/pair/v2",

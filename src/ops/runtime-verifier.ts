@@ -413,6 +413,32 @@ export async function verifyRuntime(
     );
   }
 
+  const productHealth = await readJson(base, "/api/product/health", fetcher, timeoutMs);
+  if (
+    productHealth.payload.ok !== true ||
+    productHealth.payload.service !== "rhc-product-workbench"
+  ) {
+    throw new RuntimeVerificationError(
+      "RUNTIME_NOT_READY",
+      "Unified product workbench has no usable cache",
+    );
+  }
+
+  const product = await readJson(base, "/api/product/today", fetcher, timeoutMs);
+  if (
+    product.payload.service !== "rhc-product-workbench" ||
+    product.payload.schemaVersion !== 1 ||
+    !["success", "partial"].includes(String(product.payload.status)) ||
+    !isRecord(product.payload.chain) ||
+    !isRecord(product.payload.cashcat) ||
+    !Array.isArray(product.payload.sources)
+  ) {
+    throw new RuntimeVerificationError(
+      "RUNTIME_CONTRACT_ERROR",
+      "Unified product response did not match the expected contract",
+    );
+  }
+
   return {
     ok: true,
     checkedAt: now().toISOString(),
@@ -551,6 +577,21 @@ export async function verifyRuntime(
         status: intelligence.status,
         targetDate: null,
         itemCount: intelligence.payload.sources.length,
+      },
+      {
+        path: "/api/product/health",
+        status: productHealth.status,
+        targetDate: null,
+        itemCount: null,
+      },
+      {
+        path: "/api/product/today",
+        status: product.status,
+        targetDate:
+          isRecord(product.payload.chain) && typeof product.payload.chain.targetDate === "string"
+            ? product.payload.chain.targetDate
+            : null,
+        itemCount: product.payload.sources.length,
       },
     ],
   };

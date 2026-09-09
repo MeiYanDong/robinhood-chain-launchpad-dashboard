@@ -10,6 +10,8 @@ export const QUERY_CACHE_PATHS = [
   "/api/platform-activity",
   "/api/intelligence/health",
   "/api/intelligence",
+  "/api/product/health",
+  "/api/product/today",
   "/api/pair/alpha/health",
   "/api/pair/alpha",
   "/api/pair/v2/health",
@@ -147,7 +149,17 @@ export function createQueryGateway(options: GatewayOptions) {
     try {
       const url = new URL(request.url ?? "/", "http://localhost");
       let path = url.pathname;
-      for (const prefix of ["/leaders", "/launchpads", "/pair-flow", "/pair-v2", "/pair-alpha"]) {
+      for (const prefix of [
+        "/assets/cashcat",
+        "/leaders",
+        "/launchpads",
+        "/pair-flow",
+        "/pair-v2",
+        "/pair-alpha",
+        "/market",
+        "/alpha",
+        "/assets",
+      ]) {
         if (path.startsWith(`${prefix}/api/`)) path = path.slice(prefix.length);
       }
       if (path === "/healthz/query") {
@@ -173,7 +185,7 @@ export function createQueryGateway(options: GatewayOptions) {
       }
       if (
         request.method === "POST" &&
-        !/^\/api\/(?:refresh|(?:pair|long)\/(?:refresh|reports\/generate)|economics\/(?:refresh|rebuild)|intelligence\/refresh|pair\/(?:flow|v2|alpha)\/refresh)$/.test(
+        !/^\/api\/(?:refresh|(?:pair|long)\/(?:refresh|reports\/generate)|economics\/(?:refresh|rebuild)|intelligence\/refresh|product\/refresh|pair\/(?:flow|v2|alpha)\/refresh)$/.test(
           path,
         )
       ) {

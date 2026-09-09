@@ -5,11 +5,15 @@ import test from "node:test";
 const htmlUrl = new URL("../public/index.html", import.meta.url);
 const appUrl = new URL("../public/app.js", import.meta.url);
 const stylesV2Url = new URL("../public/styles-v2.css", import.meta.url);
+const productHtmlUrl = new URL("../public/product.html", import.meta.url);
+const productAppUrl = new URL("../public/product.js", import.meta.url);
+const productStylesUrl = new URL("../public/product.css", import.meta.url);
 const packageUrl = new URL("../package.json", import.meta.url);
 
 test("current frontend assets use the package version as their cache key", async () => {
-  const [html, packageText] = await Promise.all([
+  const [html, productHtml, packageText] = await Promise.all([
     readFile(htmlUrl, "utf8"),
+    readFile(productHtmlUrl, "utf8"),
     readFile(packageUrl, "utf8"),
   ]);
   const version = (JSON.parse(packageText) as { version: string }).version;
@@ -17,6 +21,36 @@ test("current frontend assets use the package version as their cache key", async
   assert.match(html, new RegExp(`styles-v2\\.css\\?v=${version.replaceAll(".", "\\.")}`));
   assert.match(html, new RegExp(`workbench\\.css\\?v=${version.replaceAll(".", "\\.")}`));
   assert.match(html, new RegExp(`app\\.js\\?v=${version.replaceAll(".", "\\.")}`));
+  assert.match(productHtml, new RegExp(`product\\.css\\?v=${version.replaceAll(".", "\\.")}`));
+  assert.match(productHtml, new RegExp(`product\\.js\\?v=${version.replaceAll(".", "\\.")}`));
+});
+
+test("unified product shell uses four user tasks and keeps data scopes explicit", async () => {
+  const [html, app, styles] = await Promise.all([
+    readFile(productHtmlUrl, "utf8"),
+    readFile(productAppUrl, "utf8"),
+    readFile(productStylesUrl, "utf8"),
+  ]);
+
+  assert.match(html, /href="\/" data-nav="today"[^>]*>[\s\S]*今日/);
+  assert.match(html, /href="\/market\/" data-nav="market"[^>]*>[\s\S]*市场/);
+  assert.match(html, /href="\/alpha\/" data-nav="alpha"[^>]*>[\s\S]*Alpha/);
+  assert.match(html, /href="\/assets\/cashcat\/" data-nav="assets"[^>]*>[\s\S]*资产/);
+  assert.equal((html.match(/data-nav="[^"]+"/g) ?? []).length, 4);
+  assert.match(html, /完整 UTC 日 \+ 实时行情/);
+  assert.match(html, /全链指标使用标注日期；代币行情为实时快照/);
+  assert.match(html, /龙头位置，不合成总分/);
+  assert.match(app, /fetch\("\/api\/product\/today"/);
+  assert.match(app, /window\.setInterval/);
+  assert.match(app, /60_000/);
+  assert.match(html, /核心前提/);
+  assert.match(app, /cashcat\.decision\.label/);
+  assert.match(app, /cashcat\.decision\.summary/);
+  assert.match(app, /chainConclusionUnavailable/);
+  assert.match(app, /暂不下结论/);
+  assert.doesNotMatch(html, /HOLD|WATCH|EXIT|综合分/);
+  assert.match(styles, /grid-template-columns: repeat\(4, 1fr\)/);
+  assert.match(styles, /@media \(max-width: 820px\)/);
 });
 
 test("launchpad dashboard is split into four task views and defaults to a concise overview", async () => {
@@ -183,7 +217,6 @@ test("coverage and source audit stay on demand", async () => {
 test("PAIR capital loop has a standalone route and transaction-level ledgers", async () => {
   const [html, app] = await Promise.all([readFile(htmlUrl, "utf8"), readFile(appUrl, "utf8")]);
 
-  assert.match(html, /href="\/pair-flow\/"[^>]*data-product="pair-flow"/);
   assert.match(html, /class="pair-flow-teaser"[^>]*href="\/pair-flow\/"/);
   assert.match(html, /class="pair-flow-panel pair-flow-panel--standalone"/);
   assert.match(html, /id="pair-flow-buyback-body"/);
@@ -197,7 +230,6 @@ test("PAIR capital loop has a standalone route and transaction-level ledgers", a
 test("PAIR V2 separates quality, timing, heat, risk, and shadow outcomes", async () => {
   const [html, app] = await Promise.all([readFile(htmlUrl, "utf8"), readFile(appUrl, "utf8")]);
 
-  assert.match(html, /href="\/pair-v2\/"[^>]*data-product="pair-v2"/);
   assert.match(html, /data-dataset="pair_v2"[^>]*data-product-context="pair-v2"/);
   assert.match(html, /id="pair-v2-view"/);
   assert.match(html, /id="pair-v2-token-body"/);
@@ -238,7 +270,6 @@ test("PAIR V2 separates quality, timing, heat, risk, and shadow outcomes", async
 test("PAIR Alpha is a standalone all-generation signal terminal with explicit no-chase", async () => {
   const [html, app] = await Promise.all([readFile(htmlUrl, "utf8"), readFile(appUrl, "utf8")]);
 
-  assert.match(html, /href="\/pair-alpha\/"[^>]*data-product="pair-alpha"/);
   assert.match(html, /data-dataset="pair_alpha"[^>]*data-product-context="pair-alpha"/);
   assert.match(html, /id="pair-alpha-view"/);
   assert.match(html, /id="pair-alpha-token-body"/);
@@ -253,15 +284,15 @@ test("PAIR Alpha is a standalone all-generation signal terminal with explicit no
   assert.doesNotMatch(app, /compositeScore|综合分/);
 });
 
-test("mobile product navigation keeps all seven product entries reachable", async () => {
+test("mobile product navigation keeps the four product tasks reachable", async () => {
   const [html, app, styles] = await Promise.all([
     readFile(htmlUrl, "utf8"),
     readFile(appUrl, "utf8"),
     readFile(stylesV2Url, "utf8"),
   ]);
 
-  assert.equal((html.match(/data-product="[^"]+"/g) ?? []).length, 7);
-  assert.match(styles, /grid-template-columns: repeat\(7, minmax\(72px, 1fr\)\)/);
+  assert.equal((html.match(/data-product="[^"]+"/g) ?? []).length, 4);
+  assert.match(styles, /grid-template-columns: repeat\(4, minmax\(72px, 1fr\)\)/);
   assert.match(styles, /overflow-x: auto/);
   assert.match(app, /activeProduct\.offsetLeft/);
 });
@@ -295,9 +326,9 @@ test("PAIR token radar is an explicit data view with four independent rankings",
 test("unified intelligence entry keeps leader, heat, and valuation as separate models", async () => {
   const [html, app] = await Promise.all([readFile(htmlUrl, "utf8"), readFile(appUrl, "utf8")]);
 
-  assert.match(html, /href="\/leaders\/"[^>]*data-product="leaders"/);
-  assert.match(html, /href="\/launchpads\/"[^>]*data-product="launchpads"/);
-  assert.match(html, /href="\/cashcat\/"[^>]*data-product="cashcat"/);
+  assert.match(html, /href="\/market\/"[^>]*data-product="market"/);
+  assert.match(html, /href="\/alpha\/"[^>]*data-product="alpha"/);
+  assert.match(html, /href="\/assets\/cashcat\/"[^>]*data-product="assets"/);
   assert.match(
     html,
     /data-dataset="intelligence"[^>]*data-product-context="leaders"[\s\S]*龙头 \/ 热度 \/ 估值/,

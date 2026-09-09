@@ -9,7 +9,7 @@ function jsonResponse(payload: unknown, status = 200): Response {
   });
 }
 
-test("runtime verification performs only the twenty documented GET checks", async () => {
+test("runtime verification performs only the twenty-two documented GET checks", async () => {
   const requests: Array<{ url: string; method: string; redirect: RequestRedirect }> = [];
   const responses: Record<string, unknown> = {
     "/healthz": { ok: true, service: "rhc-launch-ledger", targetDate: "2026-08-29" },
@@ -149,6 +149,18 @@ test("runtime verification performs only the twenty documented GET checks", asyn
       ponsForecast: { modelVersion: "pons-regime-neighbors-v1" },
       sources: [{ id: "chain_radar" }],
     },
+    "/api/product/health": {
+      ok: true,
+      service: "rhc-product-workbench",
+    },
+    "/api/product/today": {
+      service: "rhc-product-workbench",
+      schemaVersion: 1,
+      status: "partial",
+      chain: { targetDate: "2026-08-29" },
+      cashcat: { observedAt: "2026-08-30T11:59:00.000Z" },
+      sources: [{ id: "chain_daily" }, { id: "cashcat_live" }],
+    },
   };
   const fetcher: typeof fetch = async (input, init) => {
     const url = new URL(input instanceof Request ? input.url : input);
@@ -196,6 +208,8 @@ test("runtime verification performs only the twenty documented GET checks", asyn
     { url: "/api/economics/valuation/history", method: "GET", redirect: "error" },
     { url: "/api/intelligence/health", method: "GET", redirect: "error" },
     { url: "/api/intelligence", method: "GET", redirect: "error" },
+    { url: "/api/product/health", method: "GET", redirect: "error" },
+    { url: "/api/product/today", method: "GET", redirect: "error" },
   ]);
   assert.equal(result.checks[1]?.itemCount, 1);
   assert.equal(result.checks[2]?.itemCount, 3);
@@ -210,6 +224,8 @@ test("runtime verification performs only the twenty documented GET checks", asyn
   assert.equal(result.checks[16]?.itemCount, 5);
   assert.equal(result.checks[17]?.itemCount, 1);
   assert.equal(result.checks[19]?.itemCount, 1);
+  assert.equal(result.checks[21]?.targetDate, "2026-08-29");
+  assert.equal(result.checks[21]?.itemCount, 2);
 });
 
 test("runtime verification fails closed on readiness and response contract errors", async () => {

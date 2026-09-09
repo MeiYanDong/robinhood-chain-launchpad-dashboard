@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <title>Cash Cat 日报分享卡</title>
+  <style>
+    :root {
+      --acid:#c9ff4b; --mint:#79efb4; --amber:#ffcb62; --red:#ff7070;
+      --ink:#f5f2e9; --muted:#aaa99f; --line:#374035; --paper:#111511;
+      --panel:#181d18; --serif:"Songti SC","STSong",serif;
+      --sans:"PingFang SC",system-ui,sans-serif;
+    }
+    * { box-sizing:border-box; }
+    html,body { margin:0; min-height:100%; background:#090b09; color:var(--ink); font-family:var(--sans); }
+    body { display:flex; flex-direction:column; align-items:center; }
+    .toolbar { width:min(1080px,100%); padding:14px; display:flex; justify-content:flex-end; }
+    .toolbar a { color:var(--ink); text-decoration:none; border:1px solid #394039; border-radius:99px; padding:9px 15px; font-size:13px; }
+    #viewport { width:1080px; height:1350px; transform-origin:top left; flex:none; }
+    #card {
+      width:1080px; height:1350px; overflow:hidden; position:relative; padding:48px 58px 42px;
+      background:
+        radial-gradient(circle at 82% 2%,rgba(201,255,75,.17),transparent 310px),
+        repeating-linear-gradient(0deg,rgba(255,255,255,.017) 0,rgba(255,255,255,.017) 1px,transparent 1px,transparent 30px),
+        var(--paper);
+    }
+    #card::after { content:""; position:absolute; right:-115px; bottom:-150px; width:360px; height:360px; border:58px solid var(--acid); border-radius:50%; opacity:.045; pointer-events:none; }
+    .masthead { display:flex; justify-content:space-between; gap:24px; align-items:flex-start; padding-bottom:18px; border-bottom:1px solid var(--line); }
+    .brand { display:flex; align-items:center; gap:13px; font-size:21px; font-weight:850; }
+    .dot { width:13px; height:13px; background:var(--acid); border-radius:50%; box-shadow:0 0 0 7px rgba(201,255,75,.1); }
+    .date { color:var(--muted); font-size:13px; text-align:right; line-height:1.5; }
+    .verdict { display:grid; grid-template-columns:1fr 270px; gap:30px; padding:24px 0; border-bottom:1px solid var(--line); }
+    .eyebrow { color:var(--acid); font-size:11px; letter-spacing:.15em; font-weight:850; }
+    .verdict-label { margin:9px 0 9px; font:900 72px/.94 var(--serif); letter-spacing:-.075em; color:#d7d5cc; }
+    .verdict-label.positive{color:var(--mint)} .verdict-label.watch,.verdict-label.warning{color:var(--amber)} .verdict-label.danger{color:var(--red)}
+    .headline { margin:0; max-width:650px; font:500 21px/1.42 var(--serif); }
+    .evidence-score { border-left:1px solid var(--line); padding-left:28px; display:flex; flex-direction:column; justify-content:center; }
+    .evidence-score strong { font:850 48px/1 var(--sans); letter-spacing:-.06em; }
+    .evidence-score span { color:var(--muted); font-size:12px; margin-top:9px; line-height:1.5; }
+    .history-note { margin-top:10px; color:#888d84; font-size:11px; }
+    .section-title { display:flex; justify-content:space-between; align-items:baseline; gap:20px; margin:21px 0 11px; }
+    .section-title h2 { margin:0; font:760 27px var(--serif); }
+    .section-title span { color:var(--muted); font-size:12px; }
+    .compare-head,.compare-row {
+      display:grid; grid-template-columns:142px minmax(0,1fr) 102px 122px; align-items:center; gap:10px;
+    }
+    .compare-head { color:var(--muted); font-size:10px; letter-spacing:.08em; padding:0 16px 8px; }
+    .compare-row { min-height:67px; background:rgba(24,29,24,.94); border:1px solid var(--line); border-bottom:0; padding:10px 16px; }
+    .compare-row:last-child { border-bottom:1px solid var(--line); }
+    .metric-name { font:720 19px var(--serif); }
+    .podium { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+    .podium-item { min-width:0; padding-left:7px; border-left:2px solid #50584d; }
+    .podium-item.target { border-color:var(--acid); }
+    .podium-item span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted); font-size:9px; }
+    .podium-item.target span { color:var(--acid); }
+    .podium-item strong { display:block; margin-top:3px; font-size:13px; letter-spacing:-.02em; }
+    .podium-outside { margin-top:4px; color:var(--acid); font-size:9px; }
+    .ratio { font:800 21px var(--sans); color:var(--amber); }
+    .ratio.good { color:var(--mint); }
+    .state { font-size:12px; color:var(--amber); }
+    .state.good { color:var(--mint); }
+    .threshold { display:block; color:var(--muted); font-size:10px; margin-top:3px; }
+    .volume-panel { margin-top:10px; border:1px solid var(--line); background:rgba(24,29,24,.94); padding:15px 16px 14px; }
+    .volume-top { display:flex; justify-content:space-between; align-items:center; gap:20px; }
+    .volume-title { font:720 19px var(--serif); }
+    .volume-summary { color:var(--muted); font-size:11px; }
+    .volume-summary strong { color:var(--amber); font-size:14px; }
+    .volume-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:12px; }
+    .window { border-top:2px solid var(--line); padding:9px 2px 0; }
+    .window.good { border-color:var(--mint); }
+    .window-head { display:flex; justify-content:space-between; align-items:center; font-size:11px; }
+    .window-head b { color:var(--acid); }
+    .window-head span { color:var(--muted); }
+    .window-values { display:grid; gap:3px; margin-top:8px; }
+    .window-rank { display:grid; grid-template-columns:18px minmax(0,1fr) auto; gap:4px; color:var(--muted); font-size:9px; }
+    .window-rank.target { color:var(--acid); }
+    .window-rank b { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .window-rank strong { color:var(--ink); font-size:10px; }
+    .window-rank.target strong { color:var(--acid); }
+    .window-ratio { margin-top:4px; font-size:11px; color:var(--amber); }
+    .conditions { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:18px; }
+    .condition { border:1px solid var(--line); background:rgba(24,29,24,.94); padding:15px 18px; min-height:82px; }
+    .condition label { color:var(--muted); font-size:11px; }
+    .condition strong { display:block; margin-top:8px; font:700 21px var(--serif); }
+    .proof-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:16px; }
+    .proof { border-top:1px solid var(--line); padding-top:10px; }
+    .proof span { color:var(--muted); font-size:10px; }
+    .proof strong { display:block; margin-top:5px; font-size:15px; }
+    .changes { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:16px; }
+    .change { min-height:104px; background:#f1eee4; color:#151815; padding:13px 15px; }
+    .change b { color:#59634f; font-size:10px; letter-spacing:.08em; }
+    .change strong { display:block; margin-top:7px; font:750 16px/1.15 var(--serif); }
+    .change p { margin:5px 0 0; color:#5e625c; font-size:10px; line-height:1.4; }
+    .footer { position:absolute; left:58px; right:58px; bottom:34px; display:flex; justify-content:space-between; gap:30px; padding-top:13px; border-top:1px solid var(--line); color:var(--muted); font-size:10px; line-height:1.5; }
+    .footer strong { color:var(--ink); }
+    .loading { width:1080px; height:1350px; display:grid; place-items:center; color:var(--muted); font-size:21px; }
+    body.export .toolbar { display:none; }
+    body.export #viewport { transform:none!important; }
+  </style>
+</head>
+<body>
+  <div class="toolbar"><a id="evidence-link" href="#">打开完整证据页</a></div>
+  <div id="viewport"><div class="loading">正在读取实盘日报…</div></div>
+  <script>
+    const exportMode=new URLSearchParams(location.search).get('export')==='1';
+    if(exportMode)document.body.classList.add('export');
+    const viewport=document.getElementById('viewport');
+    const pathParts=location.pathname.split('/').filter(Boolean);
+    const appBase=pathParts[0]==='cashcat'?'/cashcat':'';
+    const appUrl=path=>`${appBase}${String(path||'').startsWith('/')?path:`/${path}`}`;
+    const esc=value=>String(value??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+    const money=value=>{const n=Number(value);if(!Number.isFinite(n))return '—';if(Math.abs(n)>=1e8)return `$${(n/1e8).toFixed(2)}亿`;if(Math.abs(n)>=1e4)return `$${(n/1e4).toFixed(n>=1e7?1:2)}万`;return `$${n.toLocaleString('zh-CN',{maximumFractionDigits:0})}`};
+    const count=value=>{const n=Number(value);if(!Number.isFinite(n))return '—';return n>=1e4?`${(n/1e4).toFixed(2)}万`:n.toLocaleString('zh-CN',{maximumFractionDigits:0})};
+    const price=value=>{const n=Number(value);return Number.isFinite(n)?`$${n.toLocaleString('en-US',{minimumFractionDigits:4,maximumFractionDigits:8})}`:'—'};
+    const parts=location.pathname.split('/').filter(Boolean),reportId=parts.at(-2)||'live';
+    document.getElementById('evidence-link').href=appUrl(`/reports/${encodeURIComponent(reportId)}`);
+    function fit(){if(exportMode)return;const scale=Math.min((innerWidth-20)/1080,1);viewport.style.transform=`scale(${scale})`;viewport.parentElement.style.height=`${1350*scale+60}px`}
+    addEventListener('resize',fit);fit();
+    const metricFormat=(key,value)=>key==='holder_count'?count(value):money(value);
+    const narrativeState=value=>({supportive:'明确支持',mainstream:'仍在主流讨论',none:'未确认替代热点',negative:'转为反对',fading:'讨论降温',emerging:'新热点形成'}[value]||'需要核对');
+    function rankingRows(item={}){
+      const rows=Array.isArray(item.top3)?item.top3.slice(0,3).map(row=>({...row})):[];
+      const target=item.target_ranking&&item.target_ranking.rank?{...item.target_ranking,is_target:true}:{rank:item.rank||1,symbol:'CASHCAT',value:item.target_value,is_target:true};
+      if(!rows.length&&Number.isFinite(Number(target.value)))rows.push(target);
+      if(!rows.length||!rows.some(row=>!row.is_target)){
+        const peer=item.peer||{};
+        if(Number.isFinite(Number(peer.value)))rows.push({rank:target.rank===1?2:1,symbol:peer.symbol||'最强对手',value:peer.value,is_target:false});
+        rows.sort((a,b)=>Number(a.rank||999)-Number(b.rank||999));
+      }
+      if(target.rank&&!rows.some(row=>row.is_target||String(row.symbol||'').toUpperCase()==='CASHCAT'))rows.push({...target,outside:true});
+      return rows;
+    }
+    function podium(item){
+      const rows=rankingRows(item),top=rows.filter(row=>!row.outside),outside=rows.find(row=>row.outside);
+      return `<div class="podium">${top.map(row=>{const target=Boolean(row.is_target)||String(row.symbol||'').toUpperCase()==='CASHCAT';return `<div class="podium-item${target?' target':''}"><span>0${esc(row.rank||'—')} · ${esc(row.symbol||'未知')}</span><strong>${metricFormat(item.key,row.value)}</strong></div>`}).join('')}</div>${outside?`<div class="podium-outside">Cash Cat 当前第 ${esc(outside.rank)} 名 · ${metricFormat(item.key,outside.value)}</div>`:''}`;
+    }
+    function compactWindowRows(item){
+      return rankingRows(item).map(row=>{const target=Boolean(row.is_target)||String(row.symbol||'').toUpperCase()==='CASHCAT';return `<div class="window-rank${target?' target':''}"><span>${row.outside?'本币':`0${esc(row.rank||'—')}`}</span><b>${esc(row.symbol||'未知')}</b><strong>${money(row.value)}</strong></div>`}).join('');
+    }
+    function comparisonRow(item){
+      const ratio=Number(item.ratio),good=item.is_cliff;
+      return `<div class="compare-row">
+        <div class="metric-name">${esc(item.label)}</div>
+        <div>${podium(item)}</div>
+        <div class="ratio ${good?'good':''}">${Number.isFinite(ratio)?`${ratio.toFixed(3)}×`:'—'}<small class="threshold">门槛 ${Number(item.threshold||0).toFixed(2)}×</small></div>
+        <div class="state ${good?'good':''}">${esc(item.state_label)}${item.rank?`<small class="threshold">当前第 ${esc(item.rank)} 名</small>`:''}</div>
+      </div>`;
+    }
+    function render(r){
+      const v=r.verdict||{},c=r.coverage||{},history=r.history_continuity||{},items=r.four_cliffs?.items||[];
+      const standard=items.filter(x=>x.key!=='multi_window_volume'),volume=items.find(x=>x.key==='multi_window_volume')||{};
+      const price24=r.target?.price_24h||{};
+      const changeCards=[...(r.top_changes||[])];
+      for(const evidence of (r.narrative?.evidence||[])){
+        if(changeCards.length>=3)break;
+        changeCards.push({title:`${evidence.label}：${narrativeState(evidence.state)}`,detail:evidence.note});
+      }
+      document.title=`${v.label}｜Cash Cat 日报`;
+      viewport.innerHTML=`<article id="card">
+        <header class="masthead"><div class="brand"><i class="dot"></i>Cash Cat · 投资判断日报</div><div class="date">${esc(r.window.date_label)}<br>实盘更新 ${esc(new Date(c.latest_observed_at||r.generated_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour:'2-digit',minute:'2-digit'}))}</div></header>
+        <section class="verdict"><div><div class="eyebrow">当前实盘判断</div><div class="verdict-label ${esc(v.tone)}">${esc(v.label)}</div><p class="headline">${esc(v.headline)}</p></div><aside class="evidence-score"><strong>${esc(c.observed_points)}/${esc(c.expected_points)}</strong><span>当前判断证据<br>${esc(c.label)}</span><div class="history-note">过去24小时连续采样 ${esc(history.observed_points||0)}/${esc(history.expected_points||0)}；只影响趋势复盘</div></aside></section>
+        <div class="section-title"><h2>四项断崖 · 同项前三名</h2><span>${esc(r.four_cliffs?.cliff_count||0)}/4 项成立</span></div>
+        <div class="compare-head"><span>比较项</span><span>同项前三名</span><span>相对最强</span><span>判断</span></div>
+        <div>${standard.map(comparisonRow).join('')}</div>
+        <div class="volume-panel"><div class="volume-top"><div class="volume-title">多周期成交量</div><div class="volume-summary"><strong>${esc(volume.leading_windows??'—')}/4</strong> 个周期领先 · 几何倍数 ${volume.geometric_ratio==null?'—':`${Number(volume.geometric_ratio).toFixed(3)}×`} · 门槛 ${Number(volume.threshold||1.3).toFixed(2)}×</div></div>
+          <div class="volume-grid">${(volume.windows||[]).map(w=>`<div class="window ${w.state==='CLIFF'?'good':''}"><div class="window-head"><b>${esc(w.window)}</b><span>Cash Cat 第 ${esc(w.rank??'—')} 名</span></div><div class="window-values">${compactWindowRows(w)}</div><div class="window-ratio">${w.ratio==null?'无法比较':`${Number(w.ratio).toFixed(3)}× 最强对手`}</div></div>`).join('')}</div>
+        </div>
+        <div class="conditions"><div class="condition"><label>Robinhood Chain 热度</label><strong>${esc(r.attention?.label||'数据不足')}</strong></div><div class="condition"><label>官方、负责人及主流讨论</label><strong>${esc(r.narrative?.label||'证据不足')}</strong></div></div>
+        <div class="proof-strip"><div class="proof"><span>Cash Cat 现价</span><strong>${price(r.target?.current_price)}</strong></div><div class="proof"><span>全部索引池流动性</span><strong>${money(r.target?.liquidity_context?.all_indexed_pools_usd)}</strong></div><div class="proof"><span>GMGN 1小时K线</span><strong>${esc(price24.candle_count||0)} 根</strong></div><div class="proof"><span>X 实时原帖</span><strong>${esc((r.live_posts||[]).length)} 条可点击</strong></div></div>
+        <div class="changes">${changeCards.slice(0,3).map((x,i)=>`<div class="change"><b>0${i+1}</b><strong>${esc(x.title)}</strong><p>${esc(x.detail)}</p></div>`).join('')}</div>
+        <footer class="footer"><span><strong>证据来源：</strong>GMGN 链上实盘 + DEX Screener 多池核对 + TwitterAPI.io X 实时检索<br>完整数值、对手、K线、原帖与检索回执见详情页</span><span>只读判断 · 不会自动交易<br>${esc(r.report_id)}</span></footer>
+      </article>`;
+      document.documentElement.dataset.ready='true';
+    }
+    fetch(appUrl(`/api/reports/${encodeURIComponent(reportId)}`),{cache:'no-store'}).then(x=>{if(!x.ok)throw new Error(String(x.status));return x.json()}).then(render).catch(e=>{viewport.innerHTML=`<div class="loading">日报读取失败：${esc(e.message)}</div>`});
+  </script>
+</body>
+</html>
