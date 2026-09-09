@@ -33,6 +33,30 @@ function fetched(payload: unknown) {
   };
 }
 
+function cachedRelease(settings = DEFAULT_PAIR_V2_SETTINGS) {
+  return {
+    releaseId: settings.expectedReleaseId,
+    manifestSha256: settings.expectedManifestSha256,
+    schema: "fixture",
+    capability: "fixture",
+    ready: true,
+    configured: true,
+    canonical: true,
+    deploymentBlock: settings.deploymentBlock,
+    attestedBlock: 100,
+    addresses: {
+      launchpad: "0x8660a7f019c7943b0b0a91b8e39aff3b6db6ae62",
+      modeRegistry: "0xda5c65431e2adc1c64af51e3ce7de2485abeab69",
+      coordinator: "0xf98b202fd8717b79f9c5e5dd67c2f9e640bbd25d",
+      tokenFactory: "0xece4ce499e1f75ceb75581a16b48c86eba0a3e3a",
+      hook: "0xd2f759a1cf13c30127c551c3aee04629aea200c0",
+      buybackExecutor: "0x8fea00440300bb2d3e9377b995e6f62fe99c1a0c",
+      aggregator: "0xe6c5a027da3f4506cde435b5e5bb6680c870f771",
+    },
+    observedAt: "2026-09-05T07:00:00.000Z",
+  };
+}
+
 test("PAIR market parser accepts V1 and keeps pool identity for fee attribution", () => {
   assert.equal(parseMarketToken({ address: PROJECT, launchVersion: "v1" })?.launchVersion, "v1");
   const parsed = parseMarketToken({
@@ -437,4 +461,80 @@ test("PAIR V2 collector retries the whole official snapshot after pagination dri
   assert.equal(tokenCalls, 6);
   assert.equal(batch.tokens.length, 2);
   assert.equal(batch.sourceHealth.find((source) => source.id === "pair_tokens")?.expected, 2);
+});
+
+test("PAIR V2 collector reuses a matching cached release when live attestation is unavailable", async () => {
+  const settings = {
+    ...DEFAULT_PAIR_V2_SETTINGS,
+    deploymentBlock: 100,
+    logConfirmations: 0,
+    maxPages: 1,
+    maxBucketEpoch: 1,
+  };
+  const collector = new PairV2Collector(settings, {
+    now: () => new Date("2026-09-05T08:00:00.000Z"),
+    fetchHolder: async () => ({ count: 1, observedAt: "2026-09-05T08:00:00.000Z" }),
+    rpc: {
+      async call<T>(method: string): Promise<T> {
+        if (method === "eth_blockNumber") return "0x64" as T;
+        if (method === "eth_getLogs") return [] as T;
+        throw new Error(`unexpected method ${method}`);
+      },
+      async batch<T>(): Promise<T[]> {
+        return [];
+      },
+    },
+    fetchPage: async (url) => {
+      if (url.includes("consumer-live")) throw new Error("503 Service Unavailable");
+      return fetched({
+        total: 1,
+        page: 1,
+        limit: 50,
+        items: [{ address: PROJECT, launchVersion: "v2" }],
+      });
+    },
+  });
+
+  const batch = await collector.collect({
+    kind: "full",
+    fromBlock: 100,
+    cachedRelease: cachedRelease(settings),
+    cachedTokens: [],
+    cachedLaunches: [],
+  });
+
+  const releaseSource = batch.sourceHealth.find((source) => source.id === "pair_release");
+  assert.equal(releaseSource?.status, "degraded");
+  assert.match(releaseSource?.message ?? "", /复用上次已核验记录/);
+  assert.ok(batch.warnings.some((warning) => warning.includes("复用上次已核验")));
+  assert.equal(batch.tokens.length, 1);
+});
+
+test("PAIR V2 collector never masks a live non-canonical attestation with cache", async () => {
+  const settings = { ...DEFAULT_PAIR_V2_SETTINGS, deploymentBlock: 100, maxPages: 1 };
+  const collector = new PairV2Collector(settings, {
+    fetchPage: async () =>
+      fetched({
+        schema: "fixture",
+        state: "not-ready",
+        ready: false,
+        configured: true,
+        capability: "fixture",
+        releaseId: settings.expectedReleaseId,
+        manifestSha256: settings.expectedManifestSha256,
+        blockNumber: "100",
+        addresses: cachedRelease(settings).addresses,
+      }),
+  });
+
+  await assert.rejects(
+    collector.collect({
+      kind: "full",
+      fromBlock: 100,
+      cachedRelease: cachedRelease(settings),
+      cachedTokens: [],
+      cachedLaunches: [],
+    }),
+    /not canonical/,
+  );
 });

@@ -82,6 +82,19 @@ function refreshPriority(value: PairV2RefreshMode): number {
   return { chain: 0, hot: 1, full: 2 }[value];
 }
 
+function errorDiagnostic(error: unknown): string {
+  const message = error instanceof Error ? error.message : "";
+  if (/consumer-live|release attestation/i.test(message)) return "pair_v2_attestation_unavailable";
+  if (/pagination drifted/i.test(message)) return "pair_v2_pagination_changed";
+  if (/duplicate address/i.test(message)) return "pair_v2_duplicate_address";
+  if (/incomplete universe/i.test(message)) return "pair_v2_incomplete_universe";
+  if (/\/tokens\?|token universe/i.test(message)) return "pair_v2_token_api_unavailable";
+  if (/RPC|eth_/i.test(message)) return "pair_v2_rpc_unavailable";
+  if (/SQLITE_BUSY|database is locked/i.test(message)) return "pair_v2_database_busy";
+  if (/SQLITE_FULL|database or disk is full/i.test(message)) return "pair_v2_database_full";
+  return `${error instanceof Error ? error.name : "UnknownError"}_unclassified`;
+}
+
 function cohortKey(token: PairV2MarketToken, launch: PairV2Launch | null, now: Date): string {
   const launched = token.launchedAt ? Date.parse(token.launchedAt) : Number.NaN;
   const ageHours = Number.isFinite(launched)
@@ -241,7 +254,7 @@ export class PairV2Service {
         null,
         null,
         [],
-        error instanceof Error ? error.name : "UnknownError",
+        errorDiagnostic(error),
       );
       throw error;
     }
@@ -647,21 +660,21 @@ export class PairV2Service {
     this.chainTimer = setInterval(() => {
       void this.refresh("chain").catch((error) => {
         this.warn("pair_v2_chain_poll_failed", {
-          errorName: error instanceof Error ? error.name : "UnknownError",
+          reason: errorDiagnostic(error),
         });
       });
     }, this.settings.chainPollSeconds * 1_000);
     this.hotMarketTimer = setInterval(() => {
       void this.refresh("hot").catch((error) => {
         this.warn("pair_alpha_hot_market_poll_failed", {
-          errorName: error instanceof Error ? error.name : "UnknownError",
+          reason: errorDiagnostic(error),
         });
       });
     }, this.settings.hotMarketPollSeconds * 1_000);
     this.marketTimer = setInterval(() => {
       void this.refresh("full").catch((error) => {
         this.warn("pair_v2_market_poll_failed", {
-          errorName: error instanceof Error ? error.name : "UnknownError",
+          reason: errorDiagnostic(error),
         });
       });
     }, this.settings.marketPollSeconds * 1_000);
