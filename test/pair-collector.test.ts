@@ -13,6 +13,12 @@ const settings = {
   pageConcurrency: 2,
 };
 
+test("PAIR official pagination defaults reduce request count and bound each page", () => {
+  assert.equal(DEFAULT_PAIR_TOKEN_SETTINGS.pageLimit, 100);
+  assert.equal(DEFAULT_PAIR_TOKEN_SETTINGS.pageConcurrency, 4);
+  assert.equal(DEFAULT_PAIR_TOKEN_SETTINGS.apiTimeoutMs, 10_000);
+});
+
 function token(addressSuffix: string, symbol: string, marketCapUsd: string, totalDepthUsd: string) {
   return {
     address: `0x${addressSuffix.padStart(40, "0")}`,
