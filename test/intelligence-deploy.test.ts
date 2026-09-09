@@ -16,8 +16,11 @@ test("market intelligence deployment keeps source services private and exposes p
   assert.match(service, /INTELLIGENCE_CASHCAT_STATUS_URL=http:\/\/127\.0\.0\.1:8010\/api\/status/);
   assert.doesNotMatch(service, /47\.251\.99\.37/);
   assert.match(publicServer, /location = \/api\/intelligence\/refresh/);
-  assert.match(publicServer, /location = \/ \{\s*return 308 http:\/\/\$host\/launchpads\/;/);
-  assert.match(publicServer, /location = \/cashcat\/ \{\s*return 308 http:\/\/\$host\/cashcat\/;/);
+  assert.match(publicServer, /location = \/ \{\s*return 308 https:\/\/\$host\/;/);
+  assert.match(
+    publicServer,
+    /location = \/cashcat\/ \{\s*return 308 https:\/\/\$host\/assets\/cashcat\/;/,
+  );
   assert.match(locations, /location \/leaders\//);
   assert.match(locations, /location \/launchpads\//);
   assert.match(locations, /location \/pair-flow\//);

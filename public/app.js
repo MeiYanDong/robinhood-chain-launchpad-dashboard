@@ -5144,8 +5144,15 @@ function syncInitialView() {
     LAUNCHPAD_VIEW === "tokens" &&
     state.dataset === "long"
   );
+  const navigationProduct = ["leaders", "launchpads"].includes(product)
+    ? "market"
+    : ["pair-alpha", "pair-v2"].includes(product)
+      ? "alpha"
+      : product === "pair-flow"
+        ? "assets"
+        : "today";
   $$("[data-product]").forEach((link) => {
-    link.classList.toggle("is-active", link.dataset.product === product);
+    link.classList.toggle("is-active", link.dataset.product === navigationProduct);
   });
   const productNav = $(".product-nav");
   const activeProduct = productNav.querySelector("a.is-active");

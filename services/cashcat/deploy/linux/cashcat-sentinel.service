@@ -1,0 +1,42 @@
+[Unit]
+Description=Cash Cat live thesis monitor and daily report
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=cashcat
+Group=cashcat
+WorkingDirectory=/opt/cashcat-sentinel/current
+Environment=HOME=/var/lib/cashcat-sentinel
+Environment=PYTHONUNBUFFERED=1
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=CASHCAT_AUTOSTART=1
+Environment=CASHCAT_DB_PATH=/var/lib/cashcat-sentinel/cashcat-sentinel.db
+Environment=CASHCAT_NARRATIVE_PATH=/var/lib/cashcat-sentinel/narrative.json
+Environment=CASHCAT_REPORT_DIR=/var/lib/cashcat-sentinel/reports
+Environment=CASHCAT_REPORT_BASE_URL=http://127.0.0.1/cashcat
+EnvironmentFile=-/etc/cashcat-sentinel/production.env
+ExecStart=/opt/cashcat-sentinel/current/.venv/bin/uvicorn app:app --host 127.0.0.1 --port 8010 --workers 1
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=120
+TimeoutStopSec=30
+UMask=0077
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/var/lib/cashcat-sentinel
+
+[Install]
+WantedBy=multi-user.target

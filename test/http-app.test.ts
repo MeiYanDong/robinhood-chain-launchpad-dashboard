@@ -15,6 +15,7 @@ import {
   type PairFlowHttpApi,
   type PairTokenHttpApi,
   type PairV2HttpApi,
+  type ProductHttpApi,
 } from "../src/http/app.js";
 
 interface TestContext {
@@ -228,6 +229,15 @@ function fakeIntelligence(overrides: Partial<IntelligenceHttpApi> = {}): Intelli
   };
 }
 
+function fakeProduct(overrides: Partial<ProductHttpApi> = {}): ProductHttpApi {
+  return {
+    health: () => ({ ok: true, service: "product-fixture" }),
+    ensureFresh: async () => ({ route: "product-today" }),
+    refresh: async () => ({ route: "product-refresh" }),
+    ...overrides,
+  };
+}
+
 async function withServer(
   run: (context: TestContext) => Promise<void>,
   dashboard = fakeDashboard(),
@@ -238,9 +248,11 @@ async function withServer(
   pairFlow?: PairFlowHttpApi,
   pairV2?: PairV2HttpApi,
   devMonitor?: DevMonitorHttpApi,
+  product?: ProductHttpApi,
 ): Promise<void> {
   const publicDirectory = mkdtempSync(join(tmpdir(), "rhc-http-"));
   writeFileSync(join(publicDirectory, "index.html"), "<h1>ledger</h1>");
+  writeFileSync(join(publicDirectory, "product.html"), "<h1>workbench</h1>");
   writeFileSync(join(publicDirectory, "app.js"), "console.log('ledger');");
   const events: TestContext["events"] = [];
   const server = createServer(
@@ -253,6 +265,7 @@ async function withServer(
       ...(pairFlow ? { pairFlow } : {}),
       ...(pairV2 ? { pairV2 } : {}),
       ...(devMonitor ? { devMonitor } : {}),
+      ...(product ? { product } : {}),
       publicDirectory,
       logger: {
         error(event, context) {
@@ -716,6 +729,49 @@ test("market intelligence exposes cached reads, explicit refresh, and prefixed r
   });
 });
 
+test("unified product workbench exposes safe reads and serves the new task routes", async () => {
+  await withServer(
+    async ({ baseUrl }) => {
+      assert.deepEqual(await (await fetch(`${baseUrl}/api/product/health`)).json(), {
+        ok: true,
+        service: "product-fixture",
+      });
+      assert.deepEqual(await (await fetch(`${baseUrl}/api/product/today`)).json(), {
+        route: "product-today",
+      });
+      assert.deepEqual(await (await fetch(`${baseUrl}/market/api/product/today`)).json(), {
+        route: "product-today",
+      });
+      assert.deepEqual(
+        await (await fetch(`${baseUrl}/api/product/refresh`, { method: "POST" })).json(),
+        { route: "product-refresh" },
+      );
+      for (const path of ["/", "/market/", "/alpha/", "/assets/cashcat/"]) {
+        const response = await fetch(`${baseUrl}${path}`);
+        assert.equal(response.status, 200);
+        assert.equal(await response.text(), "<h1>workbench</h1>");
+      }
+      const legacy = await fetch(`${baseUrl}/leaders/`);
+      assert.equal(await legacy.text(), "<h1>ledger</h1>");
+    },
+    fakeDashboard(),
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    fakeProduct(),
+  );
+
+  await withServer(async ({ baseUrl }) => {
+    const response = await fetch(`${baseUrl}/api/product/today`);
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).code, "PRODUCT_WORKBENCH_UNAVAILABLE");
+  });
+});
+
 test("HTTP API rejects invalid inputs with stable error codes", async () => {
   await withServer(async ({ baseUrl, port }) => {
     const invalidWindow = await fetch(`${baseUrl}/api/overview?window=2`);
@@ -743,7 +799,7 @@ test("static files enforce containment, content policy, and HEAD semantics", asy
   await withServer(async ({ baseUrl, port }) => {
     const index = await fetch(`${baseUrl}/`);
     assert.equal(index.status, 200);
-    assert.equal(await index.text(), "<h1>ledger</h1>");
+    assert.equal(await index.text(), "<h1>workbench</h1>");
     assert.equal(index.headers.get("cache-control"), "no-cache");
     assert.match(index.headers.get("content-security-policy") ?? "", /frame-ancestors 'none'/);
 

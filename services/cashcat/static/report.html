@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="data:," />
+  <title>Cash Cat 投资判断日报</title>
+  <style>
+    :root {
+      --ink: #f4f1e8;
+      --muted: #aaa99e;
+      --paper: #111411;
+      --panel: #171b17;
+      --line: #323930;
+      --acid: #c7ff45;
+      --mint: #75f0b1;
+      --amber: #ffc85a;
+      --red: #ff6969;
+      --blue: #80bfff;
+      --serif: "Songti SC", "STSong", "Noto Serif CJK SC", serif;
+      --sans: "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: var(--sans);
+      background:
+        radial-gradient(circle at 88% 2%, rgba(199,255,69,.12), transparent 26rem),
+        linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+        #0d100d;
+      background-size: auto, 100% 32px, auto;
+    }
+    a { color: inherit; }
+    button, .button {
+      border: 1px solid var(--line);
+      background: #20251f;
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 10px 16px;
+      font: 600 14px var(--sans);
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .button.primary { color: #0c1009; background: var(--acid); border-color: var(--acid); }
+    .shell { width: min(1180px, calc(100% - 32px)); margin: 0 auto; }
+    .topbar {
+      position: sticky; top: 0; z-index: 20;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      background: rgba(13,16,13,.88);
+      backdrop-filter: blur(18px);
+    }
+    .topbar-inner { min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    .brand { display: flex; align-items: center; gap: 11px; font-weight: 800; letter-spacing: -.02em; }
+    .brand-mark { width: 12px; height: 12px; background: var(--acid); box-shadow: 0 0 0 6px rgba(199,255,69,.12); border-radius: 50%; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .live-indicator { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:12px; }
+    .live-indicator::before { content:""; width:7px; height:7px; border-radius:50%; background:var(--mint); box-shadow:0 0 0 5px rgba(117,240,177,.1); }
+    main { padding: 48px 0 96px; }
+    .eyebrow { color: var(--acid); font-size: 12px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+    .hero {
+      display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(280px, .65fr); gap: 18px;
+      margin-top: 18px;
+    }
+    .verdict, .coverage-card, .section-card, .cliff, .metric, .change, .watch, .source, .post {
+      border: 1px solid var(--line); background: rgba(23,27,23,.92);
+    }
+    .verdict { min-height: 390px; padding: clamp(28px, 5vw, 64px); position: relative; overflow: hidden; }
+    .verdict::after {
+      content: ""; position: absolute; width: 260px; height: 260px; right: -90px; bottom: -110px;
+      border: 44px solid var(--acid); border-radius: 50%; opacity: .08;
+    }
+    .verdict-label { margin: 22px 0 16px; font: 900 clamp(54px, 8vw, 104px)/.95 var(--serif); letter-spacing: -.08em; }
+    .verdict-label.positive { color: var(--mint); }
+    .verdict-label.watch { color: var(--amber); }
+    .verdict-label.warning { color: var(--amber); }
+    .verdict-label.danger { color: var(--red); }
+    .verdict-label.muted { color: #d4d1c6; }
+    .headline { max-width: 720px; margin: 0; font: 500 clamp(20px, 2.6vw, 30px)/1.45 var(--serif); }
+    .subnote { margin-top: 28px; color: var(--muted); font-size: 13px; }
+    .coverage-card { padding: 28px; display: flex; flex-direction: column; justify-content: space-between; }
+    .coverage-number { font: 800 clamp(54px, 7vw, 84px)/1 var(--sans); letter-spacing: -.07em; }
+    .coverage-label { color: var(--muted); margin-top: 10px; }
+    .coverage-track { height: 7px; background: #2a3029; overflow: hidden; margin: 26px 0 14px; }
+    .coverage-fill { height: 100%; background: var(--acid); }
+    .coverage-reasons { display: grid; gap: 8px; margin-top: 24px; }
+    .coverage-reasons span { color: var(--amber); font-size: 13px; }
+    .coverage-checks { display:grid; gap:7px; margin-top:20px; }
+    .coverage-check { display:flex; justify-content:space-between; gap:12px; padding-top:7px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; }
+    .coverage-check b { color:var(--mint); font-weight:700; }
+    .coverage-check.missing b { color:var(--amber); }
+    .history-note { margin-top:18px; padding:14px; border:1px solid var(--line); background:#121612; color:var(--muted); font-size:12px; line-height:1.65; }
+    .account-alert { margin: 0 0 16px; padding: 13px 15px; border-left: 3px solid var(--blue); background: rgba(128,191,255,.07); color: var(--muted); font-size: 12px; line-height: 1.65; }
+    .account-alert.bad { border-left-color: var(--red); background: rgba(255,105,105,.08); color: #ffd2d2; }
+    .account-alert a { color: var(--blue); margin-left: 8px; }
+    section { margin-top: 70px; scroll-margin-top: 90px; }
+    .section-head { display: flex; justify-content: space-between; align-items: end; gap: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+    h2 { margin: 5px 0 0; font: 800 clamp(30px, 4vw, 48px)/1.1 var(--serif); letter-spacing: -.045em; }
+    .section-description { max-width: 480px; color: var(--muted); line-height: 1.7; font-size: 14px; }
+    .changes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 20px; }
+    .change { min-height: 190px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between; }
+    .change-index { color: var(--acid); font: 700 12px var(--sans); }
+    .change h3, .watch h3 { margin: 24px 0 8px; font: 700 22px/1.25 var(--serif); }
+    .change p, .watch p { color: var(--muted); margin: 0; line-height: 1.65; font-size: 14px; }
+    .cliffs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 20px; }
+    .cliff { padding: 26px; min-height: 390px; }
+    .cliff-top { display: flex; justify-content: space-between; align-items: start; gap: 20px; }
+    .cliff h3 { margin: 0; font: 700 26px var(--serif); }
+    .status-chip { white-space: nowrap; border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px; color: var(--amber); font-size: 12px; }
+    .status-chip.good { color: var(--mint); border-color: rgba(117,240,177,.3); }
+    .cliff-reading { margin: 36px 0 8px; font: 800 42px/1 var(--sans); letter-spacing: -.055em; }
+    .cliff-detail, .cliff-explain { color: var(--muted); font-size: 13px; line-height: 1.6; }
+    .cliff-explain { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); }
+    .ranking-title { margin-top:24px; padding-top:13px; border-top:1px solid var(--line); color:var(--muted); font-size:11px; font-weight:700; letter-spacing:.1em; }
+    .ranking-list { display:grid; gap:6px; margin-top:9px; }
+    .rank-row { display:grid; grid-template-columns:34px minmax(80px,1fr) auto; gap:8px 11px; align-items:center; padding:9px 11px; border:1px solid transparent; background:rgba(255,255,255,.018); }
+    .rank-row.target { border-color:rgba(199,255,69,.34); background:rgba(199,255,69,.08); }
+    .rank-row.outside { margin-top:5px; border-style:dashed; }
+    .rank-number { color:var(--muted); font-size:11px; font-weight:800; }
+    .rank-symbol { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:800; }
+    .rank-symbol small { margin-left:6px; color:var(--muted); font-size:9px; }
+    .rank-row.target .rank-number,.rank-row.target .rank-symbol { color:var(--acid); }
+    .rank-value { font-size:15px; }
+    .rank-bar { grid-column:2/-1; height:3px; background:rgba(255,255,255,.06); overflow:hidden; }
+    .rank-bar i { display:block; width:var(--share); height:100%; background:#72786e; }
+    .rank-row.target .rank-bar i { background:var(--acid); }
+    .comparison-meta { margin-top:12px; color:var(--muted); font-size:12px; }
+    .volume-switcher { display:flex; gap:6px; margin-top:22px; overflow-x:auto; }
+    .volume-tab { flex:1 0 auto; border:1px solid var(--line); border-radius:999px; padding:7px 10px; color:var(--muted); background:transparent; cursor:pointer; font:700 11px var(--sans); }
+    .volume-tab.active { color:#0c1009; border-color:var(--acid); background:var(--acid); }
+    .volume-ranking { display:none; }
+    .volume-ranking.active { display:block; }
+    .volume-ranking-meta { display:flex; justify-content:space-between; gap:14px; margin-top:11px; color:var(--muted); font-size:11px; }
+    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 20px; }
+    .metric { padding: 22px; min-height: 152px; }
+    .metric-label { color: var(--muted); font-size: 12px; }
+    .metric-value { margin-top: 18px; font: 800 clamp(26px, 3vw, 38px)/1 var(--sans); letter-spacing: -.05em; }
+    .metric-delta { margin-top: 13px; font-size: 12px; color: var(--muted); }
+    .metric-delta.up { color: var(--mint); } .metric-delta.down { color: var(--red); }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
+    .section-card { padding: 28px; }
+    .section-card h3 { margin: 8px 0 24px; font: 750 30px var(--serif); }
+    .big-share { font: 850 54px/1 var(--sans); letter-spacing: -.06em; }
+    .share-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 24px 0; }
+    .share-row > div { border-top: 1px solid var(--line); padding-top: 14px; }
+    .share-row span { color: var(--muted); font-size: 12px; }
+    .share-row strong { display: block; margin-top: 7px; font-size: 22px; }
+    .evidence-list { display: grid; gap: 10px; }
+    .evidence-item { padding: 15px 0; border-top: 1px solid var(--line); }
+    .evidence-item:first-child { border-top: 0; }
+    .evidence-title { display: flex; justify-content: space-between; gap: 16px; font-weight: 700; }
+    .evidence-state { color: var(--acid); font-size: 12px; }
+    .evidence-item p { color: var(--muted); line-height: 1.6; margin: 8px 0; font-size: 13px; }
+    .evidence-item a { color: var(--blue); font-size: 13px; }
+    .posts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 20px; }
+    .post { padding: 22px; min-height: 230px; display: flex; flex-direction: column; }
+    .post-meta { display: flex; justify-content: space-between; gap: 14px; font-size: 12px; color: var(--muted); }
+    .post-author { color: var(--ink); font-weight: 700; }
+    .post-text { margin: 22px 0; line-height: 1.65; font-size: 14px; flex: 1; white-space: pre-wrap; }
+    .post-footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); }
+    .post-footer a { color: var(--blue); text-decoration: none; }
+    .watch-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 20px; }
+    .watch { padding: 24px; min-height: 180px; }
+    .source-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 20px; }
+    .source { padding: 22px; }
+    .source strong { font: 700 20px var(--serif); }
+    .source p { color: var(--muted); margin: 12px 0 0; line-height: 1.55; font-size: 13px; }
+    .proof-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:15px; }
+    .proof { border-top:1px solid var(--line); padding-top:10px; }
+    .proof span { display:block; color:var(--muted); font-size:10px; }
+    .proof b { display:block; margin-top:5px; font-size:14px; }
+    .receipt-list { display:grid; gap:7px; margin-top:14px; }
+    .receipt { display:flex; justify-content:space-between; gap:12px; border-top:1px solid var(--line); padding-top:8px; color:var(--muted); font-size:11px; }
+    .method { margin-top: 28px; border-left: 3px solid var(--acid); padding: 4px 0 4px 20px; color: var(--muted); line-height: 1.75; font-size: 13px; }
+    footer { margin-top: 74px; padding-top: 22px; border-top: 1px solid var(--line); color: var(--muted); display: flex; justify-content: space-between; gap: 24px; font-size: 12px; }
+    .loading { min-height: 70vh; display: grid; place-items: center; color: var(--muted); }
+    .error { color: var(--red); }
+    @media (max-width: 820px) {
+      .hero, .two-col { grid-template-columns: 1fr; }
+      .changes, .watch-grid { grid-template-columns: 1fr; }
+      .cliffs, .posts, .source-grid { grid-template-columns: 1fr; }
+      .proof-grid { grid-template-columns:1fr 1fr; }
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+      .topbar-inner { align-items: flex-start; padding: 14px 0; }
+      .brand span:last-child { display: none; }
+      .button { padding: 9px 12px; font-size: 12px; }
+      .section-head { align-items: start; flex-direction: column; }
+      footer { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="shell topbar-inner">
+      <div class="brand"><span class="brand-mark"></span><span>Cash Cat · 投资判断日报</span></div>
+      <div class="actions">
+        <span class="live-indicator" id="live-indicator">等待实盘回执</span>
+        <a class="button" id="card-link" href="#">查看分享卡</a>
+        <a class="button primary" id="png-link" href="#" hidden>保存分享图</a>
+      </div>
+    </div>
+  </div>
+  <main class="shell" id="app"><div class="loading">正在读取实盘日报…</div></main>
+
+  <script>
+    const app = document.getElementById('app');
+    const pathParts = location.pathname.split('/').filter(Boolean);
+    const appBase = pathParts[0] === 'cashcat' ? '/cashcat' : '';
+    const appUrl = path => {
+      if (/^https?:\/\//i.test(path)) return path;
+      return `${appBase}${String(path || '').startsWith('/') ? path : `/${path}`}`;
+    };
+    const esc = value => String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+    const safeUrl = value => { try { const u = new URL(value, location.origin); return ['http:','https:'].includes(u.protocol) ? u.href : '#'; } catch { return '#'; } };
+    const percent = value => value == null ? '—' : `${(Number(value) * 100).toFixed(1)}%`;
+    const delta = value => value == null ? '窗口起点缺少可比数据' : `较窗口起点 ${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(1)}%`;
+    const money = value => {
+      const n = Number(value); if (!Number.isFinite(n)) return '—';
+      if (Math.abs(n) >= 1e8) return `$${(n / 1e8).toFixed(2)}亿`;
+      if (Math.abs(n) >= 1e4) return `$${(n / 1e4).toFixed(n >= 1e7 ? 1 : 2)}万`;
+      return `$${n.toLocaleString('zh-CN', {maximumFractionDigits: 0})}`;
+    };
+    const count = value => {
+      const n = Number(value); if (!Number.isFinite(n)) return '—';
+      return n >= 1e4 ? `${(n / 1e4).toFixed(2)}万` : n.toLocaleString('zh-CN', {maximumFractionDigits: 0});
+    };
+    const dateTime = value => value ? new Intl.DateTimeFormat('zh-CN', {timeZone:'Asia/Shanghai', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'}).format(new Date(value)) : '—';
+    const stateText = value => ({supportive:'明确支持', mainstream:'仍在主流讨论', none:'未确认新热点', negative:'转为反对', fading:'讨论降温', emerging:'新热点形成', unknown:'证据不足'}[value] || '需要核对');
+    const sourceStatus = value => ({OK:'正常', PARTIAL:'部分可用', ERROR:'异常', UNAVAILABLE:'不可用', UNKNOWN:'未知'}[value] || '需核对');
+    const queryTypeText = value => ({Latest:'最新内容', Top:'热门内容'}[value] || '实时内容');
+    const gmgnCheckText = value => ({
+      'config --check':'GMGN 连接与凭证检查',
+      'token info':'Cash Cat 当前行情',
+      'token security':'Cash Cat 合约安全信息',
+      'liquidity cross-check: all indexed pools':'Cash Cat 多交易池流动性核对',
+      'kline: CASHCAT@1h/24h':'过去24小时价格轨迹',
+      'trending: marketcap/liquidity/holder_count@24h':'市值、流动性与持币地址同链排名',
+      'trending: volume@5m/1h/6h/24h':'四个周期成交量同链排名',
+      'hot-searches: all chains@24h':'跨链24小时热搜'
+    }[value] || 'GMGN 只读数据检查');
+
+    function reportEndpoint() {
+      const parts = location.pathname.split('/').filter(Boolean);
+      if (parts.at(-1) === 'latest') return appUrl('/api/reports/latest');
+      return appUrl(`/api/reports/${encodeURIComponent(parts.at(-1) || 'preview')}`);
+    }
+
+    function metricValue(key, value) { return key === 'holders' ? count(value) : money(value); }
+    const cliffValue = (key, value) => key === 'holder_count' ? count(value) : money(value);
+    const price = value => {
+      const n = Number(value); if (!Number.isFinite(n)) return '—';
+      return `$${n.toLocaleString('en-US', {minimumFractionDigits:4, maximumFractionDigits:8})}`;
+    };
+    function rankingRows(item = {}) {
+      const rows = Array.isArray(item.top3) ? item.top3.slice(0, 3).map(row => ({...row})) : [];
+      const target = item.target_ranking && item.target_ranking.rank
+        ? {...item.target_ranking, is_target: true}
+        : {rank: item.rank || 1, symbol: 'CASHCAT', value: item.target_value, is_target: true};
+      if (!rows.length && Number.isFinite(Number(target.value))) rows.push(target);
+      if (!rows.length || !rows.some(row => !row.is_target)) {
+        const peer = item.peer || {};
+        if (Number.isFinite(Number(peer.value))) rows.push({rank: target.rank === 1 ? 2 : 1, symbol: peer.symbol || '最强对手', value: peer.value, is_target: false});
+        rows.sort((left, right) => Number(left.rank || 999) - Number(right.rank || 999));
+      }
+      if (target.rank && !rows.some(row => row.is_target || String(row.symbol || '').toUpperCase() === 'CASHCAT')) rows.push({...target, outside: true});
+      return rows;
+    }
+    function rankingList(item, key) {
+      const rows = rankingRows(item), maximum = Math.max(...rows.map(row => Number(row.value) || 0), 1);
+      return `<div class="ranking-list">${rows.map(row => {
+        const share = Math.max(4, Math.min(100, (Number(row.value) || 0) / maximum * 100));
+        const target = Boolean(row.is_target) || String(row.symbol || '').toUpperCase() === 'CASHCAT';
+        return `<div class="rank-row${target ? ' target' : ''}${row.outside ? ' outside' : ''}"><span class="rank-number">${row.outside ? '本币' : `0${esc(row.rank || '—')}`}</span><span class="rank-symbol">${esc(row.symbol || '未知代币')}${target ? '<small>Cash Cat</small>' : ''}</span><strong class="rank-value">${cliffValue(key, row.value)}</strong><span class="rank-bar"><i style="--share:${share.toFixed(1)}%"></i></span></div>`;
+      }).join('')}</div>`;
+    }
+    function renderCliff(item) {
+      if (item.key === 'multi_window_volume') {
+        const windows = item.windows || [];
+        const defaultWindow = windows.some(window => window.window === '24h') ? '24h' : (windows[0] || {}).window;
+        return `<article class="cliff volume">
+          <div class="cliff-top"><h3>${esc(item.label)}</h3><span class="status-chip ${item.is_cliff ? 'good' : ''}">${esc(item.state_label)}</span></div>
+          <div class="cliff-reading">${esc(item.leading_windows ?? '—')}/4 个周期领先</div>
+          <div class="cliff-detail">四个窗口领先倍数的几何平均：${item.geometric_ratio == null ? '—' : `${Number(item.geometric_ratio).toFixed(3)}×`}；断崖门槛 ${Number(item.threshold || 1.3).toFixed(2)}×，且至少 ${esc(item.required_leading_windows ?? 3)} 个周期排名第一。</div>
+          <div class="volume-switcher">${windows.map(window => `<button type="button" class="volume-tab${window.window === defaultWindow ? ' active' : ''}" data-volume-tab="${esc(window.window)}">${esc(window.window)}</button>`).join('')}</div>
+          ${windows.map(window => `<div class="volume-ranking${window.window === defaultWindow ? ' active' : ''}" data-volume-panel="${esc(window.window)}"><div class="volume-ranking-meta"><span>同周期前三名</span><span>Cash Cat 第 ${esc(window.rank ?? '—')} 名</span></div>${rankingList(window, item.key)}</div>`).join('')}
+          <div class="cliff-explain">${esc(item.explanation)}</div>
+        </article>`;
+      }
+      return `<article class="cliff">
+        <div class="cliff-top"><h3>${esc(item.label)}</h3><span class="status-chip ${item.is_cliff ? 'good' : ''}">${esc(item.state_label)}</span></div>
+        <div class="cliff-reading">${item.ratio == null ? '无法计算倍数' : `${Number(item.ratio).toFixed(3)}× 最强对手`}</div>
+        <div class="ranking-title">同项前三名</div>
+        ${rankingList(item, item.key)}
+        <div class="comparison-meta">当前第 ${esc(item.rank ?? '—')} 名 · 断崖门槛 ${Number(item.threshold || 1.5).toFixed(2)}×</div>
+        <div class="cliff-explain">${esc(item.explanation)}</div>
+      </article>`;
+    }
+
+    function renderSource(source) {
+      const facts = source.facts || {};
+      const gmgnProof = source.label?.startsWith('GMGN') ? `<div class="proof-grid">
+        <div class="proof"><span>现价</span><b>${price(facts.price)}</b></div>
+        <div class="proof"><span>市值</span><b>${money(facts.market_cap)}</b></div>
+        <div class="proof"><span>GMGN 最大主池</span><b>${money(facts.liquidity)}</b></div>
+        <div class="proof"><span>24小时成交</span><b>${money(facts.volumes?.['24h'])}</b></div>
+        <div class="proof"><span>持币地址</span><b>${count(facts.holder_count)}</b></div>
+        <div class="proof"><span>1小时K线</span><b>${esc(facts.kline_candles || 0)} 根</b></div>
+      </div><div class="receipt-list">${(source.commands || []).map(command => `<div class="receipt"><span>${esc(gmgnCheckText(command))}</span><b>成功</b></div>`).join('')}</div>` : '';
+      const multiPoolProof = source.label?.startsWith('DEX Screener') ? `<div class="proof-grid">
+        <div class="proof"><span>同一主池估值</span><b>${money(facts.same_main_pool_liquidity)}</b></div>
+        <div class="proof"><span>前 5 池合计</span><b>${money(facts.top5_liquidity)}</b></div>
+        <div class="proof"><span>全部索引池</span><b>${money(facts.all_pools_liquidity)}</b></div>
+        <div class="proof"><span>已核对交易池</span><b>${count(facts.pool_count)} 个</b></div>
+      </div>` : '';
+      const xProof = (source.feeds || []).length ? `<div class="receipt-list">${source.feeds.map(feed => `<div class="receipt"><span>${esc(feed.label)} · ${esc(feed.window_hours)}小时 · ${esc(queryTypeText(feed.query_type))}</span><b>${esc(feed.credible_count)} 条 / ${esc(feed.unique_authors)} 位作者</b></div>`).join('')}</div>` : '';
+      const accountProof = (source.account_scope || []).length ? `<div class="receipt-list"><div class="receipt"><span>公司与负责人账号</span><b>${esc(source.account_scope.length)} 个</b></div><div class="receipt"><span>官方生态伙伴账号</span><b>${esc((source.ecosystem_scope || []).length)} 个</b></div>${source.account_security?.state === 'COMPROMISED' ? `<div class="receipt"><span>账号安全状态</span><b style="color:var(--red)">官方通报被盗，已隔离</b></div>` : ''}</div>` : '';
+      return `<article class="source"><strong>${esc(source.label)} · ${esc(sourceStatus(source.status))}</strong><p>${esc(source.receipt)}</p><p>最后观测：${esc(dateTime(source.observed_at))}</p>${gmgnProof}${multiPoolProof}${xProof}${accountProof}${source.source_url ? `<p><a href="${safeUrl(source.source_url)}" target="_blank" rel="noreferrer">查看数据接口说明 ↗</a></p>` : ''}</article>`;
+    }
+
+    function render(report) {
+      const v = report.verdict || {}, c = report.coverage || {}, metrics = report.target?.metrics || {};
+      const history = report.history_continuity || {};
+      const liquidity = report.target?.liquidity_context || {};
+      const accountSecurity = report.narrative?.account_security || {};
+      const isLive = c.contract === 'live_evidence';
+      document.title = `${v.label}｜Cash Cat 投资判断日报`;
+      document.getElementById('live-indicator').textContent = `实盘更新 ${dateTime(c.latest_observed_at || report.generated_at)}`;
+      const cardUrl = appUrl(`/reports/${encodeURIComponent(report.report_id)}/card`);
+      document.getElementById('card-link').href = cardUrl;
+      const png = report.artifacts?.png;
+      if (png?.status === 'READY') {
+        const link = document.getElementById('png-link'); link.hidden = false; link.href = appUrl(png.url); link.download = `cashcat-${report.report_id}.png`;
+      }
+      app.innerHTML = `
+        <div class="eyebrow">实盘数据 · ${esc(report.window.date_label)}</div>
+        <div class="hero">
+          <article class="verdict">
+            <div class="eyebrow">今日判断</div>
+            <div class="verdict-label ${esc(v.tone)}">${esc(v.label)}</div>
+            <p class="headline">${esc(v.headline)}</p>
+            <div class="subnote">判断窗口：${esc(report.window.start_label)} — ${esc(report.window.end_label)}（北京时间）</div>
+          </article>
+          <aside class="coverage-card">
+            <div>
+              <div class="eyebrow">${isLive ? '当前证据完整度' : '历史实盘连续性'}</div>
+              <div class="coverage-number">${percent(c.ratio)}</div>
+              <div class="coverage-label">${esc(c.observed_points)}/${esc(c.expected_points)} ${isLive ? '类判断证据' : '个采样点'} · ${esc(c.label)}</div>
+              <div class="coverage-track"><div class="coverage-fill" style="width:${Math.min(100, Number(c.ratio || 0) * 100)}%"></div></div>
+              ${isLive ? `<div class="coverage-checks">${(c.checks || []).map(check => `<div class="coverage-check ${check.complete ? '' : 'missing'}"><span>${esc(check.label)}</span><b>${check.complete ? '完整' : '缺失'}</b></div>`).join('')}</div>` : `<div class="coverage-reasons">${(c.reasons || []).map(x => `<span>● ${esc(x)}</span>`).join('') || '<span style="color:var(--mint)">● 24小时连续采样达到门槛</span>'}</div>`}
+            </div>
+            ${isLive ? `<div class="history-note">历史连续性单独计算：过去24小时已采 ${esc(history.observed_points || 0)}/${esc(history.expected_points || 0)} 点，最大断档 ${esc(history.largest_gap_minutes)} 分钟。它只限制趋势和涨跌复盘，不再覆盖当前完整证据得出的判断。</div>` : `<div class="subnote">最大断档 ${esc(c.largest_gap_minutes)} 分钟<br>只显示实盘事实，不使用演示数据。</div>`}
+          </aside>
+        </div>
+
+        <section id="changes">
+          <div class="section-head"><div><div class="eyebrow">01 · 今日变化</div><h2>今天真正变了什么</h2></div><div class="section-description">日报不堆满所有数字，只挑会改变投资前提、值得你今天采取行动的变化。</div></div>
+          <div class="changes">${(report.top_changes || []).map((x,i) => `<article class="change"><div class="change-index">0${i+1}</div><div><h3>${esc(x.title)}</h3><p>${esc(x.detail)}</p></div></article>`).join('')}</div>
+        </section>
+
+        <section id="leader">
+          <div class="section-head"><div><div class="eyebrow">02 · 龙头检验</div><h2>四个断崖，还剩几个成立</h2></div><div class="section-description">龙头不是“排第一”就够了。只有优势宽到足以吸收注意力、资金和共识，才叫断崖领先。</div></div>
+          <div class="cliffs">${(report.four_cliffs?.items || []).map(renderCliff).join('')}</div>
+        </section>
+
+        <section id="facts">
+          <div class="section-head"><div><div class="eyebrow">03 · 当前事实</div><h2>Cash Cat 实盘切面</h2></div><div class="section-description">以下全部来自窗口最后一个真实采样点；涨跌只帮助理解变化，不参与“是否离场”的核心判断。</div></div>
+          <div class="metrics">${Object.entries(metrics).map(([key,m]) => `<article class="metric"><div class="metric-label">${esc(m.label)}</div><div class="metric-value">${esc(metricValue(key,m.current))}</div><div class="metric-delta ${Number(m.change_percent)>0?'up':Number(m.change_percent)<0?'down':''}">${esc(delta(m.change_percent))}</div></article>`).join('')}</div>
+          <article class="section-card" style="margin-top:12px"><div class="eyebrow">GMGN 过去24小时价格轨迹</div><div class="proof-grid">
+            <div class="proof"><span>当前价格</span><b>${price(report.target?.current_price)}</b></div>
+            <div class="proof"><span>窗口开盘</span><b>${price(report.target?.price_24h?.open)}</b></div>
+            <div class="proof"><span>窗口收盘</span><b>${price(report.target?.price_24h?.close)}</b></div>
+            <div class="proof"><span>最高 / 最低</span><b>${price(report.target?.price_24h?.high)} / ${price(report.target?.price_24h?.low)}</b></div>
+            <div class="proof"><span>价格变化</span><b>${report.target?.price_24h?.change_percent == null ? '—' : `${Number(report.target.price_24h.change_percent) >= 0 ? '+' : ''}${Number(report.target.price_24h.change_percent).toFixed(2)}%`}</b></div>
+            <div class="proof"><span>1小时K线 / 成交额</span><b>${esc(report.target?.price_24h?.candle_count || 0)} 根 / ${money(report.target?.price_24h?.total_volume_usd)}</b></div>
+          </div></article>
+          <article class="section-card" style="margin-top:12px"><div class="eyebrow">流动性口径核对</div><h3>主池比较与钱包聚合值是两回事</h3><div class="proof-grid">
+            <div class="proof"><span>GMGN 最大主池</span><b>${money(liquidity.main_pool_usd)}</b></div>
+            <div class="proof"><span>DEX Screener 同一主池</span><b>${money(liquidity.same_main_pool_usd)}</b></div>
+            <div class="proof"><span>前 5 池合计</span><b>${money(liquidity.top5_pools_usd)}</b></div>
+            <div class="proof"><span>全部 ${esc(liquidity.indexed_pool_count || 0)} 个索引池</span><b>${money(liquidity.all_indexed_pools_usd)}</b></div>
+          </div><div class="cliff-explain">${esc(liquidity.comparison_note || '同链排名统一使用主池口径，多池合计只作交叉核对。')}${liquidity.crosscheck_source_url ? ` <a href="${safeUrl(liquidity.crosscheck_source_url)}" target="_blank" rel="noreferrer">查看核对来源 ↗</a>` : ''}</div></article>
+        </section>
+
+        <section id="premise">
+          <div class="section-head"><div><div class="eyebrow">04 · 核心前提</div><h2>投资前提有没有松动</h2></div><div class="section-description">你真正持有的是两个前提：Robinhood Chain 仍有热度；公司、负责人、创始人与市场仍愿意推进或讨论链上 meme。</div></div>
+          <div class="two-col">
+            <article class="section-card"><div class="eyebrow">链上资金与注意力</div><h3>${esc(report.attention?.label)}</h3><div class="big-share">${percent(report.attention?.robinhood_attention_share)}</div><div class="coverage-label">Robinhood Chain 在跨链热门池中的关注份额</div><div class="share-row"><div><span>成交活跃份额</span><strong>${percent(report.attention?.robinhood_activity_share)}</strong></div><div><span>Cash Cat 热搜位置</span><strong>${report.attention?.target_hot_rank ? `第 ${esc(report.attention.target_hot_rank)} 名` : '—'}</strong></div></div><div class="cliff-explain">最快外部候选：${esc(report.attention?.fastest_external_chain || '尚未确认')}。这不是自动离场信号，必须看是否持续分流。</div></article>
+            <article class="section-card"><div class="eyebrow">官方、负责人和市场讨论</div><h3>${esc(report.narrative?.label)}</h3>${accountSecurity.state === 'COMPROMISED' ? `<div class="account-alert bad">${esc(accountSecurity.note || '官方通报账号被盗，恢复确认前不采信事发后新帖。')}${accountSecurity.source_url ? `<a href="${safeUrl(accountSecurity.source_url)}" target="_blank" rel="noreferrer">官方公告 ↗</a>` : ''}</div>` : ''}<div class="evidence-list">${(report.narrative?.evidence || []).map(item => `<div class="evidence-item"><div class="evidence-title"><span>${esc(item.label)}</span><span class="evidence-state">${esc(stateText(item.state))}</span></div><p>${esc(item.note || '当前没有足够说明。')}</p>${item.source_url ? `<a href="${safeUrl(item.source_url)}" target="_blank" rel="noreferrer">查看原始证据 ↗</a>` : ''}</div>`).join('')}</div></article>
+          </div>
+        </section>
+
+        <section id="posts">
+          <div class="section-head"><div><div class="eyebrow">05 · X 实时动态</div><h2>X 上正在发生什么</h2></div><div class="section-description">直接展示真实原帖、作者和发布时间。不是总结模型凭空生成的“市场情绪”。</div></div>
+          <div class="posts">${(report.live_posts || []).map(post => `<article class="post"><div class="post-meta"><span class="post-author">${esc(post.author_name)}${post.verified ? ' ✓' : ''}${post.account_role ? `<br><small style="color:var(--muted);font-weight:500">${esc(post.account_role)}</small>` : ''}</span><span>${esc(dateTime(post.created_at))}</span></div><div class="post-text">${esc(post.text)}</div><div class="post-footer"><span>${esc(post.feed)} · ${count(post.views)} 次浏览</span><a href="${safeUrl(post.url)}" target="_blank" rel="noreferrer">查看原帖 ↗</a></div></article>`).join('') || '<div class="section-card">当前窗口没有取得可展示的 X 原帖。</div>'}</div>
+        </section>
+
+        <section id="watch">
+          <div class="section-head"><div><div class="eyebrow">06 · 下一步观察</div><h2>明天之前，只盯这三件事</h2></div><div class="section-description">把复杂指标翻译成具体条件：出现什么，判断才应该改变。</div></div>
+          <div class="watch-grid">${(report.watchlist || []).map(x => `<article class="watch"><div class="eyebrow">观察项</div><h3>${esc(x.title)}</h3><p>${esc(x.trigger)}</p></article>`).join('')}</div>
+        </section>
+
+        <section id="audit">
+          <div class="section-head"><div><div class="eyebrow">07 · 证据回执</div><h2>数据从哪里来</h2></div><div class="section-description">每个结论都能回到原始实盘数据或原帖。程序只做确定性计算，文案不能改写数字。</div></div>
+          <div class="source-grid">${(report.sources || []).map(renderSource).join('')}</div>
+          <div class="method">${isLive ? `实时判断门槛：当前行情、多池流动性核对、24小时K线、四项最强对手比较、跨链热度、X 六路检索（公司与负责人、创始人立场、生态伙伴、Cash Cat、Robinhood Chain、外部热点）、创始人可信原帖、主流讨论与外部热点排查必须 ${esc(c.expected_points)}/${esc(c.expected_points)} 齐全且新鲜。过去24小时采样连续性单独披露，只限制历史趋势复盘，不会把完整的当前实盘判断改成“暂停”。` : `历史日报门槛：一个完整的24小时窗口至少覆盖 ${percent(c.minimum_ratio)} 的预期采样点，且链上数据、X 数据和窗口终点都必须新鲜。覆盖不足时不输出强趋势结论。`} 新鲜、明确的离场硬条件不会被历史缺口掩盖。</div>
+        </section>
+        <footer><span>${esc(report.disclaimer)}</span><span>报告编号 ${esc(report.report_id)} · 生成于 ${esc(dateTime(report.generated_at))}</span></footer>`;
+      app.querySelectorAll('.cliff.volume').forEach(card => {
+        card.querySelectorAll('[data-volume-tab]').forEach(button => button.addEventListener('click', () => {
+          card.querySelectorAll('[data-volume-tab]').forEach(tab => tab.classList.toggle('active', tab === button));
+          card.querySelectorAll('[data-volume-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.volumePanel === button.dataset.volumeTab));
+        }));
+      });
+    }
+
+    let lastGeneratedAt = '';
+    async function loadReport({silent=false}={}) {
+      try {
+        const response = await fetch(reportEndpoint(), {cache:'no-store'});
+        if (!response.ok) throw new Error(`读取失败（${response.status}）`);
+        const report = await response.json();
+        if (report.generated_at !== lastGeneratedAt) {
+          lastGeneratedAt = report.generated_at;
+          render(report);
+        }
+      } catch (error) {
+        if (!silent) app.innerHTML = `<div class="loading error">${esc(error.message)}</div>`;
+      }
+    }
+    loadReport();
+    const livePage = ['latest','live'].includes(location.pathname.split('/').filter(Boolean).at(-1));
+    if (livePage) setInterval(() => loadReport({silent:true}), 30000);
+  </script>
+</body>
+</html>

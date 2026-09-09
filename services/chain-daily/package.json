@@ -1,0 +1,29 @@
+{
+  "name": "robinhood-chain-daily-radar",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Read-only daily fundamentals monitor for Robinhood Chain and comparable networks.",
+  "bin": {
+    "chain-radar": "dist/src/cli.js"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "clean": "node scripts/clean.mjs",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test test/**/*.test.ts",
+    "collect": "tsx src/cli.ts collect",
+    "report": "tsx src/cli.ts report",
+    "daily": "tsx src/cli.ts daily",
+    "serve": "tsx src/cli.ts serve"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2"
+  }
+}

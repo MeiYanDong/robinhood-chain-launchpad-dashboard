@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+outputs/*.db
+outputs/*.db-*
+outputs/narrative.json
+outputs/reports/

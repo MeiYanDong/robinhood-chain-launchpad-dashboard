@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta
+      name="description"
+      content="Robinhood Chain 市场工作台：全链趋势、龙头热度、Alpha 线索与重点资产观察。"
+    />
+    <title>今日｜Robinhood Chain</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/product.css?v=0.20.0" />
+    <script src="/product.js?v=0.20.0" type="module"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#product-main">跳到主要内容</a>
+
+    <header class="site-header">
+      <a class="wordmark" href="/" aria-label="Robinhood Chain 首页">
+        <span class="wordmark-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span><strong>ROBINHOOD</strong><small>CHAIN RADAR</small></span>
+      </a>
+
+      <nav class="task-nav" aria-label="主要任务">
+        <a href="/" data-nav="today"><span>01</span>今日</a>
+        <a href="/market/" data-nav="market"><span>02</span>市场</a>
+        <a href="/alpha/" data-nav="alpha"><span>03</span>Alpha</a>
+        <a href="/assets/cashcat/" data-nav="assets"><span>04</span>资产</a>
+      </nav>
+
+      <div class="header-status">
+        <span class="status-dot" id="product-status-dot"></span>
+        <span id="product-status">正在连接数据</span>
+        <time id="product-updated">—</time>
+      </div>
+    </header>
+
+    <div class="source-warning" id="product-warning" role="status" hidden></div>
+
+    <main id="product-main">
+      <section class="page page--today" data-page="today" hidden>
+        <header class="editorial-hero">
+          <div class="issue-stamp">
+            <span>TODAY</span>
+            <strong id="today-date">—</strong>
+            <small>完整 UTC 日 + 实时行情</small>
+          </div>
+          <div class="hero-copy">
+            <p class="eyebrow">DAILY DECISION DESK</p>
+            <h1>今天的链，<br /><em>值不值得继续看？</em></h1>
+            <p id="today-headline">正在读取全链基本面、市场热度和重点资产。</p>
+          </div>
+          <div class="hero-signal" data-tone="unknown" id="today-signal">
+            <span>全链判断</span>
+            <strong id="today-signal-label">等待数据</strong>
+            <p id="today-signal-evidence">所有结论都会显示对应日期与来源状态。</p>
+          </div>
+        </header>
+
+        <section class="decision-rail" aria-label="今日三个判断">
+          <article>
+            <span class="decision-index">01 / 全链</span>
+            <h2 id="today-chain-label">—</h2>
+            <p id="today-chain-note">等待最近完整日。</p>
+            <a href="/market/">查看依据 <b>→</b></a>
+          </article>
+          <article>
+            <span class="decision-index">02 / 龙头</span>
+            <h2 id="today-leader-symbol">—</h2>
+            <p id="today-leader-note">等待可比资产数据。</p>
+            <a href="/alpha/">查看市场线索 <b>→</b></a>
+          </article>
+          <article>
+            <span class="decision-index">03 / CashCat</span>
+            <h2 id="today-cashcat-state">—</h2>
+            <p id="today-cashcat-note">等待实时观察结果。</p>
+            <a href="/assets/cashcat/">打开资产页 <b>→</b></a>
+          </article>
+        </section>
+
+        <section class="market-tape" aria-labelledby="today-market-title">
+          <header class="section-heading section-heading--rule">
+            <div>
+              <p class="eyebrow">MARKET TAPE</p>
+              <h2 id="today-market-title">今天先看的数字</h2>
+            </div>
+            <p>全链指标使用标注日期；代币行情为实时快照。</p>
+          </header>
+          <div class="metric-strip" id="today-metrics"></div>
+        </section>
+
+        <section class="focus-spread">
+          <article class="focus-asset">
+            <header>
+              <div>
+                <p class="eyebrow">FOCUS ASSET · LIVE</p>
+                <h2><span id="today-cashcat-symbol">CASHCAT</span> 观察台</h2>
+              </div>
+              <span class="decision-pill" id="today-cashcat-pill">等待数据</span>
+            </header>
+            <div class="focus-price">
+              <div>
+                <span>当前价格</span>
+                <strong id="today-cashcat-price">—</strong>
+              </div>
+              <div>
+                <span>24H 成交量</span>
+                <strong id="today-cashcat-volume">—</strong>
+              </div>
+              <div>
+                <span>持币地址</span>
+                <strong id="today-cashcat-holders">—</strong>
+              </div>
+            </div>
+            <p class="focus-summary" id="today-cashcat-summary">正在判断核心前提。</p>
+            <a class="text-link" href="/assets/cashcat/">查看四维排名与证据 →</a>
+          </article>
+          <aside class="desk-note">
+            <p class="eyebrow">HOW TO READ</p>
+            <h2>一个页面，三种时间</h2>
+            <dl>
+              <div><dt>完整日</dt><dd>适合判断链的方向，不受今天未结束数据干扰。</dd></div>
+              <div><dt>实时</dt><dd>适合观察价格、成交和流动性是否突然变化。</dd></div>
+              <div><dt>滚动 24H</dt><dd>适合横向比较代币，但不能冒充自然日。</dd></div>
+            </dl>
+          </aside>
+        </section>
+      </section>
+
+      <section class="page page--market" data-page="market" hidden>
+        <header class="page-intro">
+          <div>
+            <p class="eyebrow">MARKET / CHAIN REGIME</p>
+            <h1>先看链的水位，<br />再看币的浪花。</h1>
+          </div>
+          <p id="market-headline">正在读取最近完整 UTC 日。</p>
+        </header>
+
+        <section class="verdict-grid" aria-label="全链四项判断">
+          <article><span>位置</span><strong id="market-position">—</strong><p id="market-position-note">—</p></article>
+          <article><span>动量</span><strong id="market-momentum">—</strong><p id="market-momentum-note">—</p></article>
+          <article><span>增长质量</span><strong id="market-quality">—</strong><p id="market-quality-note">—</p></article>
+          <article><span>可信度</span><strong id="market-confidence">—</strong><p id="market-confidence-note">—</p></article>
+        </section>
+
+        <section class="data-ledger" aria-labelledby="chain-ledger-title">
+          <header class="section-heading section-heading--rule">
+            <div><p class="eyebrow">CHAIN LEDGER</p><h2 id="chain-ledger-title">全链经营指标</h2></div>
+            <p><time id="market-date">—</time> · 每个数字都保留自己的数据日期</p>
+          </header>
+          <div class="ledger-table-wrap">
+            <table class="ledger-table">
+              <thead><tr><th>指标</th><th>当日</th><th>7 日变化</th><th>30 日变化</th><th>数据日</th></tr></thead>
+              <tbody id="market-metric-body"><tr><td colspan="5">正在读取数据</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="market-links" aria-label="深入市场数据">
+          <a href="/launchpads/">
+            <span>平台经营</span><strong>PONS、LONG、PAIR</strong><p>交易量、活跃倍数、收入与相对估值。</p><b>打开 →</b>
+          </a>
+          <a href="/leaders/">
+            <span>龙头与热度</span><strong>谁在领先，谁已过热</strong><p>市值、流动性、成交与持币地址分开判断。</p><b>打开 →</b>
+          </a>
+        </section>
+
+        <section class="source-ledger" aria-labelledby="market-source-title">
+          <header class="section-heading"><div><p class="eyebrow">SOURCE HEALTH</p><h2 id="market-source-title">数据状态</h2></div></header>
+          <div id="market-sources" class="source-rows"></div>
+        </section>
+      </section>
+
+      <section class="page page--alpha" data-page="alpha" hidden>
+        <header class="page-intro page-intro--alpha">
+          <div>
+            <p class="eyebrow">ALPHA / ATTENTION ROUTER</p>
+            <h1>不是猜哪只会涨，<br /><em>是更早看见变化。</em></h1>
+          </div>
+          <div class="alpha-regime">
+            <span>当前链热度</span>
+            <strong id="alpha-chain-heat">—</strong>
+            <p id="alpha-chain-note">等待市场广度与成交强度。</p>
+          </div>
+        </header>
+
+        <section class="leader-line">
+          <div><p class="eyebrow">STRUCTURAL LEADER</p><span>结构龙头</span></div>
+          <strong id="alpha-leader">—</strong>
+          <p id="alpha-leader-note">等待四维数据。</p>
+        </section>
+
+        <section class="alpha-board" aria-labelledby="alpha-board-title">
+          <header class="section-heading section-heading--rule">
+            <div><p class="eyebrow">PRESSURE BOARD</p><h2 id="alpha-board-title">当前代币温度</h2></div>
+            <p>排名不是买入指令；先确认流动性，再判断成交是否透支。</p>
+          </header>
+          <div class="alpha-list" id="alpha-token-list"><p class="empty-state">正在读取代币热度。</p></div>
+        </section>
+
+        <section class="alpha-routes">
+          <header class="section-heading"><div><p class="eyebrow">RESEARCH ROUTES</p><h2>继续往哪里查</h2></div></header>
+          <div>
+            <a href="/pair-alpha/"><span>跨代扫描</span><strong>PAIR Alpha</strong><p>看点火、回踩、过热和风险拦截。</p><b>→</b></a>
+            <a href="/pair-v2/"><span>新发监控</span><strong>PAIR V2</strong><p>看新币、项目方发行与链上模式。</p><b>→</b></a>
+            <a href="/pair-flow/"><span>资金证据</span><strong>PAIR 资金闭环</strong><p>逐笔核验回购、待处理资金与销毁。</p><b>→</b></a>
+          </div>
+        </section>
+      </section>
+
+      <section class="page page--asset" data-page="assets" hidden>
+        <header class="asset-hero">
+          <div class="asset-identity">
+            <span class="asset-monogram">CC</span>
+            <div><p class="eyebrow">FOCUS ASSET / LIVE</p><h1 id="asset-name">Cash Cat</h1><code id="asset-address">—</code></div>
+          </div>
+          <div class="asset-decision" data-state="unknown" id="asset-decision">
+            <span>核心前提</span><strong id="asset-decision-label">等待数据</strong><p id="asset-decision-summary">正在核对链上与市场证据。</p>
+          </div>
+        </header>
+
+        <section class="asset-price-board" aria-label="CashCat 实时行情">
+          <div class="asset-price-main"><span>当前价格</span><strong id="asset-price">—</strong><small id="asset-observed">—</small></div>
+          <dl>
+            <div><dt>市值</dt><dd id="asset-market-cap">—</dd></div>
+            <div><dt>主池流动性</dt><dd id="asset-liquidity">—</dd></div>
+            <div><dt>24H 成交量</dt><dd id="asset-volume">—</dd></div>
+            <div><dt>持币地址</dt><dd id="asset-holders">—</dd></div>
+          </dl>
+        </section>
+
+        <section class="asset-thesis">
+          <article>
+            <header><p class="eyebrow">WHY THIS STATE</p><h2>为什么是这个判断</h2></header>
+            <ol id="asset-reasons"><li>正在读取判断条件。</li></ol>
+          </article>
+          <article class="asset-chart-panel">
+            <header>
+              <div><p class="eyebrow">PRICE / 24H</p><h2>24 小时价格</h2></div>
+              <span id="asset-price-change">—</span>
+            </header>
+            <div class="asset-chart" id="asset-chart"><p class="empty-state">等待价格序列。</p></div>
+            <div class="chart-range"><span>低 <b id="asset-low">—</b></span><span>高 <b id="asset-high">—</b></span></div>
+          </article>
+        </section>
+
+        <section class="dimension-board" aria-labelledby="dimension-title">
+          <header class="section-heading section-heading--rule">
+            <div><p class="eyebrow">FOUR DIMENSIONS</p><h2 id="dimension-title">龙头位置，不合成总分</h2></div>
+            <p>四个维度分别看；一个维度领先，不代表其他维度也领先。</p>
+          </header>
+          <div class="dimension-grid" id="asset-dimensions"></div>
+        </section>
+
+        <section class="evidence-grid">
+          <article>
+            <header><p class="eyebrow">CHAIN ATTENTION</p><h2>链上注意力</h2></header>
+            <dl>
+              <div><dt>Robinhood 注意力占比</dt><dd id="asset-attention-share">—</dd></div>
+              <div><dt>相较自身基准</dt><dd id="asset-attention-baseline">—</dd></div>
+              <div><dt>链活动相较基准</dt><dd id="asset-activity-baseline">—</dd></div>
+            </dl>
+          </article>
+          <article>
+            <header><p class="eyebrow">NARRATIVE EVIDENCE</p><h2>叙事证据</h2></header>
+            <dl>
+              <div><dt>负责人支持</dt><dd id="asset-founder">—</dd></div>
+              <div><dt>主流关注</dt><dd id="asset-mainstream">—</dd></div>
+              <div><dt>外部热点</dt><dd id="asset-hotspot">—</dd></div>
+            </dl>
+          </article>
+        </section>
+
+        <section class="source-ledger" aria-labelledby="asset-source-title">
+          <header class="section-heading">
+            <div><p class="eyebrow">EVIDENCE RECEIPTS</p><h2 id="asset-source-title">本页数据来源</h2></div>
+            <a class="text-link" href="/cashcat/reports/latest" target="_blank" rel="noreferrer">打开原始日报 →</a>
+          </header>
+          <div id="asset-sources" class="source-rows"></div>
+        </section>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>ROBINHOOD CHAIN RADAR <span>·</span> 只读市场工作台</p>
+      <p>数据不是交易指令；缺失证据保持未知。</p>
+    </footer>
+  </body>
+</html>
