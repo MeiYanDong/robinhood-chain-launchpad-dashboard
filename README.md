@@ -309,14 +309,16 @@ npm run dev
 
 ## 当前服务器部署
 
-截至 2026-09-06，生产实例是阿里云轻量应用服务器 `robinhood-chain-radar`
+截至 2026-09-09，生产实例是阿里云轻量应用服务器 `robinhood-chain-radar`
 （`us-west-1`，实例 ID `ceff28ff463440c09d8666b0f081bc7f`）：
 
-- 统一 HTTPS 公网入口：<https://47.251.99.37/leaders/>（龙头、热度、相对估值）与
-  <https://47.251.99.37/launchpads/>（发射台经营与代币榜）、
-  <https://47.251.99.37/pair-flow/>（PAIR 资金闭环）与
-  <https://47.251.99.37/pair-v2/>（V2 Alpha 观察台）；原
-  <http://47.251.99.37:4174/> 自动跳转到统一入口，原端口 API 继续兼容；
+- 统一 HTTPS 公网入口：<https://47.251.99.37/>；一级任务为
+  <https://47.251.99.37/market/>（全链与平台市场）、
+  <https://47.251.99.37/alpha/>（龙头、热度与 Alpha）和
+  <https://47.251.99.37/assets/cashcat/>（CashCat 重点资产）；
+- 原 `/leaders/`、`/launchpads/`、`/pair-alpha/`、`/pair-v2/`、`/pair-flow/` 继续作为
+  深度研究页；`/cashcat/api/*` 与 `/cashcat/reports/*` 继续由独立 CashCat 服务提供；原
+  <http://47.251.99.37:4174/> 自动跳转到统一首页，原端口 API 继续兼容；
 - 当前生产应用版本与 release 以 `/api/meta` 及部署证据回读为准；
 - `0.14.7` 的 `/pair-alpha/` 跨代 Alpha 雷达已部署；公网读回覆盖 V1/V2、单币详情、
   动作分流与服务器自治更新，当前完整目录、行情与持币覆盖仍按来源状态分别标注；
@@ -371,6 +373,8 @@ DEV 通知根因、1,401 条历史队列封存、飞书业务码 `0`、限频策
 [`docs/evidence/launchpad-language-production-deployment-2026-09-08.md`](docs/evidence/launchpad-language-production-deployment-2026-09-08.md)。
 龙头、PAIR Alpha、PAIR V2、资金闭环的统一视觉重构、查询空窗修正和 `0.19.3` 公网回读见
 [`docs/evidence/workbench-ui-production-deployment-2026-09-09.md`](docs/evidence/workbench-ui-production-deployment-2026-09-09.md)。
+全链、发射台、Alpha 与 CashCat 融合为一个产品、生产路由补丁、22 项合同和真实浏览器回读见
+[`docs/evidence/unified-product-production-deployment-2026-09-09.md`](docs/evidence/unified-product-production-deployment-2026-09-09.md)。
 
 部署配置固化在 [`deploy/`](deploy/)；新版本应使用不可变 release 目录并原子切换
 `current` 软链接，保留上一版用于回滚。发布后必须同时验证公网首页、`/healthz`、
