@@ -10,6 +10,7 @@ export interface PairV2Settings {
   pageLimit: number;
   maxPages: number;
   pageConcurrency: number;
+  snapshotAttempts: number;
   logChunkSize: number;
   logConfirmations: number;
   reorgOverlapBlocks: number;
@@ -45,6 +46,7 @@ export const DEFAULT_PAIR_V2_SETTINGS: PairV2Settings = {
   pageLimit: 50,
   maxPages: 100,
   pageConcurrency: 4,
+  snapshotAttempts: 3,
   logChunkSize: 500_000,
   logConfirmations: 2,
   reorgOverlapBlocks: 12,
@@ -127,6 +129,11 @@ export function pairV2SettingsFromEnv(env: NodeJS.ProcessEnv = process.env): Pai
       env.PAIR_V2_LOG_CHUNK_SIZE,
       DEFAULT_PAIR_V2_SETTINGS.logChunkSize,
       "PAIR_V2_LOG_CHUNK_SIZE",
+    ),
+    snapshotAttempts: positiveInteger(
+      env.PAIR_V2_SNAPSHOT_ATTEMPTS,
+      DEFAULT_PAIR_V2_SETTINGS.snapshotAttempts,
+      "PAIR_V2_SNAPSHOT_ATTEMPTS",
     ),
     chainPollSeconds: positiveInteger(
       env.PAIR_V2_CHAIN_POLL_SECONDS,
