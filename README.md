@@ -379,6 +379,8 @@ DEV 通知根因、1,401 条历史队列封存、飞书业务码 `0`、限频策
 [`docs/evidence/workbench-ui-production-deployment-2026-09-09.md`](docs/evidence/workbench-ui-production-deployment-2026-09-09.md)。
 全链、发射台、Alpha 与 CashCat 融合为一个产品、生产路由补丁、22 项合同和真实浏览器回读见
 [`docs/evidence/unified-product-production-deployment-2026-09-09.md`](docs/evidence/unified-product-production-deployment-2026-09-09.md)。
+PAIR 日交易量 10% 告警的首次真实投递、去重队列、23 项合同与回滚证据见
+[`docs/evidence/pair-daily-volume-alert-production-deployment-2026-09-09.md`](docs/evidence/pair-daily-volume-alert-production-deployment-2026-09-09.md)。
 
 部署配置固化在 [`deploy/`](deploy/)；新版本应使用不可变 release 目录并原子切换
 `current` 软链接，保留上一版用于回滚。发布后必须同时验证公网首页、`/healthz`、
