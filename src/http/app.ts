@@ -162,6 +162,14 @@ function headerValue(value: string | string[] | undefined): string {
 }
 
 function servesProductWorkbench(pathname: string, forwardedPrefix: string): boolean {
+  const legacyPrefixes = ["/leaders", "/launchpads", "/pair-flow", "/pair-v2", "/pair-alpha"];
+  if (
+    legacyPrefixes.some(
+      (prefix) => forwardedPrefix === prefix || forwardedPrefix.startsWith(`${prefix}/`),
+    )
+  ) {
+    return false;
+  }
   if (pathname === "/") return true;
   return ["/market", "/alpha", "/assets"].some(
     (prefix) =>
