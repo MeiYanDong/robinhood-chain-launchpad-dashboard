@@ -313,6 +313,7 @@ test("PAIR V2 collector fails closed when official pagination drifts", async () 
     deploymentBlock: 100,
     pageLimit: 1,
     maxPages: 2,
+    snapshotAttempts: 1,
   };
   const collector = new PairV2Collector(settings, {
     fetchPage: async (url) => {
@@ -357,4 +358,83 @@ test("PAIR V2 collector fails closed when official pagination drifts", async () 
     }),
     /pagination drifted/,
   );
+});
+
+test("PAIR V2 collector retries the whole official snapshot after pagination drift", async () => {
+  const secondProject = "0x9999999999999999999999999999999999995555";
+  const settings = {
+    ...DEFAULT_PAIR_V2_SETTINGS,
+    deploymentBlock: 100,
+    logConfirmations: 0,
+    pageLimit: 1,
+    maxPages: 2,
+    snapshotAttempts: 2,
+    maxBucketEpoch: 1,
+  };
+  let tokenCalls = 0;
+  const collector = new PairV2Collector(settings, {
+    now: () => new Date("2026-09-05T08:00:00.000Z"),
+    fetchHolder: async () => ({ count: 1, observedAt: "2026-09-05T08:00:00.000Z" }),
+    rpc: {
+      async call<T>(method: string): Promise<T> {
+        if (method === "eth_blockNumber") return "0x64" as T;
+        if (method === "eth_getLogs") return [] as T;
+        throw new Error(`unexpected method ${method}`);
+      },
+      async batch<T>(): Promise<T[]> {
+        return [];
+      },
+    },
+    fetchPage: async (url) => {
+      if (url.includes("consumer-live")) {
+        return fetched({
+          schema: "fixture",
+          state: "ready",
+          ready: true,
+          configured: true,
+          capability: "fixture",
+          releaseId: settings.expectedReleaseId,
+          manifestSha256: settings.expectedManifestSha256,
+          blockNumber: "100",
+          addresses: {
+            launchpad: "0x8660a7f019c7943b0b0a91b8e39aff3b6db6ae62",
+            modeRegistry: "0xda5c65431e2adc1c64af51e3ce7de2485abeab69",
+            coordinator: "0xf98b202fd8717b79f9c5e5dd67c2f9e640bbd25d",
+            tokenFactory: "0xece4ce499e1f75ceb75581a16b48c86eba0a3e3a",
+            hook: "0xd2f759a1cf13c30127c551c3aee04629aea200c0",
+            buybackExecutor: "0x8fea00440300bb2d3e9377b995e6f62fe99c1a0c",
+            aggregator: "0xe6c5a027da3f4506cde435b5e5bb6680c870f771",
+          },
+        });
+      }
+      tokenCalls += 1;
+      const page = Number(new URL(url).searchParams.get("page"));
+      if (tokenCalls === 3) {
+        return fetched({ total: 3, page: 1, limit: 1, items: [{ address: PROJECT }] });
+      }
+      return fetched({
+        total: 2,
+        page,
+        limit: 1,
+        items: [
+          {
+            address: page === 1 ? PROJECT : secondProject,
+            launchVersion: "v2",
+          },
+        ],
+      });
+    },
+  });
+
+  const batch = await collector.collect({
+    kind: "full",
+    fromBlock: 100,
+    cachedRelease: null,
+    cachedTokens: [],
+    cachedLaunches: [],
+  });
+
+  assert.equal(tokenCalls, 6);
+  assert.equal(batch.tokens.length, 2);
+  assert.equal(batch.sourceHealth.find((source) => source.id === "pair_tokens")?.expected, 2);
 });

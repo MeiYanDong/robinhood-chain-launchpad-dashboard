@@ -345,7 +345,17 @@ function pause(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-async function fetchAllPairTokens(
+function pageAddressFingerprint(page: ReturnType<typeof parsePage>): string {
+  return page.items
+    .flatMap((item) => {
+      if (!isRecord(item) || typeof item.address !== "string") return [];
+      const address = item.address.toLowerCase();
+      return ADDRESS_PATTERN.test(address) ? [address] : [];
+    })
+    .join(",");
+}
+
+async function fetchAllPairTokensOnce(
   settings: PairV2Settings,
   fetchPage: (url: string) => Promise<FetchedJson>,
 ): Promise<{
@@ -360,6 +370,7 @@ async function fetchAllPairTokens(
     `${settings.apiBaseUrl}/tokens?page=${String(page)}&limit=${String(settings.pageLimit)}&sort=newest&timeframe=all`;
   const firstFetch = await fetchPage(urlFor(1));
   const first = parsePage(firstFetch.payload);
+  if (first.page !== 1) throw new Error("PAIR token pagination started on an unexpected page");
   const pageCount = Math.ceil(first.total / first.limit);
   if (pageCount > settings.maxPages) throw new Error("PAIR token universe exceeded safety cap");
   const pages = await mapConcurrent(
@@ -374,11 +385,28 @@ async function fetchAllPairTokens(
       return { fetched, page };
     },
   );
+  const finalFetch = await fetchPage(urlFor(1));
+  const finalFirst = parsePage(finalFetch.payload);
+  if (
+    finalFirst.page !== first.page ||
+    finalFirst.limit !== first.limit ||
+    finalFirst.total !== first.total ||
+    pageAddressFingerprint(finalFirst) !== pageAddressFingerprint(first)
+  ) {
+    throw new Error("PAIR token pagination drifted during collection");
+  }
   const rawItems = [first, ...pages.map((item) => item.page)].flatMap((page) => page.items);
+  if (rawItems.length !== first.total) {
+    throw new Error("PAIR token pagination returned an incomplete universe");
+  }
   const byAddress = new Map<string, PairV2MarketToken>();
   for (const item of rawItems) {
     const token = parseMarketToken(item);
-    if (token) byAddress.set(token.address, token);
+    if (!token) continue;
+    if (byAddress.has(token.address)) {
+      throw new Error("PAIR token pagination returned a duplicate address");
+    }
+    byAddress.set(token.address, token);
   }
   return {
     tokens: [...byAddress.values()].sort((left, right) =>
@@ -386,12 +414,34 @@ async function fetchAllPairTokens(
     ),
     fetchedAt: pages.reduce(
       (latest, page) => (page.fetched.fetchedAt > latest ? page.fetched.fetchedAt : latest),
-      firstFetch.fetchedAt,
+      finalFetch.fetchedAt > firstFetch.fetchedAt ? finalFetch.fetchedAt : firstFetch.fetchedAt,
     ),
     latencyMs: Math.round(performance.now() - started),
     expected: first.total,
     rawCount: rawItems.length,
   };
+}
+
+async function fetchAllPairTokens(
+  settings: PairV2Settings,
+  fetchPage: (url: string) => Promise<FetchedJson>,
+): Promise<{
+  tokens: PairV2MarketToken[];
+  fetchedAt: string;
+  latencyMs: number;
+  expected: number;
+  rawCount: number;
+}> {
+  let lastError: unknown = new Error("PAIR token snapshot did not start");
+  for (let attempt = 1; attempt <= settings.snapshotAttempts; attempt += 1) {
+    try {
+      return await fetchAllPairTokensOnce(settings, fetchPage);
+    } catch (error) {
+      lastError = error;
+      if (attempt < settings.snapshotAttempts) await pause(250 * attempt);
+    }
+  }
+  throw lastError;
 }
 
 function marketAgeHours(token: PairV2MarketToken, now: Date): number {

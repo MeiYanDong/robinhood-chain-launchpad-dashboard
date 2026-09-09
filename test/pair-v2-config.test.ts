@@ -4,6 +4,7 @@ import { pairV2SettingsFromEnv } from "../src/pair-v2/config.js";
 
 test("PAIR V2 config keeps Feishu disabled without a server-side webhook", () => {
   const settings = pairV2SettingsFromEnv({});
+  assert.equal(settings.snapshotAttempts, 3);
   assert.equal(settings.feishuWebhookUrl, null);
   assert.equal(settings.chainPollSeconds, 8);
   assert.equal(settings.hotMarketPollSeconds, 15);

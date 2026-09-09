@@ -11,6 +11,7 @@ test("PAIR V2 runs autonomous chain and market monitors inside the server servic
   assert.match(service, /PAIR_V2_CHAIN_POLL_SECONDS=8/);
   assert.match(service, /PAIR_ALPHA_HOT_MARKET_POLL_SECONDS=15/);
   assert.match(service, /PAIR_V2_MARKET_POLL_SECONDS=60/);
+  assert.match(service, /PAIR_V2_SNAPSHOT_ATTEMPTS=3/);
   assert.match(service, /PAIR_V2_STALE_AFTER_SECONDS=150/);
   assert.match(service, /DEV_MONITOR_ENABLED=true/);
   assert.match(service, /DEV_MONITOR_POLL_SECONDS=11/);
