@@ -26,3 +26,12 @@ test("public gateway serves the PAIR workbench while preserving independent read
   assert.match(cashcat, /location \^~ \/cashcat\/reports\//);
   assert.match(cashcat, /limit_except GET HEAD/);
 });
+
+test("full-chain daily refresh bypasses the public query cache", async () => {
+  const service = await readFile(
+    new URL("../deploy/robinhood-chain-launchpad-refresh.service", import.meta.url),
+    "utf8",
+  );
+  assert.match(service, /POST http:\/\/127\.0\.0\.1:4176\/api\/refresh/);
+  assert.doesNotMatch(service, /127\.0\.0\.1:4175\/api\/refresh/);
+});

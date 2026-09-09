@@ -13,6 +13,57 @@ import { collectLong } from "./long.js";
 import { collectPairProtocol } from "./pair-protocol.js";
 import { collectPonsAnalytics } from "./pons-analytics.js";
 
+export const COLLECTOR_DEADLINE_MS = 120_000;
+
+interface ActiveCollector {
+  targetDate: string;
+  promise: Promise<CollectionBatch>;
+}
+
+const activeCollectors = new Map<string, ActiveCollector>();
+
+export async function collectWithDeadline(
+  id: string,
+  targetDate: string,
+  collect: (targetDate: string) => Promise<CollectionBatch>,
+  timeoutMs = COLLECTOR_DEADLINE_MS,
+): Promise<CollectionBatch> {
+  if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new Error("Collector deadline must be a positive integer");
+  }
+
+  let active = activeCollectors.get(id);
+  if (active && active.targetDate !== targetDate) {
+    throw new Error(`${id} is still collecting an earlier target date`);
+  }
+  if (!active) {
+    const promise = Promise.resolve().then(() => collect(targetDate));
+    active = { targetDate, promise };
+    activeCollectors.set(id, active);
+    void promise.then(
+      () => {
+        if (activeCollectors.get(id)?.promise === promise) activeCollectors.delete(id);
+      },
+      () => {
+        if (activeCollectors.get(id)?.promise === promise) activeCollectors.delete(id);
+      },
+    );
+  }
+
+  let timeout: NodeJS.Timeout | null = null;
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timeout = setTimeout(
+      () => reject(new Error(`${id} exceeded its collector deadline`)),
+      timeoutMs,
+    );
+  });
+  try {
+    return await Promise.race([active.promise, deadline]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
 export function mergeBatches(batches: CollectionBatch[]): CollectionBatch {
   const platformById = new Map<string, PlatformConfig>();
   for (const platform of PLATFORM_REGISTRY) platformById.set(platform.id, platform);
@@ -62,7 +113,7 @@ export async function collectAll(targetDate: string): Promise<CollectionBatch> {
     { id: "pons-analytics.collector", collect: collectPonsAnalytics },
   ];
   const settled = await Promise.allSettled(
-    collectors.map((collector) => collector.collect(targetDate)),
+    collectors.map((collector) => collectWithDeadline(collector.id, targetDate, collector.collect)),
   );
   const batches: CollectionBatch[] = settled.map((result, index) => {
     if (result.status === "fulfilled") return result.value;
