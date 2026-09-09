@@ -96,6 +96,7 @@ export class DashboardDatabase {
       "PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;",
     );
     this.migrate();
+    this.recoverInterruptedRuns();
   }
 
   private migrate(): void {
@@ -189,6 +190,16 @@ export class DashboardDatabase {
       CREATE INDEX IF NOT EXISTS idx_platform_volume_alert_delivery
         ON platform_volume_alert_outbox(status, next_attempt_at, id ASC);
     `);
+  }
+
+  private recoverInterruptedRuns(): void {
+    this.db
+      .prepare(`
+        UPDATE collection_runs
+        SET status = 'failed', completed_at = ?, error = 'process_interrupted'
+        WHERE status = 'running'
+      `)
+      .run(new Date().toISOString());
   }
 
   seedPlatforms(platforms: PlatformConfig[]): void {

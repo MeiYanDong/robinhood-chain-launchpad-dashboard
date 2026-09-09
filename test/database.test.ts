@@ -127,3 +127,26 @@ test("failed collection runs never replace the last usable cache", async () => {
     assert.deepEqual(database.latestUsableRun()?.warnings, ["fixture warning"]);
   });
 });
+
+test("startup closes collection runs interrupted by a previous process", () => {
+  const directory = mkdtempSync(join(tmpdir(), "rhc-db-recovery-"));
+  const databasePath = join(directory, "test.sqlite");
+  const first = new DashboardDatabase(databasePath);
+  try {
+    const interrupted = first.startRun("2026-08-30");
+    assert.equal(first.latestRun()?.status, "running");
+    first.close();
+
+    const recovered = new DashboardDatabase(databasePath);
+    try {
+      assert.equal(recovered.latestRun()?.id, interrupted);
+      assert.equal(recovered.latestRun()?.status, "failed");
+      assert.equal(recovered.latestRun()?.error, "process_interrupted");
+      assert.ok(recovered.latestRun()?.completedAt);
+    } finally {
+      recovered.close();
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
