@@ -335,3 +335,30 @@ test("PAIR V2 freshness starts when a slow collection completes, not when it beg
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("PAIR V2 service persists a safe failure stage instead of an upstream URL", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "pair-v2-error-code-"));
+  const database = new PairV2Database(join(directory, "test.sqlite"));
+  const service = new PairV2Service(
+    database,
+    { ...DEFAULT_PAIR_V2_SETTINGS, deploymentBlock: 100 },
+    {} as PairV2Collector,
+    {
+      collect: async () => {
+        throw new Error(
+          "Failed to fetch https://pair.fund/api/v5-v2/standard-route/consumer-live?secret=value",
+        );
+      },
+    },
+  );
+
+  try {
+    await assert.rejects(service.refresh("full"));
+    assert.equal(database.latestRun()?.error, "pair_v2_attestation_unavailable");
+    assert.doesNotMatch(database.latestRun()?.error ?? "", /https|secret/);
+  } finally {
+    service.stop();
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

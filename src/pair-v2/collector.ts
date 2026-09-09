@@ -1190,25 +1190,51 @@ export class PairV2Collector {
     const sourceHealth: PairV2SourceHealth[] = [];
     let marketUpdatedAddresses: string[] = [];
 
-    let release: PairV2Release;
+    let release: PairV2Release | null = null;
     let tokens: PairV2MarketToken[];
     if (context.kind === "full") {
       const releaseStarted = performance.now();
-      const releaseFetch = await this.fetchPage(this.settings.releaseAttestationUrl);
-      release = parseRelease(releaseFetch.payload, this.settings, releaseFetch.fetchedAt);
-      sourceHealth.push({
-        id: PAIR_RELEASE_SOURCE,
-        label: "PAIR 版本认证",
-        status: release.canonical ? "ok" : "failed",
-        fetchedAt: releaseFetch.fetchedAt,
-        latencyMs: Math.round(performance.now() - releaseStarted),
-        observed: release.canonical ? 1 : 0,
-        expected: 1,
-        message: release.canonical
-          ? "releaseId 与 manifest 已匹配。"
-          : "releaseId、manifest 或 ready 状态不匹配。",
-      });
-      if (!release.canonical) throw new Error("PAIR V2 release attestation is not canonical");
+      let releaseFetch: FetchedJson | null = null;
+      try {
+        releaseFetch = await this.fetchPage(this.settings.releaseAttestationUrl);
+      } catch (error) {
+        const cached = context.cachedRelease;
+        if (
+          !cached?.canonical ||
+          cached.releaseId !== this.settings.expectedReleaseId ||
+          cached.manifestSha256 !== this.settings.expectedManifestSha256
+        ) {
+          throw error;
+        }
+        release = cached;
+        warnings.push("PAIR 实时版本认证暂不可用，正在复用上次已核验的版本身份。");
+        sourceHealth.push({
+          id: PAIR_RELEASE_SOURCE,
+          label: "PAIR 版本认证",
+          status: "degraded",
+          fetchedAt: observedAt,
+          latencyMs: Math.round(performance.now() - releaseStarted),
+          observed: 1,
+          expected: 1,
+          message: "实时认证暂不可用；releaseId 与 manifest 复用上次已核验记录。",
+        });
+      }
+      if (releaseFetch) {
+        release = parseRelease(releaseFetch.payload, this.settings, releaseFetch.fetchedAt);
+        sourceHealth.push({
+          id: PAIR_RELEASE_SOURCE,
+          label: "PAIR 版本认证",
+          status: release.canonical ? "ok" : "failed",
+          fetchedAt: releaseFetch.fetchedAt,
+          latencyMs: Math.round(performance.now() - releaseStarted),
+          observed: release.canonical ? 1 : 0,
+          expected: 1,
+          message: release.canonical
+            ? "releaseId 与 manifest 已匹配。"
+            : "releaseId、manifest 或 ready 状态不匹配。",
+        });
+        if (!release.canonical) throw new Error("PAIR V2 release attestation is not canonical");
+      }
 
       const tokenFetch = await fetchAllPairTokens(this.settings, this.fetchPage);
       const cachedByAddress = new Map(context.cachedTokens.map((token) => [token.address, token]));
@@ -1453,6 +1479,8 @@ export class PairV2Collector {
         });
       }
     }
+
+    if (!release) throw new Error("PAIR V2 release identity is unavailable");
 
     const rpcStarted = performance.now();
     const headHex = await this.rpc.call<string>("eth_blockNumber", []);
