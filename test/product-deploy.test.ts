@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("public gateway serves one product while preserving independent read contracts", async () => {
+test("public gateway serves the PAIR workbench while preserving independent read contracts", async () => {
   const [tls, http, cashcat] = await Promise.all([
     readFile(new URL("../deploy/nginx-robinhood-chain-radar-tls.conf", import.meta.url), "utf8"),
     readFile(new URL("../deploy/nginx-robinhood-chain-radar.conf", import.meta.url), "utf8"),
@@ -19,8 +19,8 @@ test("public gateway serves one product while preserving independent read contra
     }
   }
 
-  assert.match(cashcat, /location = \/cashcat \{\s*return 308 \/assets\/cashcat\/;/);
-  assert.match(cashcat, /location = \/cashcat\/ \{\s*return 308 \/assets\/cashcat\/;/);
+  assert.match(cashcat, /location = \/cashcat \{\s*return 308 \/leaders\/;/);
+  assert.match(cashcat, /location = \/cashcat\/ \{\s*return 308 \/leaders\/;/);
   assert.match(cashcat, /location \^~ \/cashcat\/api\//);
   assert.match(cashcat, /proxy_pass http:\/\/127\.0\.0\.1:8010\/api\//);
   assert.match(cashcat, /location \^~ \/cashcat\/reports\//);
