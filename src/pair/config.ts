@@ -4,6 +4,7 @@ export interface PairTokenSettings {
   pageLimit: number;
   maxPages: number;
   pageConcurrency: number;
+  snapshotAttempts: number;
   marketCapFloorUsd: number;
   liquidityDepthFloorUsd: number;
   marketFreshnessMinutes: number;
@@ -18,9 +19,10 @@ export interface PairTokenSettings {
 export const DEFAULT_PAIR_TOKEN_SETTINGS: PairTokenSettings = {
   apiBaseUrl: "https://pair.fund/api",
   apiTimeoutMs: 10_000,
-  pageLimit: 100,
+  pageLimit: 50,
   maxPages: 100,
   pageConcurrency: 4,
+  snapshotAttempts: 3,
   marketCapFloorUsd: 10_000,
   liquidityDepthFloorUsd: 1_000,
   marketFreshnessMinutes: 60,
@@ -52,6 +54,11 @@ export function pairTokenSettingsFromEnv(env: NodeJS.ProcessEnv = process.env): 
       env.PAIR_API_TIMEOUT_MS,
       DEFAULT_PAIR_TOKEN_SETTINGS.apiTimeoutMs,
       "PAIR_API_TIMEOUT_MS",
+    ),
+    snapshotAttempts: positiveInteger(
+      env.PAIR_SNAPSHOT_ATTEMPTS,
+      DEFAULT_PAIR_TOKEN_SETTINGS.snapshotAttempts,
+      "PAIR_SNAPSHOT_ATTEMPTS",
     ),
     marketCapFloorUsd: positiveNumber(
       env.PAIR_ACTIVE_MCAP_FLOOR_USD,

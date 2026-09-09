@@ -13,10 +13,11 @@ const settings = {
   pageConcurrency: 2,
 };
 
-test("PAIR official pagination defaults reduce request count and bound each page", () => {
-  assert.equal(DEFAULT_PAIR_TOKEN_SETTINGS.pageLimit, 100);
+test("PAIR official pagination defaults stay within the documented API contract", () => {
+  assert.equal(DEFAULT_PAIR_TOKEN_SETTINGS.pageLimit, 50);
   assert.equal(DEFAULT_PAIR_TOKEN_SETTINGS.pageConcurrency, 4);
   assert.equal(DEFAULT_PAIR_TOKEN_SETTINGS.apiTimeoutMs, 10_000);
+  assert.equal(DEFAULT_PAIR_TOKEN_SETTINGS.snapshotAttempts, 3);
 });
 
 function token(addressSuffix: string, symbol: string, marketCapUsd: string, totalDepthUsd: string) {
@@ -202,4 +203,58 @@ test("PAIR collector rejects pagination drift instead of publishing a partial un
   });
 
   await assert.rejects(collector.collect(new Map()), /pagination changed/);
+});
+
+test("PAIR collector retries the whole snapshot after a launch shifts newest pagination", async () => {
+  let firstPageCalls = 0;
+  const collector = new PairTokenCollector(
+    { ...settings, snapshotAttempts: 2 },
+    {
+      now: () => now,
+      fetchPage: async (url) => {
+        const page = Number(new URL(url).searchParams.get("page"));
+        if (page === 1) {
+          firstPageCalls += 1;
+          if (firstPageCalls === 1) {
+            return fetched({
+              items: [token("1", "ONE", "25000", "5000"), token("2", "TWO", "25000", "5000")],
+              total: 3,
+              page: 1,
+              limit: 2,
+            });
+          }
+          return fetched({
+            items: [token("1", "ONE", "25000", "5000"), token("2", "TWO", "25000", "5000")],
+            total: 4,
+            page: 1,
+            limit: 2,
+          });
+        }
+        if (firstPageCalls === 1) {
+          return fetched({
+            items: [token("3", "THREE", "25000", "5000")],
+            total: 4,
+            page: 2,
+            limit: 2,
+          });
+        }
+        return fetched({
+          items: [token("3", "THREE", "25000", "5000"), token("4", "FOUR", "25000", "5000")],
+          total: 4,
+          page: 2,
+          limit: 2,
+        });
+      },
+      fetchHolder: async () => ({
+        holderCount: 10,
+        observedAt: now.toISOString(),
+        latencyMs: 1,
+        source: "gmgn.tokenInfo",
+      }),
+    },
+  );
+
+  const batch = await collector.collect(new Map());
+  assert.equal(batch.tokens.length, 4);
+  assert.equal(firstPageCalls, 3);
 });

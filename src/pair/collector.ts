@@ -179,26 +179,47 @@ async function mapConcurrent<T, R>(
 ): Promise<R[]> {
   const results = new Array<R>(values.length);
   let nextIndex = 0;
+  let failed = false;
+  let firstError: unknown = null;
   async function worker(): Promise<void> {
     for (;;) {
+      if (failed) return;
       const index = nextIndex;
       nextIndex += 1;
       if (index >= values.length) return;
       const value = values[index];
-      if (value !== undefined) results[index] = await mapper(value);
+      if (value === undefined) continue;
+      try {
+        results[index] = await mapper(value);
+      } catch (error) {
+        if (!failed) firstError = error;
+        failed = true;
+        return;
+      }
     }
   }
   await Promise.all(Array.from({ length: Math.min(concurrency, values.length) }, worker));
+  if (failed) throw firstError;
   return results;
 }
 
-async function fetchAllPages(
+function pageAddressFingerprint(page: PairApiPage): string {
+  return page.items
+    .flatMap((item) =>
+      isRecord(item) && typeof item.address === "string" && ADDRESS_PATTERN.test(item.address)
+        ? [item.address.toLowerCase()]
+        : [],
+    )
+    .join(",");
+}
+
+async function fetchAllPagesOnce(
   settings: PairTokenSettings,
   fetchPage: (url: string) => Promise<FetchedJson>,
 ): Promise<{ items: unknown[]; fetchedAt: string; latencyMs: number }> {
   const started = performance.now();
   const urlFor = (page: number) =>
-    `${settings.apiBaseUrl}/tokens?page=${String(page)}&limit=${String(settings.pageLimit)}`;
+    `${settings.apiBaseUrl}/tokens?page=${String(page)}&limit=${String(settings.pageLimit)}&sort=newest&timeframe=all`;
   const firstFetch = await fetchPage(urlFor(1));
   const first = parsePage(firstFetch.payload);
   if (first.page !== 1) throw new Error("PAIR token pagination started on an unexpected page");
@@ -218,18 +239,62 @@ async function fetchAllPages(
       return { fetched, page };
     },
   );
+  const finalFetch = await fetchPage(urlFor(1));
+  const finalFirst = parsePage(finalFetch.payload);
+  if (
+    finalFirst.page !== first.page ||
+    finalFirst.limit !== first.limit ||
+    finalFirst.total !== first.total ||
+    pageAddressFingerprint(finalFirst) !== pageAddressFingerprint(first)
+  ) {
+    throw new Error("PAIR token pagination changed during collection");
+  }
+
   const items = [first, ...remaining.map((result) => result.page)].flatMap((page) => page.items);
   if (items.length !== first.total) {
     throw new Error("PAIR token pagination returned an incomplete universe");
+  }
+  const addresses = new Set<string>();
+  for (const item of items) {
+    if (
+      !isRecord(item) ||
+      typeof item.address !== "string" ||
+      !ADDRESS_PATTERN.test(item.address)
+    ) {
+      continue;
+    }
+    const address = item.address.toLowerCase();
+    if (addresses.has(address)) {
+      throw new Error("PAIR token pagination returned a duplicate address");
+    }
+    addresses.add(address);
   }
   return {
     items,
     fetchedAt: remaining.reduce(
       (latest, result) => (result.fetched.fetchedAt > latest ? result.fetched.fetchedAt : latest),
-      firstFetch.fetchedAt,
+      finalFetch.fetchedAt > firstFetch.fetchedAt ? finalFetch.fetchedAt : firstFetch.fetchedAt,
     ),
     latencyMs: Math.round(performance.now() - started),
   };
+}
+
+async function fetchAllPages(
+  settings: PairTokenSettings,
+  fetchPage: (url: string) => Promise<FetchedJson>,
+): Promise<{ items: unknown[]; fetchedAt: string; latencyMs: number }> {
+  let lastError: unknown = new Error("PAIR token snapshot did not start");
+  for (let attempt = 1; attempt <= settings.snapshotAttempts; attempt += 1) {
+    try {
+      return await fetchAllPagesOnce(settings, fetchPage);
+    } catch (error) {
+      lastError = error;
+      if (attempt < settings.snapshotAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
+      }
+    }
+  }
+  throw lastError;
 }
 
 function cacheAgeMinutes(entry: PairHolderCacheEntry, now: Date): number {
@@ -284,7 +349,7 @@ export class PairTokenCollector {
   ) {
     this.fetchPage =
       dependencies.fetchPage ??
-      ((url) => fetchJson(url, { retries: 1, timeoutMs: this.settings.apiTimeoutMs }));
+      ((url) => fetchJson(url, { retries: 0, timeoutMs: this.settings.apiTimeoutMs }));
     this.fetchHolder =
       dependencies.fetchHolder ?? ((address) => defaultHolderFetcher(this.settings, address));
     this.now = dependencies.now ?? (() => new Date());
