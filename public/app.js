@@ -123,9 +123,31 @@ const STAT_ORDER = [
   "tokens_launched_all_time",
 ];
 
+const CHAIN_PRIMARY_METRICS = [
+  "transactions",
+  "active_addresses",
+  "dex_volume",
+  "stablecoin_supply",
+  "chain_fees",
+  "onchain_profit",
+  "app_revenue",
+  "median_tx_cost",
+];
+
+const CHAIN_METRIC_LABELS = {
+  transactions: "日交易数",
+  active_addresses: "日活地址",
+  dex_volume: "DEX 成交量",
+  stablecoin_supply: "稳定币供应",
+  chain_fees: "用户支付 Gas",
+  onchain_profit: "链上利润",
+  app_revenue: "链上应用收入",
+  median_tx_cost: "中位交易成本",
+};
+
 const APP_PREFIX = (() => {
   const match = window.location.pathname.match(
-    /^\/(leaders|launchpads|pair-flow|pair-v2|pair-alpha)(?:\/|$)/,
+    /^\/(chain|leaders|launchpads|pair-flow|pair-v2|pair-alpha)(?:\/|$)/,
   );
   return match ? `/${match[1]}` : "";
 })();
@@ -135,22 +157,26 @@ const LAUNCHPAD_VIEW = (() => {
     ? requested
     : "overview";
 })();
-const INITIAL_DATASET = window.location.pathname.startsWith("/leaders")
-  ? "intelligence"
-  : window.location.pathname.startsWith("/pair-alpha")
-    ? "pair_alpha"
-    : window.location.pathname.startsWith("/pair-v2")
-      ? "pair_v2"
-      : window.location.pathname.startsWith("/pair-flow")
-        ? "pair_flow"
-        : LAUNCHPAD_VIEW === "platforms"
-          ? "platform"
-          : LAUNCHPAD_VIEW === "tokens"
-            ? "pair"
-            : "economics";
+const INITIAL_DATASET =
+  APP_PREFIX === "/chain" || APP_PREFIX === ""
+    ? "chain"
+    : window.location.pathname.startsWith("/leaders")
+      ? "intelligence"
+      : window.location.pathname.startsWith("/pair-alpha")
+        ? "pair_alpha"
+        : window.location.pathname.startsWith("/pair-v2")
+          ? "pair_v2"
+          : window.location.pathname.startsWith("/pair-flow")
+            ? "pair_flow"
+            : LAUNCHPAD_VIEW === "platforms"
+              ? "platform"
+              : LAUNCHPAD_VIEW === "tokens"
+                ? "pair"
+                : "economics";
 
 const state = {
   dataset: INITIAL_DATASET,
+  chain: null,
   intelligence: null,
   windowDays: 1,
   economics: null,
@@ -236,6 +262,20 @@ async function api(path, options = {}) {
       // Keep the HTTP status when the body is not JSON.
     }
     const error = new Error(message);
+    error.status = response.status;
+    throw error;
+  }
+  return response.json();
+}
+
+async function rootApi(path, options = {}) {
+  const response = await fetch(path, {
+    ...options,
+    cache: "no-store",
+    headers: { accept: "application/json", ...(options.headers ?? {}) },
+  });
+  if (!response.ok) {
+    const error = new Error(`${response.status} ${response.statusText}`);
     error.status = response.status;
     throw error;
   }
@@ -473,6 +513,19 @@ function renderRunState() {
   const runState = $("#run-state");
   const text = $("span", runState);
   runState.classList.remove("is-ok", "is-bad");
+  if (state.dataset === "chain") {
+    const failedSources = chainFailedSourceCount(state.chain);
+    if (!state.chain) {
+      runState.classList.add("is-bad");
+      text.textContent = "全链数据不可用";
+    } else if (chainLagDays(state.chain) > 0 || failedSources > 0) {
+      text.textContent = chainLagDays(state.chain) > 0 ? "全链数据待更新" : "部分来源失败";
+    } else {
+      runState.classList.add("is-ok");
+      text.textContent = "全链数据已更新";
+    }
+    return;
+  }
   if (state.dataset === "intelligence") {
     if (!state.intelligence || state.intelligence.status === "unavailable") {
       runState.classList.add("is-bad");
@@ -556,6 +609,246 @@ function renderRunState() {
     runState.classList.add("is-ok");
     text.textContent = "数据已更新";
   }
+}
+
+function chainAssessment(payload) {
+  if (!payload) return null;
+  if (payload.assessment) return payload.assessment;
+  return {
+    headline: payload.headline,
+    overallState: payload.overallState,
+    position: payload.position,
+    momentum: payload.momentum,
+    quality: payload.quality,
+    confidence: payload.confidence,
+    caveats: [],
+  };
+}
+
+function chainFailedSourceCount(payload) {
+  if (!payload) return 0;
+  if (Number.isFinite(payload.quality?.failedSources)) return payload.quality.failedSources;
+  return Number.isFinite(payload.failedSourceCount) ? payload.failedSourceCount : 0;
+}
+
+function chainLagDays(payload) {
+  const targetDate = payload?.targetDate;
+  const parts = utcDateParts(targetDate);
+  if (!parts) return null;
+  const target = Date.UTC(parts.year, parts.month - 1, parts.day);
+  const now = new Date();
+  const latestClosed = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1);
+  return Math.max(0, Math.floor((latestClosed - target) / 86_400_000));
+}
+
+function chainMetricValue(metric) {
+  if (!Number.isFinite(metric?.value)) return "—";
+  if (metric.unit === "usd") return formatUsd(metric.value);
+  if (metric.unit === "percent") return formatPercent(metric.value * 100);
+  if (metric.unit === "seconds") return `${metric.value.toFixed(2)} 秒`;
+  if (Math.abs(metric.value) >= 1_000) return formatCount(metric.value);
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(metric.value);
+}
+
+function chainChange(value) {
+  if (!Number.isFinite(value)) return { label: "—", tone: "unknown" };
+  const percent = value * 100;
+  return {
+    label: `${percent > 0 ? "+" : ""}${formatPercent(percent)}`,
+    tone: percent > 0.05 ? "positive" : percent < -0.05 ? "negative" : "flat",
+  };
+}
+
+function chainDimension(payload, key) {
+  const value = chainAssessment(payload)?.[key];
+  return {
+    label: value?.label ?? "数据不足",
+    evidence: value?.evidence ?? "当前没有足够证据。",
+  };
+}
+
+function renderChainMetricCard(metric) {
+  const card = element(
+    "article",
+    `chain-metric-card chain-metric-card--${metric.freshness ?? "unknown"}`,
+  );
+  card.title = [metric.definition, metric.caveat].filter(Boolean).join("\n");
+  const head = element("div", "chain-metric-card__head");
+  head.append(
+    element("span", "", CHAIN_METRIC_LABELS[metric.id] ?? metric.shortLabel ?? metric.label),
+    element(
+      "i",
+      `chain-freshness chain-freshness--${metric.freshness ?? "unavailable"}`,
+      metric.freshness === "live" ? "实时" : metric.freshness === "ok" ? "完整日" : "待核验",
+    ),
+  );
+  const value = element("strong", "", chainMetricValue(metric));
+  const changes = element("div", "chain-metric-card__changes");
+  const seven = chainChange(metric.change7d);
+  const thirty = chainChange(metric.change30d);
+  changes.append(
+    element("span", `is-${seven.tone}`, `7日 ${seven.label}`),
+    element("span", `is-${thirty.tone}`, `30日 ${thirty.label}`),
+  );
+  const rank =
+    Number.isFinite(metric.peerRank) && Number.isFinite(metric.peerTotal)
+      ? `固定同行 ${formatCount(metric.peerRank)}/${formatCount(metric.peerTotal)}`
+      : "同行排名暂不可得";
+  card.append(head, value, changes, element("small", "", rank));
+  return card;
+}
+
+function renderChain() {
+  const payload = state.chain;
+  const empty = $("#chain-empty-state");
+  if (!payload) {
+    empty.hidden = false;
+    renderRunState();
+    return;
+  }
+  empty.hidden = true;
+  const assessment = chainAssessment(payload);
+  const failedSources = chainFailedSourceCount(payload);
+  const lagDays = chainLagDays(payload);
+  const targetDate = payload.targetDate ?? null;
+  $("#header-date").textContent = targetDate ? targetDate.slice(5) : "—";
+  $("#chain-target-date").textContent = formatUtcDay(targetDate, true);
+  $("#chain-generated-at").textContent = formatDateTime(payload.generatedAt);
+  $("#chain-freshness").textContent =
+    lagDays === null
+      ? "日期待核验"
+      : lagDays === 0
+        ? "最近完整日"
+        : `落后 ${formatCount(lagDays)} 天`;
+  $("#chain-source-health").textContent =
+    failedSources > 0 ? `${formatCount(failedSources)} 个来源失败` : "来源正常";
+  $("#chain-overall-state").textContent =
+    assessment?.overallState === "unknown"
+      ? "证据不足，暂不判断"
+      : (assessment?.headline ?? "已形成判断");
+  $("#chain-answer-title").textContent = assessment?.headline ?? "全链数据尚未形成可用判断。";
+  $("#chain-answer-period").textContent = targetDate
+    ? `${formatUtcDay(targetDate)}数据`
+    : "最近完整日结论";
+
+  for (const key of ["position", "momentum", "quality", "confidence"]) {
+    const dimension = chainDimension(payload, key);
+    $(`#chain-${key}-label`).textContent = dimension.label;
+    $(`#chain-${key}-evidence`).textContent = dimension.evidence;
+  }
+
+  const metrics = Array.isArray(payload.metrics) ? payload.metrics : [];
+  const byId = new Map(metrics.map((metric) => [metric.id, metric]));
+  const primary = $("#chain-primary-metrics");
+  primary.replaceChildren();
+  for (const id of CHAIN_PRIMARY_METRICS) {
+    const metric = byId.get(id);
+    if (metric) primary.append(renderChainMetricCard(metric));
+  }
+  if (!primary.children.length) {
+    primary.append(element("p", "panel-error", "核心指标暂不可得。"));
+  }
+
+  const body = $("#chain-metric-body");
+  body.replaceChildren();
+  for (const metric of metrics) {
+    const seven = chainChange(metric.change7d);
+    const thirty = chainChange(metric.change30d);
+    const row = element("tr");
+    const name = element("td", "chain-metric-name");
+    name.append(
+      element("strong", "", metric.label),
+      element("small", "", metric.definition ?? "—"),
+    );
+    row.append(
+      name,
+      element("td", "chain-metric-value", chainMetricValue(metric)),
+      element("td", `chain-change is-${seven.tone}`, seven.label),
+      element("td", `chain-change is-${thirty.tone}`, thirty.label),
+      element(
+        "td",
+        "",
+        Number.isFinite(metric.peerRank) && Number.isFinite(metric.peerTotal)
+          ? `${formatCount(metric.peerRank)}/${formatCount(metric.peerTotal)}`
+          : "—",
+      ),
+      element("td", "", formatUtcDay(metric.dataDate)),
+    );
+    labelTableCells(row, ["指标", "当前值", "7 日变化", "30 日变化", "固定同行", "数据日期"]);
+    body.append(row);
+  }
+
+  const pillars = Array.isArray(payload.pillars) ? payload.pillars : [];
+  const pillarHost = $("#chain-pillar-list");
+  pillarHost.replaceChildren();
+  for (const pillar of pillars) {
+    const item = element("article", `chain-pillar chain-pillar--${pillar.state ?? "unknown"}`);
+    item.append(
+      element("span", "", pillar.label ?? "未命名维度"),
+      element(
+        "strong",
+        "",
+        {
+          accelerating: "正在增强",
+          stable: "基本稳定",
+          softening: "正在转弱",
+          mixed: "表现分化",
+          unknown: "证据不足",
+        }[pillar.state] ?? "待判断",
+      ),
+      element("small", "", pillar.evidence ?? "当前没有足够证据。"),
+    );
+    pillarHost.append(item);
+  }
+  if (!pillarHost.children.length) {
+    for (const key of ["position", "momentum", "quality"]) {
+      const dimension = chainDimension(payload, key);
+      const item = element("article", "chain-pillar chain-pillar--unknown");
+      item.append(
+        element(
+          "span",
+          "",
+          { position: "同类位置", momentum: "自身趋势", quality: "增长质量" }[key],
+        ),
+        element("strong", "", dimension.label),
+        element("small", "", dimension.evidence),
+      );
+      pillarHost.append(item);
+    }
+  }
+
+  const insights = Array.isArray(payload.insights) ? payload.insights : [];
+  const insightHost = $("#chain-insight-list");
+  insightHost.replaceChildren();
+  const fallbackInsights = [
+    { severity: "quality", title: "数据判断", detail: assessment?.confidence?.evidence },
+    { severity: "watch", title: "增长一致性", detail: assessment?.quality?.evidence },
+  ];
+  for (const insight of insights.length ? insights : fallbackInsights) {
+    if (!insight?.title && !insight?.detail) continue;
+    const item = element("li", `chain-insight chain-insight--${insight.severity ?? "quality"}`);
+    item.append(
+      element("strong", "", insight.title ?? "观察项"),
+      element("span", "", insight.detail ?? "当前没有补充说明。"),
+    );
+    insightHost.append(item);
+  }
+
+  const stock = payload.stockTokens ?? {};
+  $("#chain-stock-active").textContent = formatCount(stock.activeAssets);
+  $("#chain-stock-priced").textContent = formatCount(stock.pricedAssets);
+  $("#chain-stock-valued").textContent = formatCount(stock.valuedAssets);
+  $("#chain-stock-coverage").textContent = Number.isFinite(stock.coveragePercent)
+    ? formatPercent(stock.coveragePercent)
+    : "—";
+  $("#chain-stock-state").textContent = Number.isFinite(stock.coveragePercent)
+    ? stock.coveragePercent >= 80
+      ? "覆盖充分"
+      : `仅 ${formatPercent(stock.coveragePercent)} 可估值`
+    : "估值覆盖待核验";
+
+  showNotices([]);
+  renderRunState();
 }
 
 function metricMeta(metric) {
@@ -4152,7 +4445,72 @@ function renderPairAlphaMethod() {
   );
 }
 
+function renderChainMethod() {
+  const payload = state.chain;
+  if (!payload) return;
+  $("#method-title").textContent = "全链数据说明";
+  $("#platform-coverage-disclosure").hidden = true;
+  const definitions = $("#definition-list");
+  definitions.replaceChildren();
+  for (const metric of payload.metrics ?? []) {
+    const row = element("article", "definition-row");
+    row.append(
+      element("strong", "", metric.label ?? metric.id),
+      element(
+        "p",
+        "",
+        [metric.definition, metric.caveat].filter(Boolean).join("；") || "该指标说明暂不可得。",
+      ),
+    );
+    definitions.append(row);
+  }
+  if (!definitions.children.length) {
+    definitions.append(element("p", "panel-error", "指标说明暂不可得。"));
+  }
+
+  const sourceList = $("#source-list");
+  sourceList.replaceChildren();
+  const sources = Array.isArray(payload.sources) ? payload.sources : (payload._sources ?? []);
+  for (const source of sources) {
+    const ok = source.ok === true || source.status === "ok";
+    const status = ok ? "success" : source.status === "degraded" ? "partial" : "failed";
+    const row = element("article", "source-row");
+    const top = element("div", "source-row__top");
+    top.append(
+      element("strong", "", source.label ?? source.id ?? "未命名来源"),
+      element("span", `health-pill health-pill--${status}`, ok ? "正常" : "失败"),
+    );
+    row.append(
+      top,
+      element("p", "", source.error ?? source.note ?? (ok ? "来源回执已核验。" : "来源暂不可用。")),
+      element(
+        "small",
+        "",
+        `${source.dataDate ? `数据 ${source.dataDate} · ` : ""}抓取 ${formatDateTime(source.fetchedAt ?? source.observedAt)}`,
+      ),
+    );
+    sourceList.append(row);
+  }
+  if (!sourceList.children.length) {
+    sourceList.append(element("p", "panel-error", "当前接口未返回逐项来源回执。"));
+  }
+
+  const caveats = new Set(chainAssessment(payload)?.caveats ?? []);
+  for (const metric of payload.metrics ?? []) {
+    if (metric.caveat) caveats.add(metric.caveat);
+  }
+  caveats.add("全链页判断生态基本面，不是任何代币的买卖信号。");
+  caveats.add("日数据按 UTC 完整自然日统计；实时快照会单独标注。 ");
+  $("#caveat-list").replaceChildren(
+    ...[...caveats].map((caveat) => element("li", "", caveat.trim())),
+  );
+}
+
 function renderMethod() {
+  if (state.dataset === "chain") {
+    renderChainMethod();
+    return;
+  }
   if (state.dataset === "intelligence") {
     renderIntelligenceMethod();
     return;
@@ -4299,7 +4657,9 @@ async function loadMethod() {
   }
   $("#definition-list").replaceChildren(element("p", "panel-loading", "正在加载…"));
   $("#source-list").replaceChildren();
-  if (state.dataset === "intelligence") {
+  if (state.dataset === "chain") {
+    if (!state.chain) await loadChain();
+  } else if (state.dataset === "intelligence") {
     if (!state.intelligence) await loadIntelligence();
   } else if (state.dataset === "pair_alpha") {
     if (!state.pairAlpha) await loadPairAlpha();
@@ -4588,6 +4948,20 @@ function closeMethod() {
   closePanel("#method-drawer", "#method-backdrop");
 }
 
+async function loadChain() {
+  try {
+    state.chain = await rootApi("/api/latest");
+  } catch (directError) {
+    const product = await api("/api/product/today");
+    if (!product?.chain) throw directError;
+    state.chain = {
+      ...product.chain,
+      _sources: (product.sources ?? []).filter((source) => source.id === "chain_daily"),
+    };
+  }
+  renderChain();
+}
+
 async function loadOverview() {
   state.overview = await api(`/api/overview?window=${state.windowDays}`);
   renderOverview();
@@ -4704,6 +5078,7 @@ async function loadLong() {
 async function switchDataset(dataset) {
   if (
     ![
+      "chain",
       "intelligence",
       "economics",
       "platform",
@@ -4721,6 +5096,7 @@ async function switchDataset(dataset) {
     button.classList.toggle("is-active", button.dataset.dataset === dataset);
   });
   const launchpadTokenView = APP_PREFIX === "/launchpads" && LAUNCHPAD_VIEW === "tokens";
+  $("#chain-view").hidden = dataset !== "chain";
   $("#intelligence-view").hidden = dataset !== "intelligence";
   $("#pair-alpha-view").hidden = dataset !== "pair_alpha";
   $("#pair-v2-view").hidden = dataset !== "pair_v2";
@@ -4732,7 +5108,10 @@ async function switchDataset(dataset) {
   $("#long-view").hidden = !(launchpadTokenView && dataset === "long");
   showNotices([]);
 
-  if (dataset === "intelligence") {
+  if (dataset === "chain") {
+    if (state.chain) renderChain();
+    else await loadChain();
+  } else if (dataset === "intelligence") {
     if (state.intelligence) renderIntelligence();
     else await loadIntelligence();
   } else if (dataset === "pair_alpha") {
@@ -4770,7 +5149,9 @@ async function refreshDashboard() {
   button.classList.add("is-spinning");
   showNotices(["正在刷新数据…"]);
   try {
-    if (state.dataset === "intelligence") {
+    if (state.dataset === "chain") {
+      await loadChain();
+    } else if (state.dataset === "intelligence") {
       state.intelligence = await api("/api/intelligence/refresh", { method: "POST" });
       renderIntelligence();
     } else if (state.dataset === "pair_alpha") {
@@ -5084,18 +5465,22 @@ function bindEvents() {
 
 function syncInitialView() {
   const product =
-    APP_PREFIX === "/leaders"
-      ? "leaders"
-      : APP_PREFIX === "/pair-alpha"
-        ? "pair-alpha"
-        : APP_PREFIX === "/pair-v2"
-          ? "pair-v2"
-          : APP_PREFIX === "/pair-flow"
-            ? "pair-flow"
-            : "launchpads";
+    APP_PREFIX === "/chain" || APP_PREFIX === ""
+      ? "chain"
+      : APP_PREFIX === "/leaders"
+        ? "leaders"
+        : APP_PREFIX === "/pair-alpha"
+          ? "pair-alpha"
+          : APP_PREFIX === "/pair-v2"
+            ? "pair-v2"
+            : APP_PREFIX === "/pair-flow"
+              ? "pair-flow"
+              : "launchpads";
   document.body.dataset.productContext = product;
   document.body.dataset.launchpadView = product === "launchpads" ? LAUNCHPAD_VIEW : "none";
-  if (product === "pair-flow") {
+  if (product === "chain") {
+    document.title = "全链数据｜Robinhood Chain";
+  } else if (product === "pair-flow") {
     document.title = "PAIR 资金闭环｜Robinhood Chain";
     $("#economics-view").setAttribute("aria-label", "PAIR 资金闭环");
   } else if (product === "pair-alpha") {
@@ -5113,7 +5498,7 @@ function syncInitialView() {
     };
     document.title = titles[LAUNCHPAD_VIEW];
   }
-  $(".dataset-switch").hidden = product === "launchpads";
+  $(".dataset-switch").hidden = ["chain", "launchpads"].includes(product);
   $("#launchpad-task-nav").hidden = product !== "launchpads";
   $$("[data-launchpad-view]").forEach((link) => {
     link.classList.toggle("is-active", link.dataset.launchpadView === LAUNCHPAD_VIEW);
@@ -5126,6 +5511,7 @@ function syncInitialView() {
       belongsToProduct && button.dataset.dataset === state.dataset,
     );
   });
+  $("#chain-view").hidden = state.dataset !== "chain";
   $("#intelligence-view").hidden = state.dataset !== "intelligence";
   $("#pair-alpha-view").hidden = state.dataset !== "pair_alpha";
   $("#pair-v2-view").hidden = state.dataset !== "pair_v2";
@@ -5144,8 +5530,9 @@ function syncInitialView() {
     LAUNCHPAD_VIEW === "tokens" &&
     state.dataset === "long"
   );
+  const activeProductKey = product === "leaders" ? "chain" : product;
   $$("[data-product]").forEach((link) => {
-    link.classList.toggle("is-active", link.dataset.product === product);
+    link.classList.toggle("is-active", link.dataset.product === activeProductKey);
   });
   const productNav = $(".product-nav");
   const activeProduct = productNav.querySelector("a.is-active");
@@ -5162,10 +5549,23 @@ bindMetricHelp();
 bindEvents();
 
 let economicsPollInFlight = false;
+let chainPollInFlight = false;
 let intelligencePollInFlight = false;
 let pairFlowPollInFlight = false;
 let pairV2PollInFlight = false;
 let pairAlphaPollInFlight = false;
+async function pollChainCache() {
+  if (chainPollInFlight || state.dataset !== "chain" || document.hidden) return;
+  chainPollInFlight = true;
+  try {
+    await loadChain();
+  } catch {
+    // Preserve the latest complete UTC-day snapshot during a transient source failure.
+  } finally {
+    chainPollInFlight = false;
+  }
+}
+
 async function pollEconomicsCache() {
   const launchpadView = APP_PREFIX === "/launchpads";
   if (economicsPollInFlight || (!launchpadView && state.dataset !== "economics") || document.hidden)
@@ -5238,11 +5638,15 @@ window.setInterval(() => {
   void pollPairFlowCache();
 }, 60_000);
 window.setInterval(() => {
+  void pollChainCache();
+}, 300_000);
+window.setInterval(() => {
   void pollPairV2Cache();
   void pollPairAlphaCache();
 }, 8_000);
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) {
+    void pollChainCache();
     void pollEconomicsCache();
     void pollIntelligenceCache();
     void pollPairFlowCache();
@@ -5252,7 +5656,8 @@ document.addEventListener("visibilitychange", () => {
 });
 
 try {
-  if (state.dataset === "intelligence") await loadIntelligence();
+  if (state.dataset === "chain") await loadChain();
+  else if (state.dataset === "intelligence") await loadIntelligence();
   else if (state.dataset === "pair_alpha") await loadPairAlpha();
   else if (state.dataset === "pair_v2") await loadPairV2();
   else if (state.dataset === "pair_flow") await loadPairFlowPage();

@@ -19,16 +19,41 @@ test("current frontend assets use the package version as their cache key", async
   assert.match(html, new RegExp(`app\\.js\\?v=${version.replaceAll(".", "\\.")}`));
 });
 
-test("primary navigation is PAIR-style and does not promote full-chain or CashCat pages", async () => {
+test("primary navigation unifies full-chain and PAIR workbenches without promoting CashCat", async () => {
   const html = await readFile(htmlUrl, "utf8");
 
-  assert.match(html, /href="\/launchpads\/" data-product="launchpads"[^>]*>市场总览/);
-  assert.match(html, /href="\/leaders\/" data-product="leaders"[^>]*>龙头与热度/);
+  assert.match(html, /href="\/chain\/" data-product="chain"[^>]*>全链数据/);
+  assert.match(html, /href="\/launchpads\/" data-product="launchpads"[^>]*>PAIR 经营/);
   assert.match(html, /href="\/pair-alpha\/" data-product="pair-alpha"[^>]*>PAIR Alpha/);
   assert.match(html, /href="\/pair-v2\/" data-product="pair-v2"[^>]*>PAIR V2/);
   assert.match(html, /href="\/pair-flow\/" data-product="pair-flow"[^>]*>资金闭环/);
   assert.equal((html.match(/data-product="[^"]+"/g) ?? []).length, 5);
-  assert.doesNotMatch(html, />全链<|CashCat 日报|href="\/assets\/cashcat\/"/);
+  assert.doesNotMatch(html, /CashCat 日报|href="\/assets\/cashcat\/"/);
+});
+
+test("full-chain data uses the PAIR workbench hierarchy and keeps evidence states explicit", async () => {
+  const [html, app, styles] = await Promise.all([
+    readFile(htmlUrl, "utf8"),
+    readFile(appUrl, "utf8"),
+    readFile(new URL("../public/workbench.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(html, /id="chain-view"[^>]*aria-label="Robinhood Chain 全链数据"/);
+  assert.match(html, /全链最近怎么样/);
+  assert.match(html, /id="chain-answer-title"/);
+  assert.match(html, /id="chain-primary-metrics"/);
+  assert.match(html, /id="chain-metric-body"/);
+  assert.match(html, /id="chain-pillar-list"/);
+  assert.match(html, /id="chain-insight-list"/);
+  assert.match(html, /id="chain-stock-coverage"/);
+  assert.match(html, /href="\/leaders\/"[^>]*>[\s\S]*看龙头与热度/);
+  assert.match(app, /CHAIN_PRIMARY_METRICS/);
+  assert.match(app, /rootApi\("\/api\/latest"\)/);
+  assert.match(app, /api\("\/api\/product\/today"\)/);
+  assert.match(app, /`落后 \$\{formatCount\(lagDays\)\} 天`/);
+  assert.match(html, /缺失数据保持未知/);
+  assert.match(styles, /body\[data-product-context="chain"\]/);
+  assert.doesNotMatch(html, /CashCat/);
 });
 
 test("launchpad dashboard is split into four task views and defaults to a concise overview", async () => {
@@ -304,7 +329,8 @@ test("PAIR token radar is an explicit data view with four independent rankings",
 test("PAIR-style intelligence entry keeps leader, heat, and valuation as separate models", async () => {
   const [html, app] = await Promise.all([readFile(htmlUrl, "utf8"), readFile(appUrl, "utf8")]);
 
-  assert.match(html, /href="\/leaders\/"[^>]*data-product="leaders"/);
+  assert.match(html, /href="\/chain\/"[^>]*data-product="chain"/);
+  assert.match(html, /href="\/leaders\/"/);
   assert.match(html, /href="\/pair-alpha\/"[^>]*data-product="pair-alpha"/);
   assert.match(html, /href="\/pair-flow\/"[^>]*data-product="pair-flow"/);
   assert.match(

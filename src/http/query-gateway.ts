@@ -5,6 +5,7 @@ import { gzip } from "node:zlib";
 const compress = promisify(gzip);
 export const QUERY_CACHE_PATHS = [
   "/healthz",
+  "/api/latest",
   "/api/meta",
   "/api/overview?window=30",
   "/api/platform-activity",
@@ -152,6 +153,7 @@ export function createQueryGateway(options: GatewayOptions) {
       let path = url.pathname;
       for (const prefix of [
         "/assets/cashcat",
+        "/chain",
         "/leaders",
         "/launchpads",
         "/pair-flow",

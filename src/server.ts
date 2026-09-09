@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ChainDailyService } from "./chain-daily/service.js";
 import { devMonitorSettingsFromEnv } from "./dev-monitor/config.js";
 import { DevMonitorDatabase } from "./dev-monitor/database.js";
 import { DevMonitorService } from "./dev-monitor/service.js";
@@ -95,6 +96,11 @@ const economics = new EconomicsService(
   economicsCollector,
 );
 const intelligenceSettings = intelligenceSettingsFromEnv();
+const chainDaily = new ChainDailyService({
+  url: intelligenceSettings.chainRadarUrl,
+  requestTimeoutMs: intelligenceSettings.requestTimeoutMs,
+  refreshTtlMinutes: intelligenceSettings.refreshTtlMinutes,
+});
 const intelligence = new IntelligenceService(intelligenceSettings, {
   economics,
   pair,
@@ -113,6 +119,7 @@ const server = createServer(
     economics,
     intelligence,
     product,
+    chainDaily,
     pairDailyVolumeAlerts,
     publicDirectory,
   }),
