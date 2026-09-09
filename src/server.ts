@@ -35,6 +35,8 @@ import {
 import { ProductService } from "./product/service.js";
 import { DashboardService } from "./services/dashboard.js";
 import { DashboardDatabase } from "./storage/database.js";
+import { fetchJson, type FetchedJson } from "./utils/http.js";
+import { KeyedRequestPool } from "./utils/keyed-request-pool.js";
 
 const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const publicDirectory = join(projectRoot, "public");
@@ -62,7 +64,13 @@ const dashboard = new DashboardService(database, cacheTtlMinutes, {
 });
 const pairSettings = pairTokenSettingsFromEnv();
 const pairDatabase = new PairTokenDatabase(databasePath);
-const pairCollector = new PairTokenCollector(pairSettings);
+const pairTokenPageRequests = new KeyedRequestPool<FetchedJson>(4);
+const pairCollector = new PairTokenCollector(pairSettings, {
+  fetchPage: (url) =>
+    pairTokenPageRequests.run(url, () =>
+      fetchJson(url, { retries: 0, timeoutMs: pairSettings.apiTimeoutMs }),
+    ),
+});
 const pair = new PairTokenService(pairDatabase, pairSettings, pairCollector);
 const pairFlowSettings = pairFlowSettingsFromEnv();
 const pairFlowDatabase = new PairFlowDatabase(databasePath);
@@ -75,7 +83,22 @@ const monitorDatabasePath = process.env.MONITOR_DATABASE_PATH
   ? resolve(process.env.MONITOR_DATABASE_PATH)
   : databasePath;
 const pairV2Database = new PairV2Database(monitorDatabasePath);
-const pairV2Collector = new PairV2Collector(pairV2Settings);
+const pairV2TokenPath = new URL(`${pairV2Settings.apiBaseUrl.replace(/\/$/, "")}/tokens`).pathname;
+const pairV2Collector = new PairV2Collector(pairV2Settings, {
+  fetchPage: (url) => {
+    const request = () =>
+      fetchJson(url, { retries: 1, timeoutMs: pairV2Settings.requestTimeoutMs });
+    try {
+      const target = new URL(url);
+      const api = new URL(pairV2Settings.apiBaseUrl);
+      return target.origin === api.origin && target.pathname === pairV2TokenPath
+        ? pairTokenPageRequests.run(url, request)
+        : request();
+    } catch {
+      return request();
+    }
+  },
+});
 const pairV2 = new PairV2Service(pairV2Database, pairV2Settings, pairV2Collector);
 const devMonitorSettings = devMonitorSettingsFromEnv();
 const devMonitorDatabase = new DevMonitorDatabase(monitorDatabasePath);

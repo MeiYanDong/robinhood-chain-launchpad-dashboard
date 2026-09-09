@@ -317,16 +317,27 @@ async function mapConcurrent<T, R>(
 ): Promise<R[]> {
   const results = new Array<R>(values.length);
   let next = 0;
+  let failed = false;
+  let firstError: unknown = null;
   async function worker(): Promise<void> {
     for (;;) {
+      if (failed) return;
       const index = next;
       next += 1;
       if (index >= values.length) return;
       const value = values[index];
-      if (value !== undefined) results[index] = await mapper(value);
+      if (value === undefined) continue;
+      try {
+        results[index] = await mapper(value);
+      } catch (error) {
+        if (!failed) firstError = error;
+        failed = true;
+        return;
+      }
     }
   }
   await Promise.all(Array.from({ length: Math.min(concurrency, values.length) }, worker));
+  if (failed) throw firstError;
   return results;
 }
 
@@ -346,7 +357,7 @@ async function fetchAllPairTokens(
 }> {
   const started = performance.now();
   const urlFor = (page: number) =>
-    `${settings.apiBaseUrl}/tokens?page=${String(page)}&limit=${String(settings.pageLimit)}&sort=newest`;
+    `${settings.apiBaseUrl}/tokens?page=${String(page)}&limit=${String(settings.pageLimit)}&sort=newest&timeframe=all`;
   const firstFetch = await fetchPage(urlFor(1));
   const first = parsePage(firstFetch.payload);
   const pageCount = Math.ceil(first.total / first.limit);
