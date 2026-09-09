@@ -163,6 +163,27 @@ export async function verifyRuntime(
     );
   }
 
+  const pairDailyVolumeAlert = await readJson(
+    base,
+    "/api/platform-activity/alerts/health",
+    fetcher,
+    timeoutMs,
+  );
+  if (
+    pairDailyVolumeAlert.payload.ok !== true ||
+    pairDailyVolumeAlert.payload.service !== "rhc-pair-daily-volume-alert" ||
+    pairDailyVolumeAlert.payload.configured !== true ||
+    pairDailyVolumeAlert.payload.platformId !== "pair" ||
+    pairDailyVolumeAlert.payload.metric !== "volume_usd" ||
+    pairDailyVolumeAlert.payload.comparison !== "last_two_complete_utc_days" ||
+    pairDailyVolumeAlert.payload.thresholdPct !== 10
+  ) {
+    throw new RuntimeVerificationError(
+      "RUNTIME_NOT_READY",
+      "PAIR daily volume alert is not configured for the 10 percent threshold",
+    );
+  }
+
   const sources = await readJson(base, "/api/sources", fetcher, timeoutMs);
   if (!Array.isArray(sources.payload.sources)) {
     throw new RuntimeVerificationError(
@@ -460,6 +481,15 @@ export async function verifyRuntime(
         status: platformActivity.status,
         targetDate: targetDate(platformActivity.payload),
         itemCount: activityPlatforms.length,
+      },
+      {
+        path: "/api/platform-activity/alerts/health",
+        status: pairDailyVolumeAlert.status,
+        targetDate: null,
+        itemCount:
+          typeof pairDailyVolumeAlert.payload.pending === "number"
+            ? pairDailyVolumeAlert.payload.pending
+            : null,
       },
       {
         path: "/api/sources",

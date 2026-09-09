@@ -92,6 +92,30 @@ test("concurrent refresh calls share one collector promise and one run", async (
   });
 });
 
+test("a post-refresh alert hook runs after persistence without breaking metric delivery", async () => {
+  await withDatabase(async (database) => {
+    const events: Array<{ event: string; context: Record<string, unknown> }> = [];
+    const targets: string[] = [];
+    const service = new DashboardService(database, 15, {
+      collect: async () => batch(),
+      now: () => new Date("2026-08-30T12:00:00.000Z"),
+      afterRefresh: async (targetDate) => {
+        targets.push(targetDate);
+        throw new Error("notification delivery failed");
+      },
+      warn: (event, context) => events.push({ event, context }),
+    });
+
+    const result = await service.refresh();
+    assert.equal(result.status, "success");
+    assert.deepEqual(targets, ["2026-08-29"]);
+    assert.deepEqual(events, [
+      { event: "dashboard_post_refresh_failed", context: { errorName: "Error" } },
+    ]);
+    assert.equal(service.overview(1).summary.volume_usd.value, 250);
+  });
+});
+
 test("degraded source data remains usable while public messages are sanitized", async () => {
   await withDatabase(async (database) => {
     const service = new DashboardService(database, 15, {

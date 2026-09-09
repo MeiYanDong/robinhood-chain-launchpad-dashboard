@@ -4,7 +4,7 @@
 同一个判断顺序里；市场、Alpha 和资产页再分别展开证据。发射台、PAIR V2、资金闭环与逐笔数据
 继续作为深入研究页，不再彼此冒充独立产品。
 
-仓库代码 `0.20.0` 将此前分离的全链、发射台、Alpha 与 CashCat 日报收拢为“今日 / 市场 /
+仓库代码 `0.20.1` 将此前分离的全链、发射台、Alpha 与 CashCat 日报收拢为“今日 / 市场 /
 Alpha / 资产”四个用户任务。统一产品接口只挑选公开展示所需字段，并明确区分完整 UTC 日、
 实时快照与滚动 24H；任何缺失值继续保持未知。全链与 CashCat 源码已经纳入本仓库的
 [`services/`](services/README.md)，但生产进程、数据库、密钥和发布周期保持隔离。
@@ -19,6 +19,8 @@ Alpha / 资产”四个用户任务。统一产品接口只挑选公开展示所
 [`docs/pair-alpha-radar.md`](docs/pair-alpha-radar.md) 与
 [`docs/pair-v2-monitor.md`](docs/pair-v2-monitor.md)；现有“龙头 / 热度 / 估值”规则见
 [`docs/market-intelligence.md`](docs/market-intelligence.md)。
+PAIR 日交易量 10% 告警的完整日口径、来源门禁、去重和重试规则见
+[`docs/pair-daily-volume-alert.md`](docs/pair-daily-volume-alert.md)。
 
 服务端核心 DEV 创建者与买入监控见 [`docs/dev-monitor.md`](docs/dev-monitor.md)。PAIR V2 页面主入口
 只展示已核验 PAIR 项目方主发行钱包发出的代币，并把“官方协议代币”与“同钱包发行但未确认背书”
@@ -330,6 +332,8 @@ npm run dev
   `127.0.0.1:4175` 的 Node 服务；
 - systemd 主服务：`robinhood-chain-launchpad.service`；
 - 每日刷新定时器：`robinhood-chain-launchpad-refresh.timer`，北京时间 15:10 执行；
+- PAIR 日交易量告警复用每日刷新结果：比较最近两个完整 UTC 日，涨跌绝对值达到 `10%`
+  才发送飞书；同一组日期只发送一次，来源降级、缺日或前一日为零时不发送；
 - PAIR 实时榜定时器：`robinhood-chain-pair-refresh.timer`，每 15 分钟执行；
 - PAIR 资金闭环定时器：`robinhood-chain-pair-flow-refresh.timer`，每 5 分钟执行；
 - PAIR 日报定时器：`robinhood-chain-pair-daily.timer`，北京时间 08:10 执行；
@@ -378,7 +382,8 @@ DEV 通知根因、1,401 条历史队列封存、飞书业务码 `0`、限频策
 
 部署配置固化在 [`deploy/`](deploy/)；新版本应使用不可变 release 目录并原子切换
 `current` 软链接，保留上一版用于回滚。发布后必须同时验证公网首页、`/healthz`、
-`/api/overview?window=30`、`/api/platform-activity`、`/api/sources`、`/api/pair/health`、`/api/pair/rankings`、
+`/api/overview?window=30`、`/api/platform-activity`、`/api/platform-activity/alerts/health`、
+`/api/sources`、`/api/pair/health`、`/api/pair/rankings`、
 `/api/long/health`、`/api/long/rankings`、`/api/economics/health`、`/api/economics`，
 `/api/intelligence/health`、`/api/intelligence`，以及公网 `/leaders/`、`/launchpads/`、
 `/pair-flow/`、`/pair-flow/api/pair/flow/events`、`/pair-v2/`、`/pair-v2/api/pair/v2/health`、
@@ -423,6 +428,10 @@ DEV 通知根因、1,401 条历史队列封存、飞书业务码 `0`、限频策
 | `PAIR_ALPHA_MIN_MARKET_CAP_USD` | `8000` | 历史代币进入行情候选的最低官方市值 |
 | `PAIR_V2_GMGN_BIN` | `gmgn-cli` | V2 持币地址读取所用固定 CLI 路径 |
 | `PAIR_V2_FEISHU_WEBHOOK_URL` | 无，默认关闭 | 仅接受官方 HTTPS Feishu/Lark webhook；只在服务端环境文件配置 |
+| `PAIR_DAILY_VOLUME_FEISHU_WEBHOOK_URL` | 依次回退到 PAIR V2、DEV 监控 Webhook | PAIR 日交易量告警专用 Webhook；只保存在服务器环境文件中 |
+| `PAIR_DAILY_VOLUME_ALERT_THRESHOLD_PCT` | `10` | 最近两个完整 UTC 日的交易量涨跌绝对值达到该百分比时告警 |
+| `PAIR_DAILY_VOLUME_ALERT_RETRY_SECONDS` | `300` | 失败 outbox 的后台重试检查间隔；单条最多尝试 5 次并指数退避 |
+| `PAIR_DAILY_VOLUME_ALERT_DETAIL_URL` | `https://47.251.99.37/market/` | 飞书消息中的只读看板入口，只接受无凭据 HTTPS URL |
 | `DEV_MONITOR_ENABLED` | `false` | 启用服务端 DEV 发行与买入监听；生产 unit 显式设为 `true` |
 | `DEV_MONITOR_RPC_URL` | Robinhood Chain 官方 RPC | DEV 雷达只读日志、交易与 receipt 来源；可由 `PAIR_V2_RPC_URL` 兜底 |
 | `DEV_MONITOR_POLL_SECONDS` | `8` | 确认后链上发行与重点地址买入轮询间隔 |
@@ -451,6 +460,7 @@ DEV 通知根因、1,401 条历史队列封存、飞书业务码 `0`、限频策
 | `GET /healthz` | 服务与可用缓存状态 |
 | `GET /api/overview?window=1\|7\|30` | 汇总和平台排名 |
 | `GET /api/platform-activity` | Pons、Long、PAIR 日度成交历史、7/30 日活跃倍数与窗口交易量 |
+| `GET /api/platform-activity/alerts/health` | PAIR 日交易量 10% 飞书告警配置、队列与最近投递状态；不返回 Webhook |
 | `GET /api/platforms/:id` | 单平台 64 日序列、scope、来源 |
 | `GET /api/coverage` | 指标定义、警告、30 日覆盖矩阵 |
 | `GET /api/sources` | 采集运行与来源健康 |
@@ -496,7 +506,7 @@ npm run build
 npm run verify:live
 ```
 
-测试覆盖 Pons 合并、协议级 summary 的 Robinhood Chain 筛选、UTC 当前日排除、`null ≠ 0`、Bankr 官方 volume、LetsCash 官方日序列/实时快照、Long integrator 归属与闭合日筛选、确定性来源优先级、StonkBrokers 不进入 tracked totals，以及 PAIR 全分页发现、Long 活跃样本与 Launcher 核验、经济活跃门槛、四榜独立排序、同日市场份额、回购证据状态、缓存降级和 08:00 日报对比。PAIR V2/Alpha 另覆盖 release 校验、V1/V2 身份分层、canonical 多池聚合、ABI 解码、短重组替换、估算与链上事实分离、过热勿追、首次信号回放、状态跃迁告警和公开路由权限。DEV 雷达覆盖各平台事件字段、来源独立游标、质量分层、receipt 买入核验、首次基线抑制、通知去重与失败重试。`verify:runtime` 当前检查 20 个运行合同；因此只能在服务器完成同版本部署后作为上线回执。
+测试覆盖 Pons 合并、协议级 summary 的 Robinhood Chain 筛选、UTC 当前日排除、`null ≠ 0`、Bankr 官方 volume、LetsCash 官方日序列/实时快照、Long integrator 归属与闭合日筛选、确定性来源优先级、StonkBrokers 不进入 tracked totals，以及 PAIR 全分页发现、Long 活跃样本与 Launcher 核验、经济活跃门槛、四榜独立排序、同日市场份额、回购证据状态、缓存降级和 08:00 日报对比。PAIR V2/Alpha 另覆盖 release 校验、V1/V2 身份分层、canonical 多池聚合、ABI 解码、短重组替换、估算与链上事实分离、过热勿追、首次信号回放、状态跃迁告警和公开路由权限。DEV 雷达覆盖各平台事件字段、来源独立游标、质量分层、receipt 买入核验、首次基线抑制、通知去重与失败重试。PAIR 日交易量告警另覆盖完整 UTC 日、10% 边界、官方来源门禁、去重和失败重试。`verify:runtime` 当前检查 23 个运行合同；因此只能在服务器完成同版本部署后作为上线回执。
 
 ## 安全边界
 
