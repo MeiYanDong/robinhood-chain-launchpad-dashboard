@@ -20,6 +20,7 @@ Environment=PAIR_MARKET_FRESHNESS_MINUTES=60
 Environment=PAIR_REFRESH_TTL_MINUTES=15
 Environment=PAIR_HOLDER_TTL_MINUTES=60
 Environment=PAIR_HOLDER_MAX_STALE_MINUTES=150
+Environment=PAIR_GMGN_TIMEOUT_MS=8000
 Environment=PAIR_GMGN_BIN=/opt/robinhood-chain-launchpad/current/node_modules/.bin/gmgn-cli
 Environment=PAIR_FLOW_REFRESH_TTL_MINUTES=5
 Environment=PAIR_FLOW_STALE_AFTER_MINUTES=20

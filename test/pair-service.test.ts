@@ -65,6 +65,7 @@ function batch(
 
 async function withService(
   run: (context: {
+    database: PairTokenDatabase;
     service: PairTokenService;
     setNow(value: string): void;
     setCollector(collector: () => Promise<PairCollectionBatch>): void;
@@ -85,6 +86,7 @@ async function withService(
   });
   try {
     await run({
+      database,
       service,
       setNow(value) {
         now = new Date(value);
@@ -167,7 +169,7 @@ test("PAIR daily reports compare against the full previous-day ranking", async (
 });
 
 test("PAIR service serves the last usable snapshot after a later refresh failure", async () => {
-  await withService(async ({ service, setNow, setCollector }) => {
+  await withService(async ({ database, service, setNow, setCollector }) => {
     await service.refresh();
     setNow("2026-09-01T02:00:00.000Z");
     setCollector(async () => {
@@ -180,5 +182,7 @@ test("PAIR service serves the last usable snapshot after a later refresh failure
     assert.ok(response.warnings.some((warning) => warning.includes("最近一次刷新失败")));
     assert.doesNotMatch(JSON.stringify(response), /private\.example|secret/);
     assert.equal(service.health().latestRunStatus, "failed");
+    assert.equal(service.health().latestRunError, "TypeError_unclassified");
+    assert.equal(database.latestRun()?.error, "TypeError_unclassified");
   });
 });
