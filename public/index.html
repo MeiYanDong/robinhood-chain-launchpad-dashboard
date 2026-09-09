@@ -8,19 +8,19 @@
       name="description"
       content="Robinhood Chain 发射台数据与 Pons、Long、PAIR 代币及平台经营对比。"
     />
-    <title>Robinhood Chain 发射台</title>
+    <title>全链数据｜Robinhood Chain</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css?v=0.11.0" />
-    <link rel="stylesheet" href="./styles-v2.css?v=0.20.2" />
-    <link rel="stylesheet" href="./workbench.css?v=0.20.2" />
-    <script src="./app.js?v=0.20.2" type="module"></script>
+    <link rel="stylesheet" href="./styles-v2.css?v=0.20.3" />
+    <link rel="stylesheet" href="./workbench.css?v=0.20.3" />
+    <script src="./app.js?v=0.20.3" type="module"></script>
   </head>
   <body class="radar-v2">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
     <div class="page-grid" aria-hidden="true"></div>
 
     <header class="masthead">
-      <a class="brand" href="/launchpads/" aria-label="Robinhood Chain PAIR 工作台首页">
+      <a class="brand" href="/" aria-label="Robinhood Chain PAIR 工作台首页">
         <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
         <span class="brand-copy">
           <strong>ROBINHOOD CHAIN</strong>
@@ -29,8 +29,8 @@
       </a>
 
       <nav class="product-nav" aria-label="产品入口">
-        <a href="/launchpads/" data-product="launchpads" data-glyph="盘">市场总览</a>
-        <a href="/leaders/" data-product="leaders" data-glyph="龙">龙头与热度</a>
+        <a href="/chain/" data-product="chain" data-glyph="链">全链数据</a>
+        <a href="/launchpads/" data-product="launchpads" data-glyph="营">PAIR 经营</a>
         <a href="/pair-alpha/" data-product="pair-alpha" data-glyph="α">PAIR Alpha</a>
         <a href="/pair-v2/" data-product="pair-v2" data-glyph="V2">PAIR V2</a>
         <a href="/pair-flow/" data-product="pair-flow" data-glyph="流">资金闭环</a>
@@ -74,6 +74,140 @@
         <a href="/launchpads/?view=valuation" data-launchpad-view="valuation">PAIR vs PONS</a>
         <a href="/launchpads/?view=tokens" data-launchpad-view="tokens">平台代币</a>
       </nav>
+
+      <section class="chain-workbench" id="chain-view" aria-label="Robinhood Chain 全链数据" hidden>
+        <header class="workspace-intro chain-workbench__intro">
+          <div>
+            <span>ROBINHOOD CHAIN · DAILY</span>
+            <h1>全链最近怎么样</h1>
+            <p>把使用、资金、收入和市场放在同一张工作台；数据不足时不强行下结论。</p>
+          </div>
+          <div class="workspace-intro__status">
+            <span>当前判断</span>
+            <strong id="chain-overall-state">等待数据</strong>
+          </div>
+        </header>
+
+        <div class="chain-tape" aria-label="全链数据状态">
+          <span>数据日期<strong id="chain-target-date">—</strong></span>
+          <span>更新状态<strong id="chain-freshness">—</strong></span>
+          <span>来源状态<strong id="chain-source-health">—</strong></span>
+          <span>生成时间<strong id="chain-generated-at">—</strong></span>
+        </div>
+
+        <section class="chain-answer" aria-labelledby="chain-answer-title">
+          <header>
+            <span id="chain-answer-period">最近完整日结论</span>
+            <h2 id="chain-answer-title">等待最近一个完整 UTC 日</h2>
+          </header>
+          <div class="chain-answer__grid" aria-label="全链四项判断">
+            <article>
+              <span>在同类链中的位置</span>
+              <strong id="chain-position-label">—</strong>
+              <small id="chain-position-evidence">—</small>
+            </article>
+            <article>
+              <span>自身趋势</span>
+              <strong id="chain-momentum-label">—</strong>
+              <small id="chain-momentum-evidence">—</small>
+            </article>
+            <article>
+              <span>增长是否一致</span>
+              <strong id="chain-quality-label">—</strong>
+              <small id="chain-quality-evidence">—</small>
+            </article>
+            <article>
+              <span>判断可靠度</span>
+              <strong id="chain-confidence-label">—</strong>
+              <small id="chain-confidence-evidence">—</small>
+            </article>
+          </div>
+        </section>
+
+        <section class="chain-primary" aria-labelledby="chain-primary-title">
+          <header class="chain-section-head">
+            <div>
+              <span>先看这些</span>
+              <h2 id="chain-primary-title">决定链是否真的活跃的 8 个数</h2>
+            </div>
+            <small>变化均与同一指标自身历史比较</small>
+          </header>
+          <div class="chain-metric-grid" id="chain-primary-metrics" aria-live="polite"></div>
+        </section>
+
+        <div class="chain-lower-grid">
+          <section class="chain-pillar-panel" aria-labelledby="chain-pillar-title">
+            <header class="chain-section-head">
+              <div>
+                <span>拆开判断</span>
+                <h2 id="chain-pillar-title">哪一层在变强</h2>
+              </div>
+            </header>
+            <div class="chain-pillar-list" id="chain-pillar-list"></div>
+          </section>
+
+          <section class="chain-insight-panel" aria-labelledby="chain-insight-title">
+            <header class="chain-section-head">
+              <div>
+                <span>今天要注意</span>
+                <h2 id="chain-insight-title">变化与风险</h2>
+              </div>
+            </header>
+            <ol class="chain-insight-list" id="chain-insight-list">
+              <li>等待数据</li>
+            </ol>
+          </section>
+        </div>
+
+        <details class="workspace-disclosure chain-detail-disclosure">
+          <summary>
+            <span><b>查看全部链上指标</b><small>当前值、7 日变化、30 日变化和同类链排名</small></span>
+            <i aria-hidden="true">展开</i>
+          </summary>
+          <div class="chain-metric-table-wrap">
+            <table class="chain-metric-table">
+              <thead>
+                <tr>
+                  <th>指标</th>
+                  <th>当前值</th>
+                  <th>7 日变化</th>
+                  <th>30 日变化</th>
+                  <th>固定同行</th>
+                  <th>数据日期</th>
+                </tr>
+              </thead>
+              <tbody id="chain-metric-body"></tbody>
+            </table>
+          </div>
+        </details>
+
+        <section class="chain-stock-panel" aria-labelledby="chain-stock-title">
+          <header class="chain-section-head">
+            <div>
+              <span>STOCK TOKENS</span>
+              <h2 id="chain-stock-title">股票代币覆盖</h2>
+            </div>
+            <small id="chain-stock-state">等待数据</small>
+          </header>
+          <div class="chain-stock-grid">
+            <article><span>活跃资产</span><strong id="chain-stock-active">—</strong></article>
+            <article><span>已取得价格</span><strong id="chain-stock-priced">—</strong></article>
+            <article><span>已完成估值</span><strong id="chain-stock-valued">—</strong></article>
+            <article><span>估值覆盖率</span><strong id="chain-stock-coverage">—</strong></article>
+          </div>
+        </section>
+
+        <div class="overview-next-actions chain-next-actions" aria-label="继续查看">
+          <a href="/leaders/"><span>全链下钻</span><strong>看龙头与热度 →</strong></a>
+          <a href="/launchpads/"><span>平台经营</span><strong>比较 PONS / LONG / PAIR →</strong></a>
+          <a href="/pair-alpha/"><span>机会雷达</span><strong>找 PAIR Alpha →</strong></a>
+        </div>
+
+        <div class="empty-state" id="chain-empty-state" hidden>
+          <strong>全链数据尚未就绪</strong>
+          <span>缺失数据保持未知，不会补成 0。</span>
+        </div>
+      </section>
 
       <section class="pair-alpha-terminal" id="pair-alpha-view" aria-label="PAIR 跨代 Alpha 雷达" hidden>
         <header class="pair-alpha-command">

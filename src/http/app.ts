@@ -85,6 +85,10 @@ export interface ProductHttpApi {
   refresh(): Promise<unknown>;
 }
 
+export interface ChainDailyHttpApi {
+  latest(): Promise<unknown>;
+}
+
 export interface PlatformVolumeAlertHttpApi {
   health(): { ok: boolean };
 }
@@ -103,6 +107,7 @@ export interface DashboardRequestHandlerOptions {
   economics?: EconomicsHttpApi;
   intelligence?: IntelligenceHttpApi;
   product?: ProductHttpApi;
+  chainDaily?: ChainDailyHttpApi;
   pairDailyVolumeAlerts?: PlatformVolumeAlertHttpApi;
   publicDirectory: string;
   logger?: SafeLogger;
@@ -157,6 +162,7 @@ function parseWindow(value: string | null): WindowDays | null {
 function stripApplicationPrefix(pathname: string): string {
   for (const prefix of [
     "/assets/cashcat",
+    "/chain",
     "/leaders",
     "/launchpads",
     "/pair-flow",
@@ -290,6 +296,15 @@ export function createDashboardRequestHandler(
       if (request.method === "GET" && pathname === "/healthz") {
         const health = options.dashboard.health();
         sendJson(response, health.ok ? 200 : 503, health);
+        return;
+      }
+
+      if (request.method === "GET" && pathname === "/api/latest") {
+        if (!options.chainDaily) {
+          sendError(response, 503, "CHAIN_DAILY_UNAVAILABLE", "Chain daily data unavailable");
+          return;
+        }
+        sendJson(response, 200, await options.chainDaily.latest());
         return;
       }
 

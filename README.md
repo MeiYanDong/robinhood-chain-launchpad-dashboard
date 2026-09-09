@@ -1,13 +1,13 @@
 # Robinhood Chain Radar
 
-一个面向社区的 Robinhood Chain 只读市场工作台。首页把全链方向、结构龙头和重点资产前提放在
-同一个判断顺序里；市场、Alpha 和资产页再分别展开证据。发射台、PAIR V2、资金闭环与逐笔数据
-继续作为深入研究页，不再彼此冒充独立产品。
+一个面向社区的 Robinhood Chain 只读 PAIR 工作台。一级入口统一为“全链数据 / PAIR 经营 /
+PAIR Alpha / PAIR V2 / 资金闭环”，共用同一套导航、视觉和“先结论、后数据、再证据”的阅读顺序。
+全链数据保留，但不再作为割裂的独立模板；CashCat 不再是重点资产或一级页面。
 
-仓库代码 `0.20.1` 将此前分离的全链、发射台、Alpha 与 CashCat 日报收拢为“今日 / 市场 /
-Alpha / 资产”四个用户任务。统一产品接口只挑选公开展示所需字段，并明确区分完整 UTC 日、
-实时快照与滚动 24H；任何缺失值继续保持未知。全链与 CashCat 源码已经纳入本仓库的
-[`services/`](services/README.md)，但生产进程、数据库、密钥和发布周期保持隔离。
+仓库代码 `0.20.3` 将完整 UTC 日的全链基本面、发射台经营、Alpha 信号和 PAIR 链上资金流收进
+同一个产品壳。完整日、实时快照与滚动 24H 仍严格分开，任何缺失值继续保持未知。全链与
+CashCat 的可维护源码仍位于 [`services/`](services/README.md)，但生产进程、数据库、密钥和
+发布周期保持隔离；CashCat 仅保留历史与兼容读接口。
 
 既有深度页继续采用“先结论、再对象、后证据”的阅读顺序：首屏先给结论和前 5 个对象，模型、历史回放与链上证据按需展开；
 移动端将高优先级表格改成无横向滚动的卡片。PONS 七日预测只有在相似样本与回测误差同时
@@ -52,10 +52,11 @@ PAIR 日交易量 10% 告警的完整日口径、来源门禁、去重和重试�
 
 统一入口提供：
 
-- 今日：依次回答全链状态、结构龙头与 CashCat 核心前提；
-- 市场：完整日全链经营指标，并进入平台经营、龙头与热度；
-- Alpha：展示链热度、结构龙头和代币温度，再进入 PAIR Alpha、PAIR V2 与资金闭环；
-- 资产：以 CashCat 为第一套重点资产模板，展示实时价格、四维龙头位置、链注意力与叙事证据；
+- 全链数据：四项直接判断、8 个核心指标、全部指标明细、使用/资本/经济/市场四层趋势与来源健康；
+- PAIR 经营：PONS、LONG、PAIR 的平台交易量、活跃度、费用、收入、回购与相对估值；
+- PAIR Alpha：跨 V1/V2 的新币筛选、过热拦截、风险停止与首次信号回放；
+- PAIR V2：V2 发行、模式、候选、项目方发行、回购桶和链上事件；
+- 资金闭环：逐笔区分实际回购、实际销毁、待回购资金与待销毁 PAIR；
 - PAIR Alpha 跨代候选矩阵、动作通道、多池成交证据和首次信号 5m/30m/2H/6H/24H 回放；
 - PAIR V2 当前 release 的三种模式分布、市场榜、逐笔链上动作、回购桶与来源健康；
 - PAIR 各代币的官方底层配对资产（如 SPY、WETH、USDG 或股票代币），多池按资产地址去重；
@@ -314,11 +315,11 @@ npm run dev
 截至 2026-09-09，生产实例是阿里云轻量应用服务器 `robinhood-chain-radar`
 （`us-west-1`，实例 ID `ceff28ff463440c09d8666b0f081bc7f`）：
 
-- HTTPS 公网入口：<https://47.251.99.37/>，使用与 PAIR 页面一致的工作台；一级任务为
-  <https://47.251.99.37/launchpads/>（市场总览与平台经营）、
-  <https://47.251.99.37/leaders/>（动态龙头与热度）、
-  <https://47.251.99.37/pair-alpha/>、<https://47.251.99.37/pair-v2/> 和
-  <https://47.251.99.37/pair-flow/>；
+- HTTPS 公网入口：<https://47.251.99.37/>，使用统一 PAIR 工作台；一级任务为
+  <https://47.251.99.37/chain/>（全链数据）、
+  <https://47.251.99.37/launchpads/>（PAIR 经营）、<https://47.251.99.37/pair-alpha/>、
+  <https://47.251.99.37/pair-v2/> 和 <https://47.251.99.37/pair-flow/>；
+- <https://47.251.99.37/leaders/> 作为全链数据中的“龙头与热度”下钻页继续可用，但不占一级导航；
 - CashCat 不再作为重点资产或一级页面展示；旧 `/market/`、`/alpha/`、`/assets/cashcat/`
   和 `/cashcat/` 入口会跳转到对应的新工作台。`/cashcat/api/*` 与 `/cashcat/reports/*`
   仍由独立 CashCat 服务提供，历史数据没有删除；兼容端口 API 继续可用；
@@ -388,7 +389,7 @@ PAIR 日交易量 10% 告警的首次真实投递、去重队列、23 项合同�
 `/api/overview?window=30`、`/api/platform-activity`、`/api/platform-activity/alerts/health`、
 `/api/sources`、`/api/pair/health`、`/api/pair/rankings`、
 `/api/long/health`、`/api/long/rankings`、`/api/economics/health`、`/api/economics`，
-`/api/intelligence/health`、`/api/intelligence`，以及公网 `/leaders/`、`/launchpads/`、
+`/api/intelligence/health`、`/api/intelligence`，以及公网 `/chain/`、`/leaders/`、`/launchpads/`、
 `/pair-flow/`、`/pair-flow/api/pair/flow/events`、`/pair-v2/`、`/pair-v2/api/pair/v2/health`、
 `/pair-v2/api/pair/v2`、`/pair-v2/api/dev-monitor/health`、
 `/pair-v2/api/dev-monitor/pair-team-launches?limit=20&offset=0`、

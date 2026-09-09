@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import test from "node:test";
 import {
   createDashboardRequestHandler,
+  type ChainDailyHttpApi,
   type DashboardHttpApi,
   type DevMonitorHttpApi,
   type EconomicsHttpApi,
@@ -239,6 +240,17 @@ function fakeProduct(overrides: Partial<ProductHttpApi> = {}): ProductHttpApi {
   };
 }
 
+function fakeChainDaily(overrides: Partial<ChainDailyHttpApi> = {}): ChainDailyHttpApi {
+  return {
+    latest: async () => ({
+      targetDate: "2026-09-07",
+      generatedAt: "2026-09-08T07:00:00.000Z",
+      metrics: [],
+    }),
+    ...overrides,
+  };
+}
+
 function fakePlatformVolumeAlert(
   overrides: Partial<PlatformVolumeAlertHttpApi> = {},
 ): PlatformVolumeAlertHttpApi {
@@ -265,6 +277,7 @@ async function withServer(
   devMonitor?: DevMonitorHttpApi,
   product?: ProductHttpApi,
   pairDailyVolumeAlerts?: PlatformVolumeAlertHttpApi,
+  chainDaily: ChainDailyHttpApi = fakeChainDaily(),
 ): Promise<void> {
   const publicDirectory = mkdtempSync(join(tmpdir(), "rhc-http-"));
   writeFileSync(join(publicDirectory, "index.html"), "<h1>ledger</h1>");
@@ -282,6 +295,7 @@ async function withServer(
       ...(devMonitor ? { devMonitor } : {}),
       ...(product ? { product } : {}),
       ...(pairDailyVolumeAlerts ? { pairDailyVolumeAlerts } : {}),
+      chainDaily,
       publicDirectory,
       logger: {
         error(event, context) {
@@ -759,6 +773,7 @@ test("market intelligence exposes cached reads, explicit refresh, and prefixed r
         { route: "intelligence-refresh" },
       );
       assert.equal((await fetch(`${baseUrl}/leaders/`)).status, 200);
+      assert.equal((await fetch(`${baseUrl}/chain/`)).status, 200);
       assert.equal((await fetch(`${baseUrl}/launchpads/app.js`)).status, 200);
     },
     fakeDashboard(),
@@ -772,6 +787,20 @@ test("market intelligence exposes cached reads, explicit refresh, and prefixed r
     const response = await fetch(`${baseUrl}/api/intelligence`);
     assert.equal(response.status, 503);
     assert.equal((await response.json()).code, "INTELLIGENCE_MODULE_UNAVAILABLE");
+  });
+});
+
+test("full-chain latest snapshot is available at root and the unified chain prefix", async () => {
+  await withServer(async ({ baseUrl }) => {
+    for (const path of ["/api/latest", "/chain/api/latest"]) {
+      const response = await fetch(`${baseUrl}${path}`);
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), {
+        targetDate: "2026-09-07",
+        generatedAt: "2026-09-08T07:00:00.000Z",
+        metrics: [],
+      });
+    }
   });
 });
 
@@ -828,7 +857,14 @@ test("PAIR workbench is primary while retired product routes remain safe redirec
 
 test("legacy forwarded prefixes keep their deep workbenches after nginx rewrites the path", async () => {
   await withServer(async ({ baseUrl }) => {
-    for (const prefix of ["/leaders", "/launchpads", "/pair-alpha", "/pair-v2", "/pair-flow"]) {
+    for (const prefix of [
+      "/chain",
+      "/leaders",
+      "/launchpads",
+      "/pair-alpha",
+      "/pair-v2",
+      "/pair-flow",
+    ]) {
       const response = await fetch(baseUrl, {
         headers: { "x-forwarded-prefix": prefix },
       });
