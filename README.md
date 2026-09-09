@@ -387,6 +387,9 @@ PAIR 日交易量 10% 告警的首次真实投递、去重队列、23 项合同�
 全链数据融入 PAIR 工作台、五入口统一导航、生产路由、自动更新与数据质量回读见
 [`docs/evidence/chain-pair-workbench-production-deployment-2026-09-09.md`](docs/evidence/chain-pair-workbench-production-deployment-2026-09-09.md)。
 
+PAIR 官方目录并发协调、V2 完整快照恢复、认证 503 降级边界与最终生产回读见
+[`docs/evidence/pair-refresh-resilience-production-deployment-2026-09-09.md`](docs/evidence/pair-refresh-resilience-production-deployment-2026-09-09.md)。
+
 部署配置固化在 [`deploy/`](deploy/)；新版本应使用不可变 release 目录并原子切换
 `current` 软链接，保留上一版用于回滚。发布后必须同时验证公网首页、`/healthz`、
 `/api/overview?window=30`、`/api/platform-activity`、`/api/platform-activity/alerts/health`、
