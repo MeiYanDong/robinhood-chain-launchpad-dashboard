@@ -268,7 +268,6 @@ async function withServer(
 ): Promise<void> {
   const publicDirectory = mkdtempSync(join(tmpdir(), "rhc-http-"));
   writeFileSync(join(publicDirectory, "index.html"), "<h1>ledger</h1>");
-  writeFileSync(join(publicDirectory, "product.html"), "<h1>workbench</h1>");
   writeFileSync(join(publicDirectory, "app.js"), "console.log('ledger');");
   const events: TestContext["events"] = [];
   const server = createServer(
@@ -776,7 +775,7 @@ test("market intelligence exposes cached reads, explicit refresh, and prefixed r
   });
 });
 
-test("unified product workbench exposes safe reads and serves the new task routes", async () => {
+test("PAIR workbench is primary while retired product routes remain safe redirects", async () => {
   await withServer(
     async ({ baseUrl }) => {
       assert.deepEqual(await (await fetch(`${baseUrl}/api/product/health`)).json(), {
@@ -793,10 +792,18 @@ test("unified product workbench exposes safe reads and serves the new task route
         await (await fetch(`${baseUrl}/api/product/refresh`, { method: "POST" })).json(),
         { route: "product-refresh" },
       );
-      for (const path of ["/", "/market/", "/alpha/", "/assets/cashcat/"]) {
-        const response = await fetch(`${baseUrl}${path}`);
-        assert.equal(response.status, 200);
-        assert.equal(await response.text(), "<h1>workbench</h1>");
+      const root = await fetch(`${baseUrl}/`);
+      assert.equal(root.status, 200);
+      assert.equal(await root.text(), "<h1>ledger</h1>");
+      for (const [path, location] of [
+        ["/market/", "/launchpads/"],
+        ["/alpha/", "/pair-alpha/"],
+        ["/assets/", "/leaders/"],
+        ["/assets/cashcat/", "/leaders/"],
+      ]) {
+        const response = await fetch(`${baseUrl}${path}`, { redirect: "manual" });
+        assert.equal(response.status, 308);
+        assert.equal(response.headers.get("location"), location);
       }
       const legacy = await fetch(`${baseUrl}/leaders/`);
       assert.equal(await legacy.text(), "<h1>ledger</h1>");
@@ -858,7 +865,7 @@ test("static files enforce containment, content policy, and HEAD semantics", asy
   await withServer(async ({ baseUrl, port }) => {
     const index = await fetch(`${baseUrl}/`);
     assert.equal(index.status, 200);
-    assert.equal(await index.text(), "<h1>workbench</h1>");
+    assert.equal(await index.text(), "<h1>ledger</h1>");
     assert.equal(index.headers.get("cache-control"), "no-cache");
     assert.match(index.headers.get("content-security-policy") ?? "", /frame-ancestors 'none'/);
 

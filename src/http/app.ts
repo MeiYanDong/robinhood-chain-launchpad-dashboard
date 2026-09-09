@@ -139,6 +139,16 @@ function sendError(response: ServerResponse, status: number, code: string, messa
   sendJson(response, status, { error: message, code });
 }
 
+function sendRedirect(response: ServerResponse, location: string): void {
+  response.writeHead(308, {
+    location,
+    "cache-control": "no-store",
+    "content-length": "0",
+    "x-content-type-options": "nosniff",
+  });
+  response.end();
+}
+
 function parseWindow(value: string | null): WindowDays | null {
   const parsed = Number(value ?? "1");
   return parsed === 1 || parsed === 7 || parsed === 30 ? parsed : null;
@@ -162,27 +172,18 @@ function stripApplicationPrefix(pathname: string): string {
   return pathname;
 }
 
-function headerValue(value: string | string[] | undefined): string {
-  return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
-}
-
-function servesProductWorkbench(pathname: string, forwardedPrefix: string): boolean {
-  const legacyPrefixes = ["/leaders", "/launchpads", "/pair-flow", "/pair-v2", "/pair-alpha"];
+function retiredProductRoute(pathname: string): string | null {
+  if (pathname === "/market" || pathname === "/market/") return "/launchpads/";
+  if (pathname === "/alpha" || pathname === "/alpha/") return "/pair-alpha/";
   if (
-    legacyPrefixes.some(
-      (prefix) => forwardedPrefix === prefix || forwardedPrefix.startsWith(`${prefix}/`),
-    )
+    pathname === "/assets" ||
+    pathname === "/assets/" ||
+    pathname === "/assets/cashcat" ||
+    pathname === "/assets/cashcat/"
   ) {
-    return false;
+    return "/leaders/";
   }
-  if (pathname === "/") return true;
-  return ["/market", "/alpha", "/assets"].some(
-    (prefix) =>
-      pathname === prefix ||
-      pathname.startsWith(`${prefix}/`) ||
-      forwardedPrefix === prefix ||
-      forwardedPrefix.startsWith(`${prefix}/`),
-  );
+  return null;
 }
 
 function parsePairFlowEventsQuery(url: URL): PairFlowEventsQuery | null {
@@ -276,6 +277,14 @@ export function createDashboardRequestHandler(
       } catch {
         sendError(response, 400, "INVALID_PATH", "Invalid request path");
         return;
+      }
+
+      if (request.method === "GET" || request.method === "HEAD") {
+        const redirect = retiredProductRoute(requestedPathname);
+        if (redirect) {
+          sendRedirect(response, redirect);
+          return;
+        }
       }
 
       if (request.method === "GET" && pathname === "/healthz") {
@@ -726,18 +735,7 @@ export function createDashboardRequestHandler(
         (request.method === "GET" || request.method === "HEAD") &&
         !pathname.startsWith("/api/")
       ) {
-        const productSurface = servesProductWorkbench(
-          requestedPathname,
-          headerValue(request.headers["x-forwarded-prefix"]),
-        );
-        serveStatic(
-          request,
-          response,
-          pathname,
-          options.publicDirectory,
-          logger,
-          productSurface ? "product.html" : "index.html",
-        );
+        serveStatic(request, response, pathname, options.publicDirectory, logger);
         return;
       }
 

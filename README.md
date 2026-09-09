@@ -314,13 +314,14 @@ npm run dev
 截至 2026-09-09，生产实例是阿里云轻量应用服务器 `robinhood-chain-radar`
 （`us-west-1`，实例 ID `ceff28ff463440c09d8666b0f081bc7f`）：
 
-- 统一 HTTPS 公网入口：<https://47.251.99.37/>；一级任务为
-  <https://47.251.99.37/market/>（全链与平台市场）、
-  <https://47.251.99.37/alpha/>（龙头、热度与 Alpha）和
-  <https://47.251.99.37/assets/cashcat/>（CashCat 重点资产）；
-- 原 `/leaders/`、`/launchpads/`、`/pair-alpha/`、`/pair-v2/`、`/pair-flow/` 继续作为
-  深度研究页；`/cashcat/api/*` 与 `/cashcat/reports/*` 继续由独立 CashCat 服务提供；原
-  <http://47.251.99.37:4174/> 自动跳转到统一首页，原端口 API 继续兼容；
+- HTTPS 公网入口：<https://47.251.99.37/>，使用与 PAIR 页面一致的工作台；一级任务为
+  <https://47.251.99.37/launchpads/>（市场总览与平台经营）、
+  <https://47.251.99.37/leaders/>（动态龙头与热度）、
+  <https://47.251.99.37/pair-alpha/>、<https://47.251.99.37/pair-v2/> 和
+  <https://47.251.99.37/pair-flow/>；
+- CashCat 不再作为重点资产或一级页面展示；旧 `/market/`、`/alpha/`、`/assets/cashcat/`
+  和 `/cashcat/` 入口会跳转到对应的新工作台。`/cashcat/api/*` 与 `/cashcat/reports/*`
+  仍由独立 CashCat 服务提供，历史数据没有删除；兼容端口 API 继续可用；
 - 当前生产应用版本与 release 以 `/api/meta` 及部署证据回读为准；
 - `0.14.7` 的 `/pair-alpha/` 跨代 Alpha 雷达已部署；公网读回覆盖 V1/V2、单币详情、
   动作分流与服务器自治更新，当前完整目录、行情与持币覆盖仍按来源状态分别标注；
@@ -433,7 +434,7 @@ PAIR 日交易量 10% 告警的首次真实投递、去重队列、23 项合同�
 | `PAIR_DAILY_VOLUME_FEISHU_WEBHOOK_URL` | 依次回退到 PAIR V2、DEV 监控 Webhook | PAIR 日交易量告警专用 Webhook；只保存在服务器环境文件中 |
 | `PAIR_DAILY_VOLUME_ALERT_THRESHOLD_PCT` | `10` | 最近两个完整 UTC 日的交易量涨跌绝对值达到该百分比时告警 |
 | `PAIR_DAILY_VOLUME_ALERT_RETRY_SECONDS` | `300` | 失败 outbox 的后台重试检查间隔；单条最多尝试 5 次并指数退避 |
-| `PAIR_DAILY_VOLUME_ALERT_DETAIL_URL` | `https://47.251.99.37/market/` | 飞书消息中的只读看板入口，只接受无凭据 HTTPS URL |
+| `PAIR_DAILY_VOLUME_ALERT_DETAIL_URL` | `https://47.251.99.37/launchpads/?view=platforms` | 飞书消息中的只读看板入口，只接受无凭据 HTTPS URL |
 | `DEV_MONITOR_ENABLED` | `false` | 启用服务端 DEV 发行与买入监听；生产 unit 显式设为 `true` |
 | `DEV_MONITOR_RPC_URL` | Robinhood Chain 官方 RPC | DEV 雷达只读日志、交易与 receipt 来源；可由 `PAIR_V2_RPC_URL` 兜底 |
 | `DEV_MONITOR_POLL_SECONDS` | `8` | 确认后链上发行与重点地址买入轮询间隔 |

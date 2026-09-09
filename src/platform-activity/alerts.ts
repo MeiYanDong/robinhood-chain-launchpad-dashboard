@@ -19,7 +19,7 @@ export const DEFAULT_PAIR_DAILY_VOLUME_ALERT_SETTINGS: PairDailyVolumeAlertSetti
   requestTimeoutMs: 20_000,
   retrySeconds: 300,
   feishuWebhookUrl: null,
-  detailUrl: "https://47.251.99.37/market/",
+  detailUrl: "https://47.251.99.37/launchpads/?view=platforms",
 };
 
 export interface PlatformVolumeAlert {
