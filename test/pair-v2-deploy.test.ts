@@ -26,6 +26,8 @@ test("PAIR V2 runs autonomous chain and market monitors inside the server servic
   assert.match(server, /pairV2\.stop\(\)/);
   assert.match(server, /devMonitor\.start\(\)/);
   assert.match(server, /devMonitor\.stop\(\)/);
+  assert.match(server, /new KeyedRequestPool<FetchedJson>\(4\)/);
+  assert.match(server, /pairTokenPageRequests\.run\(url/);
 });
 
 test("PAIR V2 public route is read-only except for the rate-limited refresh endpoint", async () => {
