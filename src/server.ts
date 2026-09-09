@@ -27,6 +27,10 @@ import { PairV2Collector } from "./pair-v2/collector.js";
 import { pairV2SettingsFromEnv } from "./pair-v2/config.js";
 import { PairV2Database } from "./pair-v2/database.js";
 import { PairV2Service } from "./pair-v2/service.js";
+import {
+  PairDailyVolumeAlertService,
+  pairDailyVolumeAlertSettingsFromEnv,
+} from "./platform-activity/alerts.js";
 import { ProductService } from "./product/service.js";
 import { DashboardService } from "./services/dashboard.js";
 import { DashboardDatabase } from "./storage/database.js";
@@ -47,7 +51,14 @@ if (!Number.isFinite(cacheTtlMinutes) || cacheTtlMinutes < 1) {
 }
 
 const database = new DashboardDatabase(databasePath);
-const dashboard = new DashboardService(database, cacheTtlMinutes);
+const pairDailyVolumeAlertSettings = pairDailyVolumeAlertSettingsFromEnv();
+const pairDailyVolumeAlerts = new PairDailyVolumeAlertService(
+  database,
+  pairDailyVolumeAlertSettings,
+);
+const dashboard = new DashboardService(database, cacheTtlMinutes, {
+  afterRefresh: (targetDate) => pairDailyVolumeAlerts.evaluate(targetDate).then(() => undefined),
+});
 const pairSettings = pairTokenSettingsFromEnv();
 const pairDatabase = new PairTokenDatabase(databasePath);
 const pairCollector = new PairTokenCollector(pairSettings);
@@ -102,6 +113,7 @@ const server = createServer(
     economics,
     intelligence,
     product,
+    pairDailyVolumeAlerts,
     publicDirectory,
   }),
 );
@@ -115,6 +127,7 @@ server.listen(port, host, () => {
 // explicit 503 responses remain available while each source warms in the
 // background after a cold start.
 pairV2.start();
+pairDailyVolumeAlerts.start();
 void warmInitialData();
 
 async function warmInitialData(): Promise<void> {
@@ -133,6 +146,9 @@ async function warmInitialData(): Promise<void> {
   await refresh("pair_v2", () => pairV2.ensureFresh());
   devMonitor.start();
   await refresh("dashboard", () => dashboard.ensureFresh());
+  await refresh("pair_daily_volume_alert", () =>
+    pairDailyVolumeAlerts.evaluate(dashboard.health().targetDate),
+  );
   await refresh("pair", () => pair.ensureFresh());
   await refresh("long", () => long.ensureFresh());
   await refresh("economics", () => economics.ensureFresh());
@@ -145,6 +161,7 @@ function shutdown(signal: string): void {
   console.log(`Received ${signal}; shutting down.`);
   pairV2.stop();
   devMonitor.stop();
+  pairDailyVolumeAlerts.stop();
   server.close(() => {
     database.close();
     pairDatabase.close();

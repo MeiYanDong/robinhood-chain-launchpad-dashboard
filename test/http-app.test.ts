@@ -13,6 +13,7 @@ import {
   type IntelligenceHttpApi,
   type LongTokenHttpApi,
   type PairFlowHttpApi,
+  type PlatformVolumeAlertHttpApi,
   type PairTokenHttpApi,
   type PairV2HttpApi,
   type ProductHttpApi,
@@ -238,6 +239,20 @@ function fakeProduct(overrides: Partial<ProductHttpApi> = {}): ProductHttpApi {
   };
 }
 
+function fakePlatformVolumeAlert(
+  overrides: Partial<PlatformVolumeAlertHttpApi> = {},
+): PlatformVolumeAlertHttpApi {
+  return {
+    health: () => ({
+      ok: true,
+      service: "rhc-pair-daily-volume-alert",
+      configured: true,
+      thresholdPct: 10,
+    }),
+    ...overrides,
+  };
+}
+
 async function withServer(
   run: (context: TestContext) => Promise<void>,
   dashboard = fakeDashboard(),
@@ -249,6 +264,7 @@ async function withServer(
   pairV2?: PairV2HttpApi,
   devMonitor?: DevMonitorHttpApi,
   product?: ProductHttpApi,
+  pairDailyVolumeAlerts?: PlatformVolumeAlertHttpApi,
 ): Promise<void> {
   const publicDirectory = mkdtempSync(join(tmpdir(), "rhc-http-"));
   writeFileSync(join(publicDirectory, "index.html"), "<h1>ledger</h1>");
@@ -266,6 +282,7 @@ async function withServer(
       ...(pairV2 ? { pairV2 } : {}),
       ...(devMonitor ? { devMonitor } : {}),
       ...(product ? { product } : {}),
+      ...(pairDailyVolumeAlerts ? { pairDailyVolumeAlerts } : {}),
       publicDirectory,
       logger: {
         error(event, context) {
@@ -486,6 +503,36 @@ test("HTTP API routes return their business results", async () => {
     assert.deepEqual(await (await fetch(`${baseUrl}/api/refresh`, { method: "POST" })).json(), {
       route: "refresh",
     });
+  });
+});
+
+test("platform activity alert health exposes configuration without its webhook", async () => {
+  await withServer(
+    async ({ baseUrl }) => {
+      const response = await fetch(`${baseUrl}/api/platform-activity/alerts/health`);
+      assert.equal(response.status, 200);
+      const body = (await response.json()) as Record<string, unknown>;
+      assert.equal(body.service, "rhc-pair-daily-volume-alert");
+      assert.equal(body.configured, true);
+      assert.equal(body.thresholdPct, 10);
+      assert.equal("feishuWebhookUrl" in body, false);
+    },
+    fakeDashboard(),
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    fakePlatformVolumeAlert(),
+  );
+
+  await withServer(async ({ baseUrl }) => {
+    const response = await fetch(`${baseUrl}/api/platform-activity/alerts/health`);
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).code, "PLATFORM_VOLUME_ALERT_UNAVAILABLE");
   });
 });
 

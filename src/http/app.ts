@@ -85,6 +85,10 @@ export interface ProductHttpApi {
   refresh(): Promise<unknown>;
 }
 
+export interface PlatformVolumeAlertHttpApi {
+  health(): { ok: boolean };
+}
+
 export interface SafeLogger {
   error(event: string, context: Record<string, unknown>): void;
 }
@@ -99,6 +103,7 @@ export interface DashboardRequestHandlerOptions {
   economics?: EconomicsHttpApi;
   intelligence?: IntelligenceHttpApi;
   product?: ProductHttpApi;
+  pairDailyVolumeAlerts?: PlatformVolumeAlertHttpApi;
   publicDirectory: string;
   logger?: SafeLogger;
 }
@@ -664,6 +669,21 @@ export function createDashboardRequestHandler(
           return;
         }
         sendJson(response, 200, options.dashboard.overview(windowDays));
+        return;
+      }
+
+      if (request.method === "GET" && pathname === "/api/platform-activity/alerts/health") {
+        if (!options.pairDailyVolumeAlerts) {
+          sendError(
+            response,
+            503,
+            "PLATFORM_VOLUME_ALERT_UNAVAILABLE",
+            "Platform volume alert unavailable",
+          );
+          return;
+        }
+        const health = options.pairDailyVolumeAlerts.health();
+        sendJson(response, health.ok ? 200 : 503, health);
         return;
       }
 

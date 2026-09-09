@@ -8,6 +8,7 @@ export const QUERY_CACHE_PATHS = [
   "/api/meta",
   "/api/overview?window=30",
   "/api/platform-activity",
+  "/api/platform-activity/alerts/health",
   "/api/intelligence/health",
   "/api/intelligence",
   "/api/product/health",

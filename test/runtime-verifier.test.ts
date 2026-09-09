@@ -9,7 +9,7 @@ function jsonResponse(payload: unknown, status = 200): Response {
   });
 }
 
-test("runtime verification performs only the twenty-two documented GET checks", async () => {
+test("runtime verification performs only the twenty-three documented GET checks", async () => {
   const requests: Array<{ url: string; method: string; redirect: RequestRedirect }> = [];
   const responses: Record<string, unknown> = {
     "/healthz": { ok: true, service: "rhc-launch-ledger", targetDate: "2026-08-29" },
@@ -24,6 +24,18 @@ test("runtime verification performs only the twenty-two documented GET checks", 
         activity: { "7d": {}, "30d": {} },
         volumes: { "7d": {}, "30d": {}, lifetime: {} },
       })),
+    },
+    "/api/platform-activity/alerts/health": {
+      ok: true,
+      service: "rhc-pair-daily-volume-alert",
+      configured: true,
+      platformId: "pair",
+      metric: "volume_usd",
+      comparison: "last_two_complete_utc_days",
+      thresholdPct: 10,
+      pending: 0,
+      failed: 0,
+      lastSentAt: null,
     },
     "/api/sources": { sources: [{ source: "fixture", status: "ok" }] },
     "/api/pair/health": { ok: true, service: "rhc-pair-token-radar" },
@@ -183,6 +195,11 @@ test("runtime verification performs only the twenty-two documented GET checks", 
     { url: "/healthz", method: "GET", redirect: "error" },
     { url: "/api/overview?window=30", method: "GET", redirect: "error" },
     { url: "/api/platform-activity", method: "GET", redirect: "error" },
+    {
+      url: "/api/platform-activity/alerts/health",
+      method: "GET",
+      redirect: "error",
+    },
     { url: "/api/sources", method: "GET", redirect: "error" },
     { url: "/api/pair/health", method: "GET", redirect: "error" },
     { url: "/api/pair/rankings", method: "GET", redirect: "error" },
@@ -213,19 +230,20 @@ test("runtime verification performs only the twenty-two documented GET checks", 
   ]);
   assert.equal(result.checks[1]?.itemCount, 1);
   assert.equal(result.checks[2]?.itemCount, 3);
-  assert.equal(result.checks[5]?.itemCount, 11);
-  assert.equal(result.checks[6]?.itemCount, 1);
-  assert.equal(result.checks[8]?.itemCount, 1);
-  assert.equal(result.checks[9]?.itemCount, 4);
-  assert.equal(result.checks[10]?.itemCount, 1);
-  assert.equal(result.checks[11]?.itemCount, 2);
-  assert.equal(result.checks[13]?.itemCount, 8);
-  assert.equal(result.checks[15]?.itemCount, 3);
-  assert.equal(result.checks[16]?.itemCount, 5);
-  assert.equal(result.checks[17]?.itemCount, 1);
-  assert.equal(result.checks[19]?.itemCount, 1);
-  assert.equal(result.checks[21]?.targetDate, "2026-08-29");
-  assert.equal(result.checks[21]?.itemCount, 2);
+  assert.equal(result.checks[3]?.itemCount, 0);
+  assert.equal(result.checks[6]?.itemCount, 11);
+  assert.equal(result.checks[7]?.itemCount, 1);
+  assert.equal(result.checks[9]?.itemCount, 1);
+  assert.equal(result.checks[10]?.itemCount, 4);
+  assert.equal(result.checks[11]?.itemCount, 1);
+  assert.equal(result.checks[12]?.itemCount, 2);
+  assert.equal(result.checks[14]?.itemCount, 8);
+  assert.equal(result.checks[16]?.itemCount, 3);
+  assert.equal(result.checks[17]?.itemCount, 5);
+  assert.equal(result.checks[18]?.itemCount, 1);
+  assert.equal(result.checks[20]?.itemCount, 1);
+  assert.equal(result.checks[22]?.targetDate, "2026-08-29");
+  assert.equal(result.checks[22]?.itemCount, 2);
 });
 
 test("runtime verification fails closed on readiness and response contract errors", async () => {

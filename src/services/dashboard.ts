@@ -31,6 +31,7 @@ export interface DashboardServiceDependencies {
   collect?: (targetDate: string) => Promise<CollectionBatch>;
   now?: () => Date;
   warn?: (event: string, context: Record<string, unknown>) => void;
+  afterRefresh?: (targetDate: string) => Promise<void>;
 }
 
 function errorName(error: unknown): string {
@@ -77,6 +78,7 @@ export class DashboardService {
   private readonly collect: (targetDate: string) => Promise<CollectionBatch>;
   private readonly now: () => Date;
   private readonly warn: (event: string, context: Record<string, unknown>) => void;
+  private readonly afterRefresh: (targetDate: string) => Promise<void>;
 
   constructor(
     private readonly database: DashboardDatabase,
@@ -86,6 +88,7 @@ export class DashboardService {
     this.collect = dependencies.collect ?? collectAll;
     this.now = dependencies.now ?? (() => new Date());
     this.warn = dependencies.warn ?? ((event, context) => console.warn(event, context));
+    this.afterRefresh = dependencies.afterRefresh ?? (async () => undefined);
     this.database.seedPlatforms(PLATFORM_REGISTRY);
   }
 
@@ -130,6 +133,11 @@ export class DashboardService {
         ? "partial"
         : "success";
       this.database.completeRun(runId, status, batch.warnings, null, this.now().toISOString());
+      try {
+        await this.afterRefresh(targetDate);
+      } catch (error) {
+        this.warn("dashboard_post_refresh_failed", { errorName: errorName(error) });
+      }
       return {
         targetDate,
         status,
