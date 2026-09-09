@@ -1,5 +1,6 @@
 export interface PairTokenSettings {
   apiBaseUrl: string;
+  apiTimeoutMs: number;
   pageLimit: number;
   maxPages: number;
   pageConcurrency: number;
@@ -16,7 +17,8 @@ export interface PairTokenSettings {
 
 export const DEFAULT_PAIR_TOKEN_SETTINGS: PairTokenSettings = {
   apiBaseUrl: "https://pair.fund/api",
-  pageLimit: 50,
+  apiTimeoutMs: 10_000,
+  pageLimit: 100,
   maxPages: 100,
   pageConcurrency: 4,
   marketCapFloorUsd: 10_000,
@@ -46,6 +48,11 @@ function positiveInteger(value: string | undefined, fallback: number, name: stri
 export function pairTokenSettingsFromEnv(env: NodeJS.ProcessEnv = process.env): PairTokenSettings {
   const settings: PairTokenSettings = {
     ...DEFAULT_PAIR_TOKEN_SETTINGS,
+    apiTimeoutMs: positiveInteger(
+      env.PAIR_API_TIMEOUT_MS,
+      DEFAULT_PAIR_TOKEN_SETTINGS.apiTimeoutMs,
+      "PAIR_API_TIMEOUT_MS",
+    ),
     marketCapFloorUsd: positiveNumber(
       env.PAIR_ACTIVE_MCAP_FLOOR_USD,
       DEFAULT_PAIR_TOKEN_SETTINGS.marketCapFloorUsd,

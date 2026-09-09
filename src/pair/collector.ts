@@ -282,7 +282,9 @@ export class PairTokenCollector {
     private readonly settings: PairTokenSettings,
     dependencies: PairCollectorDependencies = {},
   ) {
-    this.fetchPage = dependencies.fetchPage ?? ((url) => fetchJson(url, { retries: 1 }));
+    this.fetchPage =
+      dependencies.fetchPage ??
+      ((url) => fetchJson(url, { retries: 1, timeoutMs: this.settings.apiTimeoutMs }));
     this.fetchHolder =
       dependencies.fetchHolder ?? ((address) => defaultHolderFetcher(this.settings, address));
     this.now = dependencies.now ?? (() => new Date());

@@ -46,6 +46,7 @@ test("PAIR production config pins the holder CLI and keeps report generation pri
     applicationService,
     /PAIR_GMGN_BIN=\/opt\/robinhood-chain-launchpad\/current\/node_modules\/\.bin\/gmgn-cli/,
   );
+  assert.match(applicationService, /PAIR_API_TIMEOUT_MS=10000/);
   assert.match(applicationService, /PAIR_GMGN_TIMEOUT_MS=8000/);
   assert.match(applicationService, /EnvironmentFile=\/etc\/robinhood-chain-launchpad\.env/);
   assert.match(nginx, /location = \/api\/pair\/refresh[\s\S]*limit_req/);
