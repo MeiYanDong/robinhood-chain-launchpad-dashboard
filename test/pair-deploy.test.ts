@@ -16,6 +16,10 @@ test("PAIR deployment schedules live snapshots and daily reports on separate tim
 
   assert.match(refreshTimer, /OnCalendar=\*-\*-\* \*:00,15,30,45:00 UTC/);
   assert.match(refreshService, /POST http:\/\/127\.0\.0\.1:4176\/api\/pair\/refresh/);
+  assert.match(refreshService, /Restart=on-failure/);
+  assert.match(refreshService, /RestartSec=120/);
+  assert.match(refreshService, /StartLimitIntervalSec=900/);
+  assert.match(refreshService, /StartLimitBurst=3/);
   assert.match(dailyTimer, /OnCalendar=\*-\*-\* 00:10:00 UTC/);
   assert.match(dailyService, /POST http:\/\/127\.0\.0\.1:4176\/api\/pair\/reports\/generate/);
   assert.match(dailyService, /Restart=on-failure/);
