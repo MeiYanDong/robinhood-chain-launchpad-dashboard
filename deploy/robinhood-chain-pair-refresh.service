@@ -3,6 +3,8 @@ Description=Refresh Robinhood Chain PAIR token rankings
 After=network-online.target robinhood-chain-launchpad.service
 Wants=network-online.target
 Requires=robinhood-chain-launchpad.service
+StartLimitIntervalSec=900
+StartLimitBurst=3
 
 [Service]
 Type=oneshot
@@ -10,6 +12,8 @@ User=robinhood-launchpad
 Group=robinhood-launchpad
 ExecStart=/usr/bin/curl --fail-with-body --silent --show-error --connect-timeout 5 --max-time 180 --request POST http://127.0.0.1:4176/api/pair/refresh
 TimeoutStartSec=200
+Restart=on-failure
+RestartSec=120
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
