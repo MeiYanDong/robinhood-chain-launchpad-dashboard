@@ -772,6 +772,18 @@ test("unified product workbench exposes safe reads and serves the new task route
   });
 });
 
+test("legacy forwarded prefixes keep their deep workbenches after nginx rewrites the path", async () => {
+  await withServer(async ({ baseUrl }) => {
+    for (const prefix of ["/leaders", "/launchpads", "/pair-alpha", "/pair-v2", "/pair-flow"]) {
+      const response = await fetch(baseUrl, {
+        headers: { "x-forwarded-prefix": prefix },
+      });
+      assert.equal(response.status, 200);
+      assert.equal(await response.text(), "<h1>ledger</h1>");
+    }
+  });
+});
+
 test("HTTP API rejects invalid inputs with stable error codes", async () => {
   await withServer(async ({ baseUrl, port }) => {
     const invalidWindow = await fetch(`${baseUrl}/api/overview?window=2`);
