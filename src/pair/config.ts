@@ -27,7 +27,7 @@ export const DEFAULT_PAIR_TOKEN_SETTINGS: PairTokenSettings = {
   holderTtlMinutes: 60,
   holderMaxStaleMinutes: 150,
   gmgnBinary: "gmgn-cli",
-  gmgnTimeoutMs: 20_000,
+  gmgnTimeoutMs: 8_000,
 };
 
 function positiveNumber(value: string | undefined, fallback: number, name: string): number {

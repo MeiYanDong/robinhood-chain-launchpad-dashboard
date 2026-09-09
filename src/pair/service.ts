@@ -22,6 +22,18 @@ function errorName(error: unknown): string {
   return error instanceof Error ? error.name : "UnknownError";
 }
 
+function errorDiagnostic(error: unknown): string {
+  const message = error instanceof Error ? error.message : "";
+  if (/Failed to fetch/i.test(message)) return "pair_upstream_fetch_failed";
+  if (/pagination changed/i.test(message)) return "pair_pagination_changed";
+  if (/duplicate address/i.test(message)) return "pair_duplicate_address";
+  if (/incomplete universe/i.test(message)) return "pair_incomplete_universe";
+  if (/no token records/i.test(message)) return "pair_empty_universe";
+  if (/SQLITE_BUSY|database is locked/i.test(message)) return "pair_database_busy";
+  if (/SQLITE_FULL|database or disk is full/i.test(message)) return "pair_database_full";
+  return `${errorName(error)}_unclassified`;
+}
+
 function publicSource(source: PairSourceHealth): PairPublicSourceHealth {
   const sourceLabel = source.source === "gmgn.tokenInfo" ? "GMGN 持币地址" : "PAIR 官方 API";
   const statusMessage = {
@@ -86,7 +98,7 @@ export class PairTokenService {
       await this.refresh();
     } catch (error) {
       if (!latest) throw error;
-      this.warn("pair_refresh_failed_using_cache", { errorName: errorName(error) });
+      this.warn("pair_refresh_failed_using_cache", { reason: errorDiagnostic(error) });
     }
   }
 
@@ -127,7 +139,7 @@ export class PairTokenService {
         warnings: status === "partial" ? ["部分 PAIR 代币数据暂不可用。"] : ([] as string[]),
       };
     } catch (error) {
-      this.database.completeRun(runId, "failed", null, errorName(error));
+      this.database.completeRun(runId, "failed", null, errorDiagnostic(error));
       throw error;
     }
   }
@@ -275,6 +287,7 @@ export class PairTokenService {
       service: "rhc-pair-token-radar",
       observedAt: usableRun?.observedAt ?? null,
       latestRunStatus: latestRun?.status ?? "empty",
+      latestRunError: latestRun?.status === "failed" ? latestRun.error : null,
       stale,
       generatedAt: this.now().toISOString(),
     };

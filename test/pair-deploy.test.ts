@@ -15,9 +15,11 @@ test("PAIR deployment schedules live snapshots and daily reports on separate tim
   ]);
 
   assert.match(refreshTimer, /OnCalendar=\*-\*-\* \*:00,15,30,45:00 UTC/);
-  assert.match(refreshService, /POST http:\/\/127\.0\.0\.1:4175\/api\/pair\/refresh/);
+  assert.match(refreshService, /POST http:\/\/127\.0\.0\.1:4176\/api\/pair\/refresh/);
   assert.match(dailyTimer, /OnCalendar=\*-\*-\* 00:10:00 UTC/);
-  assert.match(dailyService, /POST http:\/\/127\.0\.0\.1:4175\/api\/pair\/reports\/generate/);
+  assert.match(dailyService, /POST http:\/\/127\.0\.0\.1:4176\/api\/pair\/reports\/generate/);
+  assert.match(dailyService, /Restart=on-failure/);
+  assert.match(dailyService, /RestartSec=120/);
 });
 
 test("PAIR capital-flow ledger refreshes in the background every five minutes", async () => {
@@ -44,6 +46,7 @@ test("PAIR production config pins the holder CLI and keeps report generation pri
     applicationService,
     /PAIR_GMGN_BIN=\/opt\/robinhood-chain-launchpad\/current\/node_modules\/\.bin\/gmgn-cli/,
   );
+  assert.match(applicationService, /PAIR_GMGN_TIMEOUT_MS=8000/);
   assert.match(applicationService, /EnvironmentFile=\/etc\/robinhood-chain-launchpad\.env/);
   assert.match(nginx, /location = \/api\/pair\/refresh[\s\S]*limit_req/);
   assert.match(nginx, /location = \/api\/pair\/reports\/generate \{\s*return 403;/);
