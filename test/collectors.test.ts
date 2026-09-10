@@ -4,7 +4,9 @@ import { extractBankrMetrics } from "../src/collectors/bankr.js";
 import {
   extractLongAssetAddresses,
   extractLongHourRows,
+  LONG_SESSION_PROFILES,
   summarizeLongDaily,
+  tryLongSessionProfiles,
 } from "../src/collectors/long.js";
 import {
   LETSCASH_DAILY_SOURCE,
@@ -216,6 +218,19 @@ test("Long closed-day volume only includes assets attributed to the Long integra
   assert.equal(summary.swapCount, 5);
   assert.equal(summary.activeTokenCount, 2);
   assert.equal(summary.hourlyRowCount, 2);
+});
+
+test("Long GraphQL collection falls back when one browser profile is challenged", async () => {
+  const attempts: string[] = [];
+  const result = await tryLongSessionProfiles(async (profile) => {
+    attempts.push(`${profile.browser}/${profile.os}`);
+    if (attempts.length === 1) throw new Error("403 Cloudflare challenge");
+    return "available";
+  });
+
+  assert.equal(result, "available");
+  assert.deepEqual(attempts, ["firefox_151/linux", "safari_18/macos"]);
+  assert.equal(LONG_SESSION_PROFILES.length, 3);
 });
 
 test("Pons official analytics publishes closed-day volume without inheriting fee scope", () => {
