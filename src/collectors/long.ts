@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { withSession, type Session } from "wreq-js";
+import { withSession, type CreateSessionOptions, type Session } from "wreq-js";
 import { findRegisteredPlatform, metricPolicyFor } from "../config/platforms.js";
 import { assessDailyMetrics } from "../domain/data-quality.js";
 import type {
@@ -18,12 +18,47 @@ export const LONG_INTEGRATOR_ADDRESS = "0x92d435c96e63c43e12d6d0ab28f6b0b04072f7
 export const LONG_DAILY_SOURCE = "long.officialGraphql.hourlyVolume";
 export const LONG_ROLLING_SOURCE = "long.officialGraphql.rollingPools";
 
+export const LONG_SESSION_PROFILES = [
+  { browser: "firefox_151", os: "linux" },
+  { browser: "safari_18", os: "macos" },
+  { browser: "chrome_149", os: "windows" },
+] as const satisfies readonly Pick<CreateSessionOptions, "browser" | "os">[];
+
+export type LongSessionProfile = (typeof LONG_SESSION_PROFILES)[number];
+
 const ROBINHOOD_CHAIN_ID = 4663;
 const PAGE_SIZE = 1_000;
 const MAX_PAGES = 100;
 const ASSET_CHUNK_SIZE = 400;
 const USD_SCALE = 10n ** 18n;
 export const LONG_HISTORY_MAX_DAYS_PER_REQUEST = 7;
+
+export async function tryLongSessionProfiles<T>(
+  attempt: (profile: LongSessionProfile) => Promise<T>,
+): Promise<T> {
+  const failures: string[] = [];
+  for (const profile of LONG_SESSION_PROFILES) {
+    try {
+      return await attempt(profile);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      failures.push(`${profile.browser}/${profile.os}: ${message}`);
+    }
+  }
+  throw new Error(`Long GraphQL browser profiles exhausted: ${failures.join(" | ")}`);
+}
+
+async function withLongSession<T>(
+  callback: (session: Session) => Promise<T>,
+  options: Pick<CreateSessionOptions, "timeout">,
+): Promise<T> {
+  return tryLongSessionProfiles((profile) =>
+    withSession(callback, {
+      ...profile,
+      ...options,
+    }),
+  );
+}
 
 export interface LongHourRow {
   poolId: string;
@@ -344,7 +379,7 @@ export async function collectLong(targetDate: string): Promise<CollectionBatch> 
   const started = performance.now();
 
   try {
-    return await withSession(
+    return await withLongSession(
       async (session) => {
         const { startHour, endHour } = dateHourBounds(targetDate);
         const allHourRows = await fetchAllHourRows(session, startHour, endHour);
@@ -430,11 +465,7 @@ export async function collectLong(targetDate: string): Promise<CollectionBatch> 
           warnings,
         };
       },
-      {
-        browser: "chrome",
-        os: "macos",
-        timeout: 30_000,
-      },
+      { timeout: 30_000 },
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -461,7 +492,7 @@ export async function collectLongHistory(
   const started = performance.now();
 
   try {
-    return await withSession(
+    return await withLongSession(
       async (session) => {
         const startHour = dateHourBounds(startDate).startHour;
         const endHour = dateHourBounds(endDate).endHour;
@@ -522,11 +553,7 @@ export async function collectLongHistory(
           warnings: [],
         };
       },
-      {
-        browser: "chrome",
-        os: "macos",
-        timeout: 30_000,
-      },
+      { timeout: 30_000 },
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
