@@ -27,6 +27,8 @@
 - 三种官方访问路径全部失败时仍明确降级；没有使用滚动 24H、代币榜单或第三方估算回填平台完整日。
 - 验收时另发现 Long 代币榜单的 15 分钟 systemd 任务仍经只读 query 网关转发并返回 `503`；
   该内部写任务已改为直连只监听本机的 collector `127.0.0.1:4176`。它不改变公网写权限。
+  改为直连后首次运行仍因榜单模块自己的上游失败而失败；该独立模块继续明确降级，不能把它写成
+  已恢复，也不能拿其活跃代币样本代替本次已经恢复的 Long 平台完整日交易量。
 - 发布 release：`/opt/robinhood-chain-launchpad/releases/20260910T075229Z-8455176`。
 - 直接回滚 release：`/opt/robinhood-chain-launchpad/releases/20260909T083109Z-c24eba4`。
 
@@ -48,7 +50,7 @@
   `/api/platform-activity`、`/api/economics`、`/api/economics/valuation` 的目标日均为
   `2026-09-09`。
 - collector 与 query 均为 `active/running`、`NRestarts=0`；七条 launchpad 相关定时器恢复为
-  `active`，Long 代币榜单任务通过一次真实直连刷新。PAIR 日交易量告警仍为
+  `active`。PAIR 日交易量告警仍为
   `configured=true`、阈值 `10%`、`pending=0`、
   `failed=0`。
 
