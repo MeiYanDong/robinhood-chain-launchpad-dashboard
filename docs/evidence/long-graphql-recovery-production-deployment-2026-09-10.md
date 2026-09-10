@@ -27,8 +27,9 @@
 - 三种官方访问路径全部失败时仍明确降级；没有使用滚动 24H、代币榜单或第三方估算回填平台完整日。
 - 验收时另发现 Long 代币榜单的 15 分钟 systemd 任务仍经只读 query 网关转发并返回 `503`；
   该内部写任务已改为直连只监听本机的 collector `127.0.0.1:4176`。它不改变公网写权限。
-  改为直连后首次运行仍因榜单模块自己的上游失败而失败；该独立模块继续明确降级，不能把它写成
-  已恢复，也不能拿其活跃代币样本代替本次已经恢复的 Long 平台完整日交易量。
+  主机重启后、依赖尚未稳定的第一轮直连刷新失败；随后同一条 systemd 任务在
+  `2026-09-10T08:42:23.195Z` 成功刷新，健康状态恢复为 `latestRunStatus=success`。其活跃
+  代币样本仍不用于代替本次恢复的 Long 平台完整日交易量。
 - 发布 release：`/opt/robinhood-chain-launchpad/releases/20260910T075229Z-8455176`。
 - 直接回滚 release：`/opt/robinhood-chain-launchpad/releases/20260909T083109Z-c24eba4`。
 
@@ -39,20 +40,23 @@
   Long 资产，由发布后生产强制刷新取得。
 - Long 两个官方来源的最新健康状态均为 `ok`；小时交易量最新数据日为 `2026-09-09`。
 - `/api/economics` 与 `/api/economics/health` 的目标日均推进到 `2026-09-09`；
-  `platformDataComplete=true`、`valuationReady=true`。整体状态仍可因其它代币或链上辅助来源
-  暂不可用而显示 `partial`，不能把它误解成 Long 仍缺失。
+  最终回读为 `status=success`、`platformDataComplete=true`、`valuationReady=true`。
 
 ## 验证
 
 - 本地 `npm run verify`：格式、lint、类型、构建、覆盖率门槛与 `310/310` 测试全部通过。
 - GitHub `verify`、`chain-daily`、`cashcat` 三条 CI 全部通过后合并。
-- 公网 `verify:runtime` 在 `2026-09-10T08:02:27.643Z` 通过 `23/23` 个只读运行合同；
+- 最终配置下发前，主机管理代理与 HTTP 服务停止响应；明确实例执行了一次正常重启，没有使用
+  强制关机。实例于 `2026-09-10T08:33Z` 恢复 `Running/Normal`，数据库补采记录与 release
+  均原位保留。
+- 公网 `verify:runtime` 在重启后于 `2026-09-10T08:38:02.988Z` 通过 `23/23` 个只读运行合同；
   `/api/platform-activity`、`/api/economics`、`/api/economics/valuation` 的目标日均为
   `2026-09-09`。
 - collector 与 query 均为 `active/running`、`NRestarts=0`；七条 launchpad 相关定时器恢复为
-  `active`。PAIR 日交易量告警仍为
+  `active`，Long 代币榜单任务完成一次真实直连刷新。PAIR 日交易量告警仍为
   `configured=true`、阈值 `10%`、`pending=0`、
-  `failed=0`。
+  `failed=0`。阿里云助手已恢复心跳；其安装脚本留下的一次性 `cloud-final` 失败状态在核验代理
+  正常后已清除，最终没有 failed systemd unit。
 
 本次没有修改数据库结构、删除历史记录或用零填充缺失日。生产数据库继续原位保留，代码回滚点
 也仍可用。
