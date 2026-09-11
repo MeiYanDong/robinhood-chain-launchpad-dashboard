@@ -844,13 +844,14 @@ function platformTokenValuation(economics: EconomicsResponse | null): PlatformTo
   const valuation = economics?.pairRelativeValuation;
   if (!valuation) {
     return {
-      modelVersion: "pons-latest-day-volume-parity-v2",
+      modelVersion: "pons-dual-window-parity-v3",
       state: "unavailable",
       pairActualPriceUsd: null,
-      pairImpliedPriceUsd: null,
-      rangeLowUsd: null,
-      rangeHighUsd: null,
-      actualDeviationPercent: null,
+      pairSevenDayReferenceUsd: null,
+      pairLatestDayReferenceUsd: null,
+      actualVsSevenDayPercent: null,
+      actualVsLatestDayPercent: null,
+      latestDayVsSevenDayPercent: null,
       confidence: "unavailable",
       observedAt: null,
       reason: "PAIR/PONS 平台币相对估值尚未生成。",
@@ -860,15 +861,16 @@ function platformTokenValuation(economics: EconomicsResponse | null): PlatformTo
     modelVersion: valuation.modelVersion,
     state: valuation.state,
     pairActualPriceUsd: valuation.actualPriceUsd,
-    pairImpliedPriceUsd: valuation.estimateUsd,
-    rangeLowUsd: valuation.rangeLowUsd,
-    rangeHighUsd: valuation.rangeHighUsd,
-    actualDeviationPercent: valuation.actualDeviationPercent,
+    pairSevenDayReferenceUsd: valuation.sevenDayReferenceUsd,
+    pairLatestDayReferenceUsd: valuation.latestDayReferenceUsd,
+    actualVsSevenDayPercent: valuation.actualVsSevenDayPercent,
+    actualVsLatestDayPercent: valuation.actualVsLatestDayPercent,
+    latestDayVsSevenDayPercent: valuation.latestDayVsSevenDayPercent,
     confidence: valuation.confidence,
     observedAt: valuation.observedAt,
     reason:
       valuation.reasons.map((reason) => reason.message).join("；") ||
-      "按最新共同完整 UTC 日的平台成交量与有效供应量相对 PONS 锚定；7 日值只作平滑对照。",
+      "七日结果用于判断常态，最新完整日结果只用于观察短期升温或降温；两者不加权合并。",
   };
 }
 

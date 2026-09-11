@@ -5,8 +5,30 @@ import type {
   TokenDailyCandle,
 } from "./types.js";
 
-function finite(value: number | null): value is number {
+function finite(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function sevenDayReference(point: PairRelativeValuationHistoryPoint): number | null {
+  if (finite(point.sevenDayReferenceUsd)) return point.sevenDayReferenceUsd;
+  if (
+    point.modelVersion === "pons-latest-day-volume-parity-v2" &&
+    finite(point.sevenDayEstimateUsd)
+  ) {
+    return point.sevenDayEstimateUsd;
+  }
+  if (point.modelVersion === "pons-volume-parity-v1" && finite(point.estimateUsd)) {
+    return point.estimateUsd;
+  }
+  return null;
+}
+
+function latestDayReference(point: PairRelativeValuationHistoryPoint): number | null {
+  if (finite(point.latestDayReferenceUsd)) return point.latestDayReferenceUsd;
+  if (point.modelVersion === "pons-latest-day-volume-parity-v2" && finite(point.estimateUsd)) {
+    return point.estimateUsd;
+  }
+  return null;
 }
 
 function ohlc(values: number[]): DailyOhlc | null {
@@ -43,9 +65,6 @@ export function aggregateValuationDaily(input: {
     const points = (pointsByDate.get(date) ?? []).sort((left, right) =>
       left.observedAt.localeCompare(right.observedAt),
     );
-    const latestWithRange = [...points]
-      .reverse()
-      .find((point) => finite(point.rangeLowUsd) && finite(point.rangeHighUsd));
     return {
       date,
       state: candlesByDate.get(date)?.state ?? (date === input.endDate ? "forming" : "closed"),
@@ -55,11 +74,12 @@ export function aggregateValuationDaily(input: {
           .map((point) => point.actualPriceUsd)
           .filter((value): value is number => finite(value)),
       ),
-      pairSpotAnchor: ohlc(
-        points.map((point) => point.estimateUsd).filter((value): value is number => finite(value)),
+      pairSevenDayReference: ohlc(
+        points.map(sevenDayReference).filter((value): value is number => finite(value)),
       ),
-      rangeLowUsd: latestWithRange?.rangeLowUsd ?? null,
-      rangeHighUsd: latestWithRange?.rangeHighUsd ?? null,
+      pairLatestDayReference: ohlc(
+        points.map(latestDayReference).filter((value): value is number => finite(value)),
+      ),
       sampleCount: points.length,
       lastObservedAt: points.at(-1)?.observedAt ?? candlesByDate.get(date)?.observedAt ?? null,
     };

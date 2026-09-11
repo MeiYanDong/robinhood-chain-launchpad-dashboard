@@ -66,14 +66,17 @@ function economics(): EconomicsResponse {
     ],
     pairRelativeValuation: {
       state: "available",
-      estimateUsd: 0.02,
+      sevenDayReferenceUsd: 0.02,
+      latestDayReferenceUsd: 0.02,
       actualPriceUsd: 0.018,
       inputs: {
         ponsPriceUsd: { value: 2 },
         ponsEffectiveSupply: { value: 1_000 },
         pairEffectiveSupply: { value: 1_000 },
-        ponsPlatformVolumeUsd: { value: 100 },
-        pairPlatformVolumeUsd: { value: 1 },
+        ponsSevenDayVolumeUsd: { value: 700 },
+        pairSevenDayVolumeUsd: { value: 7 },
+        ponsLatestDayVolumeUsd: { value: 100 },
+        pairLatestDayVolumeUsd: { value: 1 },
       },
     },
   } as unknown as EconomicsResponse;
@@ -141,8 +144,13 @@ test("PONS forecast uses independent matched regimes and produces a separate PAI
   assert.equal(result.positiveOutcomePercent, 100);
   assert.ok(
     Math.abs(
-      (result.pairAdjustedAnchor.adjustedPonsAnchorUsd ?? 0) - (result.midpointUsd ?? 0) * 0.01,
+      (result.pairAdjustedAnchor.sevenDay.adjustedPonsReferenceUsd ?? 0) -
+        (result.midpointUsd ?? 0) * 0.01,
     ) < 1e-12,
+  );
+  assert.equal(
+    result.pairAdjustedAnchor.latestDay.adjustedPonsReferenceUsd,
+    result.pairAdjustedAnchor.sevenDay.adjustedPonsReferenceUsd,
   );
   assert.equal(result.pairHolderObservation.holderCount, 10_100);
   assert.equal(result.pairHolderObservation.includedInPriceModel, false);

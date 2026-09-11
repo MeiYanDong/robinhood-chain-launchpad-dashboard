@@ -138,10 +138,11 @@ export interface PlatformTokenValuation {
   modelVersion: string;
   state: "available" | "unavailable";
   pairActualPriceUsd: number | null;
-  pairImpliedPriceUsd: number | null;
-  rangeLowUsd: number | null;
-  rangeHighUsd: number | null;
-  actualDeviationPercent: number | null;
+  pairSevenDayReferenceUsd: number | null;
+  pairLatestDayReferenceUsd: number | null;
+  actualVsSevenDayPercent: number | null;
+  actualVsLatestDayPercent: number | null;
+  latestDayVsSevenDayPercent: number | null;
   confidence: "high" | "medium" | "low" | "unavailable";
   observedAt: string | null;
   reason: string;
@@ -163,16 +164,22 @@ export interface PonsForecastDriver {
   asOf: string | null;
 }
 
-export interface PairAdjustedAnchor {
+export interface PairAdjustedProjection {
   state: "available" | "unavailable";
-  spotPonsAnchorUsd: number | null;
-  adjustedPonsAnchorUsd: number | null;
+  spotPonsReferenceUsd: number | null;
+  adjustedPonsReferenceUsd: number | null;
   rangeLowUsd: number | null;
   rangeHighUsd: number | null;
-  actualPriceUsd: number | null;
   actualDeviationPercent: number | null;
-  currentConversionFactor: number | null;
+  conversionFactor: number | null;
   formula: string;
+}
+
+export interface PairAdjustedAnchor {
+  state: "available" | "unavailable";
+  actualPriceUsd: number | null;
+  sevenDay: PairAdjustedProjection;
+  latestDay: PairAdjustedProjection;
 }
 
 export interface PairHolderObservation {

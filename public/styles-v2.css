@@ -659,7 +659,7 @@ main {
 
 .pons-forecast__metrics {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   border-bottom: 1px solid var(--line);
 }
 
@@ -700,7 +700,8 @@ main {
 
 #pons-forecast-chain,
 #pons-forecast-range,
-#pair-adjusted-range {
+#pair-adjusted-seven-day-range,
+#pair-adjusted-latest-day-range {
   overflow: visible;
   text-overflow: clip;
   white-space: normal;
@@ -786,9 +787,13 @@ main {
 }
 
 .valuation-metric > span {
+  overflow: visible;
   color: var(--paper-muted);
   font-size: 0.75rem;
   letter-spacing: 0;
+  line-height: 1.4;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .valuation-metric > strong {
@@ -802,12 +807,19 @@ main {
   white-space: normal;
 }
 
+.valuation-metric > small {
+  color: #718079;
+  font-size: 0.625rem;
+  line-height: 1.4;
+}
+
 #valuation-range {
   font-size: clamp(0.6875rem, 0.9vw, 0.875rem);
 }
 
 .valuation-metric--estimate,
-.valuation-metric--actual {
+.valuation-metric--actual,
+.valuation-metric--latest {
   box-shadow: none;
 }
 
@@ -820,12 +832,52 @@ main {
   color: #ff9a96;
 }
 
-#valuation-deviation.is-premium {
+#valuation-actual-vs-latest-day.is-premium {
   color: var(--coral);
 }
 
-#valuation-deviation.is-discount {
+#valuation-actual-vs-latest-day.is-discount {
   color: var(--cyan);
+}
+
+.valuation-metric--latest > strong {
+  color: var(--amber);
+}
+
+.valuation-formula-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.valuation-formula-grid > article {
+  min-width: 0;
+  padding-top: 13px;
+  border-right: 1px solid var(--line);
+}
+
+.valuation-formula-grid > article:last-child {
+  border-right: 0;
+}
+
+.valuation-formula-grid > article > strong {
+  padding-inline: 16px;
+  color: var(--paper);
+  font-size: 0.75rem;
+}
+
+.valuation-formula-grid .valuation-formula {
+  min-height: 62px;
+}
+
+.valuation-formula-grid .valuation-equation {
+  min-height: 66px;
+  white-space: normal;
+}
+
+.valuation-formula-grid > article:last-child .valuation-equation {
+  border-color: rgba(241, 197, 105, 0.2);
+  background: rgba(241, 197, 105, 0.04);
+  color: var(--amber);
 }
 
 .valuation-calculation {
@@ -1121,8 +1173,45 @@ main {
   stroke-width: 1.5;
 }
 
+.valuation-chart-point.is-seven-day {
+  stroke: var(--acid);
+}
+
+.valuation-chart-point.is-latest-day {
+  stroke: var(--amber);
+}
+
 .valuation-chart-point.is-actual {
-  stroke: var(--coral);
+  stroke: var(--paper);
+}
+
+.valuation-chart-line.is-seven-day {
+  stroke: var(--acid);
+  stroke-width: 2.6;
+}
+
+.valuation-chart-line.is-latest-day {
+  stroke: var(--amber);
+  stroke-dasharray: 5 5;
+  stroke-width: 1.6;
+}
+
+.valuation-chart-line.is-actual {
+  stroke: var(--paper);
+  stroke-width: 2;
+}
+
+.valuation-legend i.is-seven-day {
+  background: var(--acid);
+}
+
+.valuation-legend i.is-latest-day {
+  height: 1px;
+  background: repeating-linear-gradient(90deg, var(--amber) 0 5px, transparent 5px 8px);
+}
+
+.valuation-legend i.is-actual {
+  background: var(--paper);
 }
 
 .valuation-daily-table-wrap {
@@ -7918,11 +8007,7 @@ body[data-launchpad-view="valuation"] .valuation-panel__head > div > p {
 }
 
 body[data-launchpad-view="valuation"] .valuation-metrics {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-body[data-launchpad-view="valuation"] .valuation-metric:nth-child(4) {
-  border-right: 1px solid var(--line);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 body[data-launchpad-view="valuation"] .valuation-metric:last-child {
@@ -7962,6 +8047,10 @@ body[data-launchpad-view="valuation"] .valuation-metric:last-child {
   margin: 0;
   border: 0;
   border-radius: 0;
+}
+
+.valuation-research .pons-forecast__metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .launchpad-token-head {
@@ -8189,6 +8278,15 @@ body[data-launchpad-view="tokens"] #long-view {
 
   .valuation-calculation__detail {
     grid-template-columns: 1fr;
+  }
+
+  .valuation-formula-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .valuation-formula-grid > article {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
   }
 
   .valuation-window-state {

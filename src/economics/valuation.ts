@@ -11,13 +11,15 @@ import type {
   TokenEconomicsRow,
 } from "./types.js";
 
-export const PAIR_RELATIVE_VALUATION_MODEL_VERSION = "pons-latest-day-volume-parity-v2" as const;
+export const PAIR_RELATIVE_VALUATION_MODEL_VERSION = "pons-dual-window-parity-v3" as const;
 export const PAIR_RELATIVE_VALUATION_MAX_DAYS = 7;
-export const PAIR_RELATIVE_VALUATION_MIN_DAYS = 1 as const;
+export const PAIR_RELATIVE_VALUATION_MIN_DAYS = 7 as const;
 export const PAIR_RELATIVE_VALUATION_PRICE_FRESHNESS_MINUTES = 30;
 
-const FORMULA =
-  "PONS price × (PONS effective supply ÷ PAIR effective supply) × (PAIR latest closed-day volume ÷ PONS latest closed-day volume)";
+const SEVEN_DAY_FORMULA =
+  "PONS price × (PONS effective supply ÷ PAIR effective supply) × (PAIR latest 7 common closed-day volume ÷ PONS latest 7 common closed-day volume)";
+const LATEST_DAY_FORMULA =
+  "PONS price × (PONS effective supply ÷ PAIR effective supply) × (PAIR latest common closed-day volume ÷ PONS latest common closed-day volume)";
 
 interface BuildPairRelativeValuationInput {
   now: Date;
@@ -173,12 +175,12 @@ function reason(
 
 function confidence(input: {
   selectedMetrics: DailyMetric[];
-  comparisonDayCount: number;
+  sevenDayCount: number;
   totalCommonDayCount: number;
   ponsPriceQuality: EvidenceQuality;
 }): PairRelativeValuationConfidence {
   if (
-    input.comparisonDayCount < PAIR_RELATIVE_VALUATION_MAX_DAYS ||
+    input.sevenDayCount < PAIR_RELATIVE_VALUATION_MAX_DAYS ||
     input.totalCommonDayCount < 14 ||
     input.selectedMetrics.some((metric) => metric.quality === "partial")
   ) {
@@ -210,25 +212,24 @@ export function buildPairRelativeValuation(
       return pons !== undefined && pons.value > 0 && pairByDate.has(date);
     })
     .sort();
-  const comparisonDates = allCommonDates.slice(-PAIR_RELATIVE_VALUATION_MAX_DAYS);
-  const latestCommonDate = comparisonDates.at(-1) ?? null;
-  const commonDates = latestCommonDate ? [latestCommonDate] : [];
-  const ponsMetrics = comparisonDates
+  const sevenDayDates = allCommonDates.slice(-PAIR_RELATIVE_VALUATION_MAX_DAYS);
+  const latestCommonDate = sevenDayDates.at(-1) ?? null;
+  const ponsMetrics = sevenDayDates
     .map((date) => ponsByDate.get(date))
     .filter((metric): metric is DailyMetric => metric !== undefined);
-  const pairMetrics = comparisonDates
+  const pairMetrics = sevenDayDates
     .map((date) => pairByDate.get(date))
     .filter((metric): metric is DailyMetric => metric !== undefined);
   const latestPonsMetric = latestCommonDate ? ponsByDate.get(latestCommonDate) : undefined;
   const latestPairMetric = latestCommonDate ? pairByDate.get(latestCommonDate) : undefined;
-  const ponsVolume = volumeInput(
+  const ponsLatestDayVolume = volumeInput(
     latestPonsMetric ? [latestPonsMetric] : [],
     "Pons",
     latestCommonDate
       ? `${latestCommonDate} 完整 UTC 日成交量；缺失日未补 0。`
       : "最新共同完整 UTC 日成交量不可用。",
   );
-  const pairVolume = volumeInput(
+  const pairLatestDayVolume = volumeInput(
     latestPairMetric ? [latestPairMetric] : [],
     "PAIR",
     latestCommonDate
@@ -238,21 +239,21 @@ export function buildPairRelativeValuation(
   const ponsSevenDayVolume = volumeInput(
     ponsMetrics,
     "Pons",
-    `最近 ${ponsMetrics.length} 个共同完整 UTC 日求和；仅用于 7 日平滑对照。`,
+    `最近 ${ponsMetrics.length} 个共同完整 UTC 日求和；缺失日未补 0。`,
   );
   const pairSevenDayVolume = volumeInput(
     pairMetrics,
     "PAIR",
-    `最近 ${pairMetrics.length} 个共同完整 UTC 日求和；仅用于 7 日平滑对照。`,
+    `最近 ${pairMetrics.length} 个共同完整 UTC 日求和；缺失日未补 0。`,
   );
   const reasons: PairRelativeValuationReason[] = [];
 
-  if (commonDates.length < PAIR_RELATIVE_VALUATION_MIN_DAYS) {
+  if (sevenDayDates.length < PAIR_RELATIVE_VALUATION_MIN_DAYS) {
     reasons.push(
       reason(
         "INSUFFICIENT_COMMON_DAYS",
         "blocking",
-        `最新共同完整 UTC 日不可用，至少需要 ${PAIR_RELATIVE_VALUATION_MIN_DAYS} 天。`,
+        `七日主参考需要 ${PAIR_RELATIVE_VALUATION_MIN_DAYS} 个共同完整 UTC 日，当前只有 ${sevenDayDates.length} 天。`,
       ),
     );
   }
@@ -269,8 +270,8 @@ export function buildPairRelativeValuation(
   if (!finiteNumber(pairSupply.value) || pairSupply.value <= 0) {
     reasons.push(reason("PAIR_EFFECTIVE_SUPPLY_MISSING", "blocking", "PAIR 有效供应量不可用。"));
   }
-  if (finiteNumber(ponsVolume.value) && ponsVolume.value <= 0) {
-    reasons.push(reason("PONS_VOLUME_ZERO", "blocking", "Pons 窗口成交量必须大于 0。"));
+  if (finiteNumber(ponsSevenDayVolume.value) && ponsSevenDayVolume.value <= 0) {
+    reasons.push(reason("PONS_VOLUME_ZERO", "blocking", "Pons 七日成交量必须大于 0。"));
   }
 
   const pairPriceIsFresh = isFresh(pairPrice, input.now, freshnessMinutes);
@@ -291,78 +292,104 @@ export function buildPairRelativeValuation(
   }
   reasons.push(
     reason(
-      "LATEST_DAY_VOLUME_REACTIVE",
+      "DUAL_WINDOW_OUTPUT",
       "note",
-      "主参考价使用最新完整 UTC 日成交量，能更快反映降温，也会比 7 日平滑值波动更大。",
+      "七日结果用于判断常态，最新完整日结果只用于观察短期升温或降温；两者不加权合并。",
     ),
   );
 
-  const blocking = reasons.some((candidate) => candidate.severity === "blocking");
-  let estimateUsd: number | null = null;
-  let sevenDayEstimateUsd: number | null = null;
-  let latestVsSevenDayPercent: number | null = null;
-  let rangeLowUsd: number | null = null;
-  let rangeHighUsd: number | null = null;
-  if (
-    !blocking &&
+  const baseInputsValid =
+    isFresh(ponsPrice, input.now, freshnessMinutes) &&
     finiteNumber(ponsPrice.value) &&
+    ponsPrice.value > 0 &&
     finiteNumber(ponsSupply.value) &&
+    ponsSupply.value > 0 &&
     finiteNumber(pairSupply.value) &&
-    finiteNumber(ponsVolume.value) &&
-    finiteNumber(pairVolume.value) &&
-    ponsVolume.value > 0 &&
-    pairSupply.value > 0
+    pairSupply.value > 0;
+  let sevenDayReferenceUsd: number | null = null;
+  let latestDayReferenceUsd: number | null = null;
+  let dailyReferenceRangeLowUsd: number | null = null;
+  let dailyReferenceRangeHighUsd: number | null = null;
+  const supplyRatio =
+    baseInputsValid && finiteNumber(ponsSupply.value) && finiteNumber(pairSupply.value)
+      ? ponsSupply.value / pairSupply.value
+      : null;
+
+  if (
+    baseInputsValid &&
+    sevenDayDates.length === PAIR_RELATIVE_VALUATION_MIN_DAYS &&
+    finiteNumber(ponsPrice.value) &&
+    supplyRatio !== null &&
+    finiteNumber(ponsSevenDayVolume.value) &&
+    finiteNumber(pairSevenDayVolume.value) &&
+    ponsSevenDayVolume.value > 0
   ) {
     const ponsPriceValue = ponsPrice.value;
-    const supplyRatio = ponsSupply.value / pairSupply.value;
-    const calculated = ponsPriceValue * supplyRatio * (pairVolume.value / ponsVolume.value);
-    const dailyEstimates = comparisonDates.map((date) => {
+    const calculated =
+      ponsPriceValue * supplyRatio * (pairSevenDayVolume.value / ponsSevenDayVolume.value);
+    const dailyEstimates = sevenDayDates.map((date) => {
       const pons = ponsByDate.get(date);
       const pair = pairByDate.get(date);
       return pons && pair ? ponsPriceValue * supplyRatio * (pair.value / pons.value) : Number.NaN;
     });
     if (Number.isFinite(calculated) && dailyEstimates.every(Number.isFinite)) {
-      estimateUsd = calculated;
-      rangeLowUsd = quantile(dailyEstimates, 0.25);
-      rangeHighUsd = quantile(dailyEstimates, 0.75);
-      if (
-        finiteNumber(ponsSevenDayVolume.value) &&
-        ponsSevenDayVolume.value > 0 &&
-        finiteNumber(pairSevenDayVolume.value)
-      ) {
-        const smoothed =
-          ponsPriceValue * supplyRatio * (pairSevenDayVolume.value / ponsSevenDayVolume.value);
-        if (Number.isFinite(smoothed)) {
-          sevenDayEstimateUsd = smoothed;
-          latestVsSevenDayPercent = smoothed > 0 ? (calculated / smoothed - 1) * 100 : null;
-        }
-      }
+      sevenDayReferenceUsd = calculated;
+      dailyReferenceRangeLowUsd = quantile(dailyEstimates, 0.25);
+      dailyReferenceRangeHighUsd = quantile(dailyEstimates, 0.75);
     } else {
       reasons.push(reason("CALCULATION_INVALID", "blocking", "相对估值计算结果无效。"));
     }
   }
 
-  if (estimateUsd === 0) {
+  if (
+    baseInputsValid &&
+    finiteNumber(ponsPrice.value) &&
+    supplyRatio !== null &&
+    finiteNumber(ponsLatestDayVolume.value) &&
+    finiteNumber(pairLatestDayVolume.value) &&
+    ponsLatestDayVolume.value > 0
+  ) {
+    const calculated =
+      ponsPrice.value * supplyRatio * (pairLatestDayVolume.value / ponsLatestDayVolume.value);
+    if (Number.isFinite(calculated)) latestDayReferenceUsd = calculated;
+  }
+
+  if (sevenDayReferenceUsd === 0 || latestDayReferenceUsd === 0) {
     reasons.push(
-      reason("PAIR_ESTIMATE_ZERO", "note", "窗口内 PAIR 成交量为 0，相对估值结果为 0。"),
+      reason("PAIR_ESTIMATE_ZERO", "note", "对应窗口内 PAIR 成交量为 0，参考结果为 0。"),
     );
   }
 
-  const state = estimateUsd === null ? "unavailable" : "available";
+  const state = sevenDayReferenceUsd === null ? "unavailable" : "available";
   const actualPriceUsd = pairPriceIsFresh && finiteNumber(pairPrice.value) ? pairPrice.value : null;
-  const actualDeviationPercent =
-    actualPriceUsd !== null && estimateUsd !== null && estimateUsd > 0
-      ? (actualPriceUsd / estimateUsd - 1) * 100
+  const actualVsSevenDayPercent =
+    actualPriceUsd !== null && sevenDayReferenceUsd !== null && sevenDayReferenceUsd > 0
+      ? (actualPriceUsd / sevenDayReferenceUsd - 1) * 100
+      : null;
+  const actualVsLatestDayPercent =
+    actualPriceUsd !== null && latestDayReferenceUsd !== null && latestDayReferenceUsd > 0
+      ? (actualPriceUsd / latestDayReferenceUsd - 1) * 100
+      : null;
+  const latestDayVsSevenDayPercent =
+    latestDayReferenceUsd !== null && sevenDayReferenceUsd !== null && sevenDayReferenceUsd > 0
+      ? (latestDayReferenceUsd / sevenDayReferenceUsd - 1) * 100
       : null;
   const ponsAllocation = input.ponsPolicy.applies ? input.ponsPolicy.percentage : null;
   const pairAllocation = input.pairPolicy.applies ? input.pairPolicy.percentage : null;
-  const policyEstimate =
-    estimateUsd !== null &&
+  const policyFactor =
     finiteNumber(ponsAllocation) &&
     ponsAllocation > 0 &&
     finiteNumber(pairAllocation) &&
     pairAllocation > 0
-      ? estimateUsd * (pairAllocation / ponsAllocation)
+      ? pairAllocation / ponsAllocation
+      : null;
+  const policySevenDayReferenceUsd =
+    sevenDayReferenceUsd !== null && policyFactor !== null
+      ? sevenDayReferenceUsd * policyFactor
+      : null;
+  const policyLatestDayReferenceUsd =
+    latestDayReferenceUsd !== null && policyFactor !== null
+      ? latestDayReferenceUsd * policyFactor
       : null;
 
   return {
@@ -370,27 +397,32 @@ export function buildPairRelativeValuation(
     state,
     observedAt: input.observedAt,
     priceFreshnessMinutes: freshnessMinutes,
-    windowDefinition: "latest_common_closed_utc_day",
-    minimumCommonDays: PAIR_RELATIVE_VALUATION_MIN_DAYS,
-    commonDayCount: commonDates.length,
+    primaryWindowDefinition: "latest_7_common_closed_utc_days",
+    primaryMinimumDays: PAIR_RELATIVE_VALUATION_MIN_DAYS,
+    sevenDayCount: sevenDayDates.length,
+    sevenDayDates,
+    sevenDayWindowStart: sevenDayDates[0] ?? null,
+    sevenDayWindowEnd: sevenDayDates.at(-1) ?? null,
+    latestDayWindowDefinition: "latest_common_closed_utc_day",
+    latestDayDate: latestCommonDate,
     totalCommonDayCount: allCommonDates.length,
-    commonDates,
-    platformWindowStart: commonDates[0] ?? null,
-    platformWindowEnd: commonDates.at(-1) ?? null,
-    comparisonWindowDefinition: "latest_7_common_closed_utc_days",
-    comparisonDayCount: comparisonDates.length,
-    comparisonDates,
-    formula: FORMULA,
-    estimateUsd,
-    sevenDayEstimateUsd,
-    latestVsSevenDayPercent,
-    rangeLowUsd,
-    rangeHighUsd,
+    sevenDayFormula: SEVEN_DAY_FORMULA,
+    latestDayFormula: LATEST_DAY_FORMULA,
+    sevenDayReferenceUsd,
+    latestDayReferenceUsd,
+    latestDayVsSevenDayPercent,
+    dailyReferenceRangeLowUsd,
+    dailyReferenceRangeHighUsd,
     actualPriceUsd,
-    actualDeviationPercent,
+    actualVsSevenDayPercent,
+    actualVsLatestDayPercent,
     policyScenario: {
-      state: policyEstimate === null ? "unavailable" : "available",
-      estimateUsd: policyEstimate,
+      state:
+        policySevenDayReferenceUsd === null && policyLatestDayReferenceUsd === null
+          ? "unavailable"
+          : "available",
+      sevenDayReferenceUsd: policySevenDayReferenceUsd,
+      latestDayReferenceUsd: policyLatestDayReferenceUsd,
       ponsFeeAllocationPercent: ponsAllocation,
       pairFeeAllocationPercent: pairAllocation,
       assumption: "all_other_factors_equal",
@@ -399,7 +431,7 @@ export function buildPairRelativeValuation(
       state === "available"
         ? confidence({
             selectedMetrics,
-            comparisonDayCount: comparisonDates.length,
+            sevenDayCount: sevenDayDates.length,
             totalCommonDayCount: allCommonDates.length,
             ponsPriceQuality: ponsPrice.quality,
           })
@@ -409,8 +441,8 @@ export function buildPairRelativeValuation(
       pairActualPriceUsd: pairPrice,
       ponsEffectiveSupply: ponsSupply,
       pairEffectiveSupply: pairSupply,
-      ponsPlatformVolumeUsd: ponsVolume,
-      pairPlatformVolumeUsd: pairVolume,
+      ponsLatestDayVolumeUsd: ponsLatestDayVolume,
+      pairLatestDayVolumeUsd: pairLatestDayVolume,
       ponsSevenDayVolumeUsd: ponsSevenDayVolume,
       pairSevenDayVolumeUsd: pairSevenDayVolume,
     },
@@ -443,14 +475,20 @@ function invalidatePairRelativeValuation(
   return {
     ...valuation,
     state: "unavailable",
-    estimateUsd: null,
-    sevenDayEstimateUsd: null,
-    latestVsSevenDayPercent: null,
-    rangeLowUsd: null,
-    rangeHighUsd: null,
+    sevenDayReferenceUsd: null,
+    latestDayReferenceUsd: null,
+    latestDayVsSevenDayPercent: null,
+    dailyReferenceRangeLowUsd: null,
+    dailyReferenceRangeHighUsd: null,
     actualPriceUsd: null,
-    actualDeviationPercent: null,
-    policyScenario: { ...valuation.policyScenario, state: "unavailable", estimateUsd: null },
+    actualVsSevenDayPercent: null,
+    actualVsLatestDayPercent: null,
+    policyScenario: {
+      ...valuation.policyScenario,
+      state: "unavailable",
+      sevenDayReferenceUsd: null,
+      latestDayReferenceUsd: null,
+    },
     confidence: "unavailable",
     reasons: withReason(valuation, nextReason),
   };
@@ -460,8 +498,10 @@ export function refreshPairRelativeValuationFreshness(
   valuation: PairRelativeValuation,
   now: Date,
 ): PairRelativeValuation {
-  if (valuation.state === "unavailable") return valuation;
-  if (!isFresh(valuation.inputs.ponsPriceUsd, now, valuation.priceFreshnessMinutes)) {
+  if (
+    (valuation.sevenDayReferenceUsd !== null || valuation.latestDayReferenceUsd !== null) &&
+    !isFresh(valuation.inputs.ponsPriceUsd, now, valuation.priceFreshnessMinutes)
+  ) {
     return invalidatePairRelativeValuation(
       valuation,
       reason(
@@ -478,7 +518,8 @@ export function refreshPairRelativeValuationFreshness(
     return {
       ...valuation,
       actualPriceUsd: null,
-      actualDeviationPercent: null,
+      actualVsSevenDayPercent: null,
+      actualVsLatestDayPercent: null,
       reasons: withReason(
         valuation,
         reason("PAIR_PRICE_STALE", "note", "PAIR 实际价格已过期，偏离值不计算。"),
@@ -495,13 +536,14 @@ export function toPairRelativeValuationHistoryPoint(
     modelVersion: valuation.modelVersion,
     observedAt: valuation.observedAt,
     state: valuation.state,
-    platformWindowEnd: valuation.platformWindowEnd,
-    estimateUsd: valuation.estimateUsd,
-    sevenDayEstimateUsd: valuation.sevenDayEstimateUsd,
-    rangeLowUsd: valuation.rangeLowUsd,
-    rangeHighUsd: valuation.rangeHighUsd,
+    platformWindowEnd: valuation.latestDayDate,
+    sevenDayReferenceUsd: valuation.sevenDayReferenceUsd,
+    latestDayReferenceUsd: valuation.latestDayReferenceUsd,
+    actualVsSevenDayPercent: valuation.actualVsSevenDayPercent,
+    actualVsLatestDayPercent: valuation.actualVsLatestDayPercent,
+    dailyReferenceRangeLowUsd: valuation.dailyReferenceRangeLowUsd,
+    dailyReferenceRangeHighUsd: valuation.dailyReferenceRangeHighUsd,
     actualPriceUsd: valuation.actualPriceUsd,
-    actualDeviationPercent: valuation.actualDeviationPercent,
     confidence: valuation.confidence,
   };
 }

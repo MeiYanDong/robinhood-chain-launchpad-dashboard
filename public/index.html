@@ -11,9 +11,9 @@
     <title>全链数据｜Robinhood Chain</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css?v=0.11.0" />
-    <link rel="stylesheet" href="./styles-v2.css?v=0.21.0" />
-    <link rel="stylesheet" href="./workbench.css?v=0.21.0" />
-    <script src="./app.js?v=0.21.0" type="module"></script>
+    <link rel="stylesheet" href="./styles-v2.css?v=0.22.0" />
+    <link rel="stylesheet" href="./workbench.css?v=0.22.0" />
+    <script src="./app.js?v=0.22.0" type="module"></script>
   </head>
   <body class="radar-v2">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -762,9 +762,9 @@
               </div>
               <dl>
                 <div><dt>PAIR 当前价格</dt><dd id="intelligence-pair-actual">—</dd></div>
-                <div><dt>按最新完整日平台量折算</dt><dd id="intelligence-pair-implied">—</dd></div>
-                <div><dt>近 7 日逐日参考区间</dt><dd id="intelligence-pair-range">—</dd></div>
-                <div><dt>当前溢价 / 折价</dt><dd id="intelligence-pair-gap">—</dd></div>
+                <div><dt>七日主参考</dt><dd id="intelligence-pair-seven-day">—</dd></div>
+                <div><dt>最新单日参考</dt><dd id="intelligence-pair-latest-day">—</dd></div>
+                <div><dt>当前相对七日</dt><dd id="intelligence-pair-gap-seven-day">—</dd></div>
               </dl>
             </article>
 
@@ -838,7 +838,7 @@
                 >?</button>
               </span>
               <strong id="overview-valuation-gap">—</strong>
-              <small id="overview-valuation-gap-note">按最新完整日平台量折算，不是价格预测</small>
+              <small id="overview-valuation-gap-note">优先按近 7 个完整日估算，不是价格预测</small>
             </article>
           </div>
 
@@ -1307,53 +1307,49 @@
             <div>
               <span>PAIR 平台规模对比</span>
               <h1 id="pair-valuation-title">PAIR vs PONS</h1>
-              <p>以 PONS 为比较基准，主参考使用双方最新完整 UTC 日交易量；7 日结果只作为平滑对照。</p>
+              <p>七日结果判断常态，最新完整日只观察短期升温或降温；两者同时展示，不加权合并。</p>
             </div>
             <strong class="valuation-state" id="pair-valuation-state">等待数据</strong>
           </header>
 
           <div class="valuation-metrics">
+            <article class="valuation-metric valuation-metric--estimate">
+              <span class="metric-label">
+                按近 7 个完整日交易量估算
+                <button
+                  class="metric-help"
+                  type="button"
+                  aria-label="解释七日主参考"
+                  data-help-title="为什么七日结果放在第一位？"
+                  data-help="系统用双方最近 7 个共同完整 UTC 日的总交易量计算，能削弱单日尖峰的干扰，更适合判断平台常态。它是相对估算，不是未来价格预测。"
+                >?</button>
+              </span>
+              <strong id="valuation-seven-day-reference">—</strong>
+              <small id="valuation-actual-vs-seven-day">PAIR 当前相对七日：—</small>
+            </article>
             <article class="valuation-metric valuation-metric--actual">
               <span>PAIR 当前价格</span>
               <strong id="valuation-actual-price">—</strong>
+              <small>用于对比，不参与参考价计算</small>
             </article>
-            <article class="valuation-metric valuation-metric--estimate">
+            <article class="valuation-metric valuation-metric--latest">
               <span class="metric-label">
-                按最新完整日平台量折算的 PAIR 参考价
+                按最新完整日交易量估算
                 <button
                   class="metric-help"
                   type="button"
-                  aria-label="解释 PAIR 折算参考价"
-                  data-help-title="为什么这是 PAIR 的参考价？"
-                  data-help="这不是 PONS 的币价。系统从 PONS 当前价格出发，再按双方有效供应量和最新一个共同完整 UTC 日的平台交易量折算，结果对应 PAIR。它能快速反映平台降温，但单日波动较大，因此同时展示 7 日平滑对照。"
+                  aria-label="解释最新单日参考"
+                  data-help-title="最新单日结果有什么用？"
+                  data-help="只使用双方最新一个共同完整 UTC 日的交易量，反应更快但波动更大。它用于观察平台刚刚升温还是降温，不替代七日主参考。"
                 >?</button>
               </span>
-              <strong id="valuation-estimate-price">—</strong>
+              <strong id="valuation-latest-day-reference">—</strong>
+              <small id="valuation-latest-vs-seven-day">相对七日常态：—</small>
             </article>
             <article class="valuation-metric">
-              <span class="metric-label">
-                7 日平滑对照
-                <button
-                  class="metric-help"
-                  type="button"
-                  aria-label="解释 7 日平滑对照"
-                  data-help-title="为什么还保留 7 日值？"
-                  data-help="主参考价已经改用最新完整日。7 日值不参与主结果，只用于判断当天是否受到短期暴涨暴跌影响。"
-                >?</button>
-              </span>
-              <strong id="valuation-seven-day-estimate">—</strong>
-            </article>
-            <article class="valuation-metric valuation-metric--research" hidden>
-              <span>历史波动区间</span>
-              <strong id="valuation-range">—</strong>
-            </article>
-            <article class="valuation-metric">
-              <span id="valuation-deviation-label">PAIR 当前溢价 / 折价</span>
-              <strong id="valuation-deviation">—</strong>
-            </article>
-            <article class="valuation-metric valuation-metric--research" hidden>
-              <span id="valuation-policy-label">费用分配情景</span>
-              <strong id="valuation-policy-price">—</strong>
+              <span id="valuation-latest-deviation-label">当前相对最新单日</span>
+              <strong id="valuation-actual-vs-latest-day">—</strong>
+              <small>只看短期错位</small>
             </article>
             <article class="valuation-metric">
               <span>当前能否参考</span>
@@ -1392,9 +1388,14 @@
                 <strong id="pons-forecast-upside">—</strong>
               </article>
               <article class="is-pair-anchor">
-                <span>预测 PONS × 最新完整日平台量折算 PAIR</span>
-                <strong id="pair-adjusted-anchor">—</strong>
-                <small id="pair-adjusted-range">—</small>
+                <span>预测后 PAIR · 七日主参考</span>
+                <strong id="pair-adjusted-seven-day">—</strong>
+                <small id="pair-adjusted-seven-day-range">—</small>
+              </article>
+              <article>
+                <span>预测后 PAIR · 最新单日</span>
+                <strong id="pair-adjusted-latest-day">—</strong>
+                <small id="pair-adjusted-latest-day-range">—</small>
               </article>
               <article>
                 <span>Robinhood Chain</span>
@@ -1424,14 +1425,18 @@
               <small class="valuation-window-state" id="valuation-window-state">—</small>
             </header>
 
-            <p class="valuation-formula" id="valuation-formula-definition">
-              PONS 价格 ×（PONS 有效供应量 ÷ PAIR 有效供应量）×（PAIR 最新完整日平台量 ÷ PONS 最新完整日平台量）
-            </p>
-            <output
-              class="valuation-equation"
-              id="valuation-equation-substitution"
-              aria-label="PAIR 折算参考价逐项代入结果"
-            >—</output>
+            <div class="valuation-formula-grid">
+              <article>
+                <strong>七日主参考</strong>
+                <p class="valuation-formula" id="valuation-seven-day-formula-definition">PONS 价格 ×（PONS 有效供应量 ÷ PAIR 有效供应量）×（PAIR 近 7 个完整日平台量 ÷ PONS 近 7 个完整日平台量）</p>
+                <output class="valuation-equation" id="valuation-seven-day-equation" aria-label="PAIR 七日参考逐项代入结果">—</output>
+              </article>
+              <article>
+                <strong>最新单日短期参考</strong>
+                <p class="valuation-formula" id="valuation-latest-day-formula-definition">PONS 价格 ×（PONS 有效供应量 ÷ PAIR 有效供应量）×（PAIR 最新完整日平台量 ÷ PONS 最新完整日平台量）</p>
+                <output class="valuation-equation" id="valuation-latest-day-equation" aria-label="PAIR 最新单日参考逐项代入结果">—</output>
+              </article>
+            </div>
 
             <div class="valuation-calculation__detail">
               <div class="valuation-input-table-wrap">
@@ -1475,16 +1480,30 @@
                     </tr>
                     <tr>
                       <th scope="row">
-                        <span id="valuation-volume-heading">最新完整日平台交易量</span>
-                        <small id="valuation-volume-note">PONS 与 PAIR 使用同一个完整 UTC 日</small>
+                        <span>近 7 个完整日平台交易量</span>
+                        <small id="valuation-seven-day-volume-note">双方使用相同的 7 个完整 UTC 日</small>
                       </th>
                       <td>
-                        <strong id="valuation-input-pons-volume">—</strong>
-                        <span class="valuation-input-meta" id="valuation-input-pons-volume-meta">未核验</span>
+                        <strong id="valuation-input-pons-seven-day-volume">—</strong>
+                        <span class="valuation-input-meta" id="valuation-input-pons-seven-day-volume-meta">未核验</span>
                       </td>
                       <td>
-                        <strong id="valuation-input-pair-volume">—</strong>
-                        <span class="valuation-input-meta" id="valuation-input-pair-volume-meta">未核验</span>
+                        <strong id="valuation-input-pair-seven-day-volume">—</strong>
+                        <span class="valuation-input-meta" id="valuation-input-pair-seven-day-volume-meta">未核验</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th scope="row">
+                        <span id="valuation-latest-day-volume-heading">最新完整日平台交易量</span>
+                        <small>PONS 与 PAIR 使用同一个完整 UTC 日</small>
+                      </th>
+                      <td>
+                        <strong id="valuation-input-pons-latest-day-volume">—</strong>
+                        <span class="valuation-input-meta" id="valuation-input-pons-latest-day-volume-meta">未核验</span>
+                      </td>
+                      <td>
+                        <strong id="valuation-input-pair-latest-day-volume">—</strong>
+                        <span class="valuation-input-meta" id="valuation-input-pair-latest-day-volume-meta">未核验</span>
                       </td>
                     </tr>
                   </tbody>
@@ -1496,7 +1515,8 @@
                   <span>单独情景</span>
                   <strong id="valuation-scenario-title">费用分配比例</strong>
                 </div>
-                <output id="valuation-policy-equation">—</output>
+                <output id="valuation-policy-seven-day-equation">—</output>
+                <output id="valuation-policy-latest-day-equation">—</output>
                 <small>只调整 PAIR / PONS 的费用分配比例，其他输入不变。</small>
                 <ul class="valuation-reasons" id="valuation-reasons" hidden></ul>
               </aside>
@@ -1505,16 +1525,17 @@
 
           <div class="valuation-chart-panel">
             <div class="valuation-chart-head">
-              <span>PAIR 实际价格与折算参考价（最近 7 日）</span>
+              <span>PAIR 实际价格与两种参考（最近 7 日）</span>
               <div class="valuation-legend" aria-hidden="true">
-                <i class="is-estimate"></i><span>折算参考价</span>
+                <i class="is-seven-day"></i><span>七日主参考</span>
+                <i class="is-latest-day"></i><span>最新单日参考</span>
                 <i class="is-actual"></i><span>PAIR 实际价</span>
               </div>
             </div>
             <svg
               id="valuation-history-chart"
               role="img"
-              aria-label="PAIR 实际价格与折算参考价七日走势"
+              aria-label="PAIR 实际价格、七日主参考与最新单日参考走势"
               viewBox="0 0 720 180"
             ></svg>
             <p class="valuation-chart-empty" id="valuation-chart-empty" hidden>等待历史快照</p>
@@ -1526,7 +1547,8 @@
                     <th>PONS 收盘</th>
                     <th>PONS 日内区间</th>
                     <th>PAIR 收盘</th>
-                    <th>PAIR 折算参考价</th>
+                    <th>PAIR 七日主参考</th>
+                    <th>PAIR 最新单日</th>
                     <th>快照</th>
                   </tr>
                 </thead>

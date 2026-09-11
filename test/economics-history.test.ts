@@ -59,8 +59,31 @@ test("valuation history aggregates exact UTC-day OHLC without inventing missing 
     lowUsd: 0.01,
     closeUsd: 0.012,
   });
-  assert.equal(daily[0]?.pairSpotAnchor?.closeUsd, 0.018);
+  assert.equal(daily[0]?.pairSevenDayReference?.closeUsd, 0.018);
+  assert.equal(daily[0]?.pairLatestDayReference, null);
   assert.equal(daily[0]?.pons?.volumeUsd, 5_000);
   assert.equal(daily[0]?.sampleCount, 2);
   assert.equal(daily[0]?.state, "forming");
+});
+
+test("valuation history maps V2 latest-day and seven-day fields without changing their meaning", () => {
+  const legacy: PairRelativeValuationHistoryPoint = {
+    modelVersion: "pons-latest-day-volume-parity-v2",
+    observedAt: "2026-09-02T12:00:00.000Z",
+    state: "available",
+    platformWindowEnd: "2026-09-01",
+    estimateUsd: 0.01,
+    sevenDayEstimateUsd: 0.02,
+    actualPriceUsd: 0.015,
+    confidence: "low",
+  };
+  const [daily] = aggregateValuationDaily({
+    points: [legacy],
+    ponsCandles: [],
+    startDate: "2026-09-02",
+    endDate: "2026-09-02",
+  });
+
+  assert.equal(daily?.pairSevenDayReference?.closeUsd, 0.02);
+  assert.equal(daily?.pairLatestDayReference?.closeUsd, 0.01);
 });

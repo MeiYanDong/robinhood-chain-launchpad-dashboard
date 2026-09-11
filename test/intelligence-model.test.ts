@@ -212,13 +212,14 @@ function economics(): EconomicsResponse {
     stale: false,
     tokens: [{ platformId: "pair", role: "protocol_token", address: PAIR }],
     pairRelativeValuation: {
-      modelVersion: "pons-latest-day-volume-parity-v2",
+      modelVersion: "pons-dual-window-parity-v3",
       state: "available",
       actualPriceUsd: 0.005,
-      estimateUsd: 0.01,
-      rangeLowUsd: 0.009,
-      rangeHighUsd: 0.011,
-      actualDeviationPercent: -50,
+      sevenDayReferenceUsd: 0.01,
+      latestDayReferenceUsd: 0.008,
+      actualVsSevenDayPercent: -50,
+      actualVsLatestDayPercent: -37.5,
+      latestDayVsSevenDayPercent: -20,
       confidence: "low",
       observedAt: "2026-09-04T03:00:00.000Z",
       reasons: [],
@@ -246,7 +247,8 @@ test("intelligence keeps leader, heat, token pressure, and role valuation separa
   assert.equal(result.chainHeat.state, "overheated");
   assert.equal(result.chainHeat.divergence, true);
   assert.equal(result.tokenHeat.rows.find((row) => row.symbol === "PONS")?.state, "hot");
-  assert.equal(result.relativeValuation.platformToken.pairImpliedPriceUsd, 0.01);
+  assert.equal(result.relativeValuation.platformToken.pairSevenDayReferenceUsd, 0.01);
+  assert.equal(result.relativeValuation.platformToken.pairLatestDayReferenceUsd, 0.008);
   assert.equal(
     result.relativeValuation.cohorts[0]?.rows.some((row) => row.symbol === "PAIR"),
     false,
