@@ -8,6 +8,7 @@ import re
 import shutil
 import statistics
 import subprocess
+import tempfile
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -1302,21 +1303,28 @@ class CardExporter:
         output = self.archive.png_path(report_id)
         output.parent.mkdir(parents=True, exist_ok=True)
         url = f"{self.settings.base_url.rstrip('/')}/reports/{quote(report_id)}/card?export=1"
-        command = [
-            chrome,
-            "--headless=new",
-            "--no-sandbox",
-            "--disable-gpu",
-            "--disable-dev-shm-usage",
-            "--hide-scrollbars",
-            "--force-device-scale-factor=1",
-            "--window-size=1080,1350",
-            "--virtual-time-budget=4000",
-            f"--screenshot={output}",
-            url,
-        ]
         try:
-            completed = subprocess.run(command, capture_output=True, text=True, timeout=60, check=False)
+            # Chrome otherwise leaves one scoped_dir profile (including large optimization
+            # models) under HOME for every export. A private profile is both isolated and
+            # deterministically removed after the one-shot screenshot.
+            with tempfile.TemporaryDirectory(prefix="cashcat-chrome-") as profile_dir:
+                command = [
+                    chrome,
+                    "--headless=new",
+                    "--no-sandbox",
+                    "--disable-gpu",
+                    "--disable-dev-shm-usage",
+                    "--hide-scrollbars",
+                    "--force-device-scale-factor=1",
+                    "--window-size=1080,1350",
+                    "--virtual-time-budget=4000",
+                    f"--user-data-dir={profile_dir}",
+                    f"--screenshot={output}",
+                    url,
+                ]
+                completed = subprocess.run(
+                    command, capture_output=True, text=True, timeout=60, check=False
+                )
         except (OSError, subprocess.TimeoutExpired) as exc:
             return {"status": "ERROR", "reason": f"{type(exc).__name__}: {exc}"}
         if completed.returncode != 0 or not output.exists() or output.stat().st_size < 1000:

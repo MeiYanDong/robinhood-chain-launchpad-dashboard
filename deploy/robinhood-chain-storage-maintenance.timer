@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Robinhood Chain storage maintenance
+
+[Timer]
+OnCalendar=*-*-* 19:40:00 UTC
+RandomizedDelaySec=10m
+Persistent=true
+Unit=robinhood-chain-storage-maintenance.service
+
+[Install]
+WantedBy=timers.target

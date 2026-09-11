@@ -1,0 +1,27 @@
+[Unit]
+Description=Prune regenerable Robinhood Chain deployment and browser caches
+After=local-fs.target
+ConditionPathIsDirectory=/opt/robinhood-chain-launchpad/releases
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/opt/robinhood-chain-launchpad/current/scripts/production-storage-maintenance.sh --apply
+Nice=10
+IOSchedulingClass=idle
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+InaccessiblePaths=/var/lib/robinhood-chain-launchpad
+ReadWritePaths=/opt/robinhood-chain-launchpad/releases
+ReadWritePaths=/opt/robinhood-chain-launchpad/deploy-backups
+ReadWritePaths=/opt/robinhood-chain-launchpad/failed-preparations
+ReadWritePaths=/var/lib/cashcat-sentinel/.cache/google-chrome-headless
+ReadWritePaths=/var/lib/cashcat-sentinel/.config/google-chrome-headless
+

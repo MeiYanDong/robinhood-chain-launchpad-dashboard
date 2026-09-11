@@ -3,8 +3,9 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
-from daily_report import DailyReportArchive, DailyReportBuilder, DailyReportSettings
+from daily_report import CardExporter, DailyReportArchive, DailyReportBuilder, DailyReportSettings
 
 
 UTC = dt.timezone.utc
@@ -349,6 +350,34 @@ class DailyReportTests(unittest.TestCase):
             self.assertTrue(path.exists())
             self.assertEqual(archive.load("2026-07-22"), report)
             self.assertEqual(archive.latest()["report_id"], "2026-07-22")
+
+    def test_card_export_uses_and_removes_an_ephemeral_chrome_profile(self):
+        with tempfile.TemporaryDirectory() as directory:
+            archive = DailyReportArchive(Path(directory))
+            settings = DailyReportSettings(
+                report_dir=Path(directory),
+                base_url="http://127.0.0.1:8010",
+                export_png=True,
+                chrome_bin="/bin/true",
+            )
+            profile_paths = []
+
+            def fake_run(command, **_kwargs):
+                profile_paths.append(
+                    Path(next(item.split("=", 1)[1] for item in command if item.startswith("--user-data-dir=")))
+                )
+                screenshot = Path(
+                    next(item.split("=", 1)[1] for item in command if item.startswith("--screenshot="))
+                )
+                screenshot.write_bytes(b"x" * 2000)
+                return SimpleNamespace(returncode=0, stderr="", stdout="")
+
+            with patch("daily_report.subprocess.run", side_effect=fake_run):
+                result = CardExporter(settings, archive).export("live")
+
+            self.assertEqual(result["status"], "READY")
+            self.assertEqual(len(profile_paths), 1)
+            self.assertFalse(profile_paths[0].exists())
 
 
 if __name__ == "__main__":
