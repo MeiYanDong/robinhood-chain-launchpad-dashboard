@@ -400,6 +400,9 @@ PAIR 七日主参考与最新单日短期参考并列展示、V3 历史兼容、
 DEV 监控重复全表扫描与整表写回的修复、`0.22.1` 发布恢复和生产资源回读见
 [`docs/evidence/dev-monitor-hot-loop-production-deployment-2026-09-11.md`](docs/evidence/dev-monitor-hot-loop-production-deployment-2026-09-11.md)。
 
+PAIR 15 分钟回温判断、两次确认、覆盖门禁、飞书去重与 `0.23.0` 自治更新回读见
+[`docs/evidence/pair-volume-warming-production-deployment-2026-09-11.md`](docs/evidence/pair-volume-warming-production-deployment-2026-09-11.md)。
+
 部署配置固化在 [`deploy/`](deploy/)；新版本应使用不可变 release 目录并原子切换
 `current` 软链接，保留上一版用于回滚。发布后必须同时验证公网首页、`/healthz`、
 `/api/overview?window=30`、`/api/platform-activity`、`/api/platform-activity/alerts/health`、
