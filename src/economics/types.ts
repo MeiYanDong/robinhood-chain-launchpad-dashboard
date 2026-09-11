@@ -153,6 +153,7 @@ export type PairRelativeValuationReasonCode =
   | "CALCULATION_INVALID"
   | "SHORT_SHARED_HISTORY"
   | "PARTIAL_VOLUME_INPUT"
+  | "LATEST_DAY_VOLUME_REACTIVE"
   | "THIRD_PARTY_BENCHMARK_PRICE"
   | "ECONOMICS_SNAPSHOT_STALE";
 
@@ -169,6 +170,8 @@ export interface PairRelativeValuationInputs {
   pairEffectiveSupply: EvidenceValue;
   ponsPlatformVolumeUsd: EvidenceValue;
   pairPlatformVolumeUsd: EvidenceValue;
+  ponsSevenDayVolumeUsd: EvidenceValue;
+  pairSevenDayVolumeUsd: EvidenceValue;
 }
 
 export interface PairRelativeValuationPolicyScenario {
@@ -180,19 +183,24 @@ export interface PairRelativeValuationPolicyScenario {
 }
 
 export interface PairRelativeValuation {
-  modelVersion: "pons-volume-parity-v1";
+  modelVersion: "pons-latest-day-volume-parity-v2";
   state: PairRelativeValuationState;
   observedAt: string;
   priceFreshnessMinutes: number;
-  windowDefinition: "latest_7_common_closed_utc_days";
-  minimumCommonDays: 5;
+  windowDefinition: "latest_common_closed_utc_day";
+  minimumCommonDays: 1;
   commonDayCount: number;
   totalCommonDayCount: number;
   commonDates: string[];
   platformWindowStart: string | null;
   platformWindowEnd: string | null;
+  comparisonWindowDefinition: "latest_7_common_closed_utc_days";
+  comparisonDayCount: number;
+  comparisonDates: string[];
   formula: string;
   estimateUsd: number | null;
+  sevenDayEstimateUsd: number | null;
+  latestVsSevenDayPercent: number | null;
   rangeLowUsd: number | null;
   rangeHighUsd: number | null;
   actualPriceUsd: number | null;
@@ -204,11 +212,12 @@ export interface PairRelativeValuation {
 }
 
 export interface PairRelativeValuationHistoryPoint {
-  modelVersion: PairRelativeValuation["modelVersion"];
+  modelVersion: PairRelativeValuation["modelVersion"] | "pons-volume-parity-v1";
   observedAt: string;
   state: PairRelativeValuationState;
   platformWindowEnd: string | null;
   estimateUsd: number | null;
+  sevenDayEstimateUsd?: number | null;
   rangeLowUsd: number | null;
   rangeHighUsd: number | null;
   actualPriceUsd: number | null;

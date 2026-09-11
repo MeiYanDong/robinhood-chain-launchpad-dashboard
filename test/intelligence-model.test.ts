@@ -212,7 +212,7 @@ function economics(): EconomicsResponse {
     stale: false,
     tokens: [{ platformId: "pair", role: "protocol_token", address: PAIR }],
     pairRelativeValuation: {
-      modelVersion: "pons-volume-parity-v1",
+      modelVersion: "pons-latest-day-volume-parity-v2",
       state: "available",
       actualPriceUsd: 0.005,
       estimateUsd: 0.01,

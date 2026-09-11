@@ -844,7 +844,7 @@ function platformTokenValuation(economics: EconomicsResponse | null): PlatformTo
   const valuation = economics?.pairRelativeValuation;
   if (!valuation) {
     return {
-      modelVersion: "pons-volume-parity-v1",
+      modelVersion: "pons-latest-day-volume-parity-v2",
       state: "unavailable",
       pairActualPriceUsd: null,
       pairImpliedPriceUsd: null,
@@ -868,7 +868,7 @@ function platformTokenValuation(economics: EconomicsResponse | null): PlatformTo
     observedAt: valuation.observedAt,
     reason:
       valuation.reasons.map((reason) => reason.message).join("；") ||
-      "按最近 7 个共同闭合日的平台成交量与有效供应量相对 PONS 锚定。",
+      "按最新共同完整 UTC 日的平台成交量与有效供应量相对 PONS 锚定；7 日值只作平滑对照。",
   };
 }
 

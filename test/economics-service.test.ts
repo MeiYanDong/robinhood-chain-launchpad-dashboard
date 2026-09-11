@@ -378,16 +378,16 @@ test("economics service separates value, platform flow, policy, execution, and p
       "not_applicable",
     );
     assert.equal(database.latest()?.payload.service, "rhc-launchpad-economics");
-    assert.equal(response.pairRelativeValuation.state, "unavailable");
+    assert.equal(response.pairRelativeValuation.state, "available");
     assert.equal(response.pairRelativeValuation.commonDayCount, 1);
     assert.equal(database.valuationHistory().length, 1);
-    assert.equal(service.valuation()?.modelVersion, "pons-volume-parity-v1");
+    assert.equal(service.valuation()?.modelVersion, "pons-latest-day-volume-parity-v2");
     assert.equal(service.health().ok, true);
     assert.match(service.sources().definitions.executed_buyback, /逐笔证据/);
   });
 });
 
-test("economics service calculates and persists the seven-common-day PAIR anchor", async () => {
+test("economics service calculates the latest-day PAIR anchor and persists seven-day context", async () => {
   const metrics = [
     "2026-08-26",
     "2026-08-27",
@@ -402,8 +402,10 @@ test("economics service calculates and persists the seven-common-day PAIR anchor
     const valuation = response.pairRelativeValuation;
 
     assert.equal(valuation.state, "available");
-    assert.equal(valuation.commonDayCount, 7);
+    assert.equal(valuation.commonDayCount, 1);
+    assert.equal(valuation.comparisonDayCount, 7);
     assert.ok(Math.abs((valuation.estimateUsd ?? 0) - 0.0375) < 1e-12);
+    assert.ok(Math.abs((valuation.sevenDayEstimateUsd ?? 0) - 0.0375) < 1e-12);
     assert.equal(database.valuationHistory()[0]?.estimateUsd, valuation.estimateUsd);
     assert.equal(service.valuationHistory().points.length, 1);
     assert.equal(service.valuationHistory().daily[0]?.pons?.closeUsd, 0.2);
