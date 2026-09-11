@@ -10,6 +10,15 @@ import {
   type PairWarmingAlertSettings,
   type PairWarmingPlan,
 } from "./warming.js";
+import {
+  DEFAULT_PAIR_TOKEN_MOMENTUM_SETTINGS,
+  initialPairTokenMomentumState,
+  PAIR_PROTOCOL_TOKEN_ADDRESS,
+  planPairTokenMomentum,
+  type PairTokenMomentumAlert,
+  type PairTokenMomentumPlan,
+  type PairTokenMomentumSettings,
+} from "./token-momentum.js";
 
 const PAIR_PLATFORM_ID = "pair";
 const PAIR_SOURCE_HEALTH_ID = "pair.officialStats";
@@ -21,6 +30,7 @@ export interface PairDailyVolumeAlertSettings {
   feishuWebhookUrl: string | null;
   detailUrl: string;
   warming: PairWarmingAlertSettings;
+  tokenMomentum: PairTokenMomentumSettings;
 }
 
 export const DEFAULT_PAIR_DAILY_VOLUME_ALERT_SETTINGS: PairDailyVolumeAlertSettings = {
@@ -30,6 +40,7 @@ export const DEFAULT_PAIR_DAILY_VOLUME_ALERT_SETTINGS: PairDailyVolumeAlertSetti
   feishuWebhookUrl: null,
   detailUrl: "https://47.251.99.37/launchpads/?view=platforms",
   warming: DEFAULT_PAIR_WARMING_ALERT_SETTINGS,
+  tokenMomentum: DEFAULT_PAIR_TOKEN_MOMENTUM_SETTINGS,
 };
 
 export interface PlatformVolumeAlert {
@@ -85,12 +96,33 @@ export interface PairDailyVolumeAlertHealth {
     failed: number;
     lastSentAt: string | null;
   };
+  tokenMomentum: {
+    configured: boolean;
+    evaluationCadenceMinutes: 15;
+    tokenAddress: string;
+    comparison: "price_and_rolling_24h_volume_vs_one_hour";
+    priceOneHourThresholdPct: number;
+    volumeOneHourThresholdPct: number;
+    minimumVolumeDeltaUsd: number;
+    consecutiveSamples: number;
+    rearmSamples: number;
+    state: ReturnType<DashboardDatabase["getPairTokenMomentumState"]>;
+    pending: number;
+    failed: number;
+    lastSentAt: string | null;
+  };
 }
 
 export interface PairWarmingAlertEvaluation {
   status: PairWarmingPlan["status"] | "disabled";
   inserted: boolean;
   state: ReturnType<DashboardDatabase["getPairWarmingState"]>;
+}
+
+export interface PairTokenMomentumAlertEvaluation {
+  status: PairTokenMomentumPlan["status"] | "disabled";
+  inserted: boolean;
+  state: ReturnType<DashboardDatabase["getPairTokenMomentumState"]>;
 }
 
 export interface PairDailyVolumeAlertDependencies {
@@ -220,6 +252,43 @@ export function pairDailyVolumeAlertSettingsFromEnv(
         "PAIR_VOLUME_WARMING_MATERIAL_MEDIAN_PCT",
       ),
     },
+    tokenMomentum: {
+      enabled: booleanValue(
+        env.PAIR_TOKEN_MOMENTUM_ALERT_ENABLED,
+        DEFAULT_PAIR_TOKEN_MOMENTUM_SETTINGS.enabled,
+        "PAIR_TOKEN_MOMENTUM_ALERT_ENABLED",
+      ),
+      priceOneHourThresholdPct: positiveNumber(
+        env.PAIR_TOKEN_MOMENTUM_PRICE_ONE_HOUR_PCT,
+        DEFAULT_PAIR_TOKEN_MOMENTUM_SETTINGS.priceOneHourThresholdPct,
+        "PAIR_TOKEN_MOMENTUM_PRICE_ONE_HOUR_PCT",
+      ),
+      volumeOneHourThresholdPct: positiveNumber(
+        env.PAIR_TOKEN_MOMENTUM_VOLUME_ONE_HOUR_PCT,
+        DEFAULT_PAIR_TOKEN_MOMENTUM_SETTINGS.volumeOneHourThresholdPct,
+        "PAIR_TOKEN_MOMENTUM_VOLUME_ONE_HOUR_PCT",
+      ),
+      minimumVolumeDeltaUsd: positiveNumber(
+        env.PAIR_TOKEN_MOMENTUM_MIN_VOLUME_DELTA_USD,
+        DEFAULT_PAIR_TOKEN_MOMENTUM_SETTINGS.minimumVolumeDeltaUsd,
+        "PAIR_TOKEN_MOMENTUM_MIN_VOLUME_DELTA_USD",
+      ),
+      consecutiveSamples: positiveInteger(
+        env.PAIR_TOKEN_MOMENTUM_CONSECUTIVE_SAMPLES,
+        DEFAULT_PAIR_TOKEN_MOMENTUM_SETTINGS.consecutiveSamples,
+        "PAIR_TOKEN_MOMENTUM_CONSECUTIVE_SAMPLES",
+      ),
+      rearmSamples: positiveInteger(
+        env.PAIR_TOKEN_MOMENTUM_REARM_SAMPLES,
+        DEFAULT_PAIR_TOKEN_MOMENTUM_SETTINGS.rearmSamples,
+        "PAIR_TOKEN_MOMENTUM_REARM_SAMPLES",
+      ),
+      freshnessMinutes: positiveNumber(
+        env.PAIR_TOKEN_MOMENTUM_FRESHNESS_MINUTES,
+        DEFAULT_PAIR_TOKEN_MOMENTUM_SETTINGS.freshnessMinutes,
+        "PAIR_TOKEN_MOMENTUM_FRESHNESS_MINUTES",
+      ),
+    },
   };
 }
 
@@ -330,6 +399,31 @@ function warmingNotificationText(alert: PairWarmingAlert, detailUrl: string): st
   ].join("\n");
 }
 
+function formatTokenPrice(value: number): string {
+  return `$${value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: value >= 0.01 ? 4 : 8,
+  })}`;
+}
+
+function tokenMomentumNotificationText(alert: PairTokenMomentumAlert, detailUrl: string): string {
+  return [
+    "[RHC Radar｜PAIR 代币放量上涨]",
+    `当前价格：${formatTokenPrice(alert.currentPriceUsd)}（约 1H ${formatChange(alert.priceOneHourChangePct)}）`,
+    `当前滚动 24H 交易量：${formatUsd(alert.currentVolume24hUsd)}`,
+    `滚动窗口较约 1H 前：${formatChange(alert.volumeOneHourChangePct)}，净增加 ${formatUsd(alert.volumeDeltaUsd)}`,
+    alert.currentMarketCapUsd === null
+      ? "当前市值：不可用"
+      : `当前市值：${formatUsd(alert.currentMarketCapUsd)}`,
+    alert.currentLiquidityDepthUsd === null
+      ? "当前流动性：不可用"
+      : `当前流动性：${formatUsd(alert.currentLiquidityDepthUsd)}`,
+    "判断：价格和交易量连续两个 15 分钟快照同步达标；同一轮只通知一次。",
+    "口径：交易量是滚动 24H 窗口，不是过去 1H 的实际成交额；净增加是两个滚动窗口之差。",
+    `看板：${detailUrl}`,
+  ].join("\n");
+}
+
 export class PairDailyVolumeAlertService {
   private readonly fetcher: typeof fetch;
   private readonly now: () => Date;
@@ -424,9 +518,30 @@ export class PairDailyVolumeAlertService {
     return { status: plan.status, inserted, state: plan.nextState };
   }
 
+  async evaluateTokenMomentum(): Promise<PairTokenMomentumAlertEvaluation> {
+    const now = this.now();
+    const previousState =
+      this.database.getPairTokenMomentumState() ?? initialPairTokenMomentumState(now.toISOString());
+    if (!this.settings.feishuWebhookUrl || !this.settings.tokenMomentum.enabled) {
+      return { status: "disabled", inserted: false, state: previousState };
+    }
+    const since = new Date(now.valueOf() - 3 * 60 * 60_000).toISOString();
+    const plan = planPairTokenMomentum({
+      snapshots: this.database.getPairTokenMomentumSnapshots(since, PAIR_PROTOCOL_TOKEN_ADDRESS),
+      previousState,
+      settings: this.settings.tokenMomentum,
+      now,
+    });
+    if (plan.status !== "duplicate") this.database.savePairTokenMomentumState(plan.nextState);
+    const inserted = plan.alert ? this.database.enqueuePairTokenMomentumAlert(plan.alert) : false;
+    await this.flush();
+    return { status: plan.status, inserted, state: plan.nextState };
+  }
+
   health(): PairDailyVolumeAlertHealth {
     const summary = this.database.platformVolumeAlertSummary();
     const warmingSummary = this.database.pairWarmingAlertSummary();
+    const tokenMomentumSummary = this.database.pairTokenMomentumAlertSummary();
     return {
       ok: this.settings.feishuWebhookUrl !== null,
       service: "rhc-pair-daily-volume-alert",
@@ -447,6 +562,19 @@ export class PairDailyVolumeAlertService {
         upgradeThresholdPct: this.settings.warming.upgradeThresholdPct,
         state: this.database.getPairWarmingState(),
         ...warmingSummary,
+      },
+      tokenMomentum: {
+        configured: this.settings.feishuWebhookUrl !== null && this.settings.tokenMomentum.enabled,
+        evaluationCadenceMinutes: 15,
+        tokenAddress: PAIR_PROTOCOL_TOKEN_ADDRESS,
+        comparison: "price_and_rolling_24h_volume_vs_one_hour",
+        priceOneHourThresholdPct: this.settings.tokenMomentum.priceOneHourThresholdPct,
+        volumeOneHourThresholdPct: this.settings.tokenMomentum.volumeOneHourThresholdPct,
+        minimumVolumeDeltaUsd: this.settings.tokenMomentum.minimumVolumeDeltaUsd,
+        consecutiveSamples: this.settings.tokenMomentum.consecutiveSamples,
+        rearmSamples: this.settings.tokenMomentum.rearmSamples,
+        state: this.database.getPairTokenMomentumState(),
+        ...tokenMomentumSummary,
       },
     };
   }
@@ -495,6 +623,23 @@ export class PairDailyVolumeAlertService {
           errorName: error instanceof Error ? error.name : "UnknownNotificationError",
           observedAt: alert.observedAt,
           level: alert.level,
+        });
+      }
+    }
+    for (const alert of this.database.pendingPairTokenMomentumAlerts(now.toISOString(), 5)) {
+      try {
+        await this.sendText(tokenMomentumNotificationText(alert, this.settings.detailUrl));
+        this.database.markPairTokenMomentumAlertSent(alert.id, this.now().toISOString());
+      } catch (error) {
+        this.database.markPairTokenMomentumAlertFailed(
+          alert.id,
+          error instanceof Error ? `${error.name}: ${error.message}` : "UnknownNotificationError",
+          this.now(),
+          alert.attempts,
+        );
+        this.warn("pair_token_momentum_alert_delivery_failed", {
+          errorName: error instanceof Error ? error.name : "UnknownNotificationError",
+          observedAt: alert.observedAt,
         });
       }
     }

@@ -11,9 +11,9 @@
     <title>全链数据｜Robinhood Chain</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css?v=0.11.0" />
-    <link rel="stylesheet" href="./styles-v2.css?v=0.23.0" />
-    <link rel="stylesheet" href="./workbench.css?v=0.23.0" />
-    <script src="./app.js?v=0.23.0" type="module"></script>
+    <link rel="stylesheet" href="./styles-v2.css?v=0.24.0" />
+    <link rel="stylesheet" href="./workbench.css?v=0.24.0" />
+    <script src="./app.js?v=0.24.0" type="module"></script>
   </head>
   <body class="radar-v2">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -961,14 +961,14 @@
             <header class="pair-warming-monitor__head">
               <div>
                 <span>服务器每 15 分钟检查</span>
-                <h2 id="pair-warming-title">PAIR 交易量回温</h2>
+                <h2 id="pair-warming-title">PAIR 平台交易量回温</h2>
               </div>
-              <strong id="pair-warming-state">等待第一次判断</strong>
+              <strong class="pair-monitor-state" id="pair-warming-state">等待第一次判断</strong>
             </header>
             <div class="pair-warming-monitor__metrics">
               <article>
                 <span class="metric-label">
-                  当前 24H 交易量
+                  平台当前 24H 交易量
                   <button
                     class="metric-help"
                     type="button"
@@ -993,6 +993,47 @@
               </article>
             </div>
             <p id="pair-warming-meta">等待监控状态。</p>
+          </section>
+
+          <section
+            class="pair-warming-monitor pair-token-momentum-monitor"
+            aria-labelledby="pair-token-momentum-title"
+          >
+            <header class="pair-warming-monitor__head">
+              <div>
+                <span>服务器每 15 分钟检查 · 价格与成交量必须同时增强</span>
+                <h2 id="pair-token-momentum-title">$PAIR 代币放量上涨</h2>
+              </div>
+              <strong class="pair-monitor-state" id="pair-token-momentum-state">等待建立基线</strong>
+            </header>
+            <div class="pair-warming-monitor__metrics">
+              <article>
+                <span>当前价格</span>
+                <strong id="pair-token-momentum-price">—</strong>
+              </article>
+              <article>
+                <span>价格比约 1 小时前</span>
+                <strong id="pair-token-momentum-price-change">—</strong>
+              </article>
+              <article>
+                <span class="metric-label">
+                  当前 24H 交易量
+                  <button
+                    class="metric-help"
+                    type="button"
+                    aria-label="解释 PAIR 代币 24H 交易量变化"
+                    data-help-title="为什么不是过去一小时成交额？"
+                    data-help="这里比较两个滚动 24H 窗口。增加代表最近进入窗口的成交多于同时退出窗口的成交，并不等于过去一小时的实际成交金额。"
+                  >?</button>
+                </span>
+                <strong id="pair-token-momentum-volume">—</strong>
+              </article>
+              <article>
+                <span>交易量比约 1 小时前</span>
+                <strong id="pair-token-momentum-volume-change">—</strong>
+              </article>
+            </div>
+            <p id="pair-token-momentum-meta">等待监控状态。</p>
           </section>
 
           <div class="activity-card-grid" id="platform-activity-cards" aria-live="polite"></div>

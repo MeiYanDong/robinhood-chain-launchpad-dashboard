@@ -72,7 +72,10 @@ const pairCollector = new PairTokenCollector(pairSettings, {
     ),
 });
 const pair = new PairTokenService(pairDatabase, pairSettings, pairCollector, {
-  afterRefresh: () => pairDailyVolumeAlerts.evaluateWarming().then(() => undefined),
+  afterRefresh: async () => {
+    await pairDailyVolumeAlerts.evaluateWarming();
+    await pairDailyVolumeAlerts.evaluateTokenMomentum();
+  },
 });
 const pairFlowSettings = pairFlowSettingsFromEnv();
 const pairFlowDatabase = new PairFlowDatabase(databasePath);
@@ -183,6 +186,7 @@ async function warmInitialData(): Promise<void> {
   );
   await refresh("pair", () => pair.ensureFresh());
   await refresh("pair_volume_warming_alert", () => pairDailyVolumeAlerts.evaluateWarming());
+  await refresh("pair_token_momentum_alert", () => pairDailyVolumeAlerts.evaluateTokenMomentum());
   await refresh("long", () => long.ensureFresh());
   await refresh("economics", () => economics.ensureFresh());
   await refresh("pair_flow", () => pairFlow.ensureFresh());

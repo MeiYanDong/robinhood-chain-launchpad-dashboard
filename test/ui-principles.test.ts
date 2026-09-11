@@ -191,7 +191,8 @@ test("economics client keeps unknown, not-applicable, and refresh routes distinc
 });
 
 test("launchpad wording, chart scale, and platform colors share one semantic contract", async () => {
-  const [app, styles] = await Promise.all([
+  const [html, app, styles] = await Promise.all([
+    readFile(htmlUrl, "utf8"),
     readFile(appUrl, "utf8"),
     readFile(stylesV2Url, "utf8"),
   ]);
@@ -209,6 +210,12 @@ test("launchpad wording, chart scale, and platform colors share one semantic con
   assert.match(app, /gapDirection[\s\S]*"溢价"[\s\S]*"折价"/);
   assert.match(app, /bindMetricHelp\(\)/);
   assert.doesNotMatch(app, /闭合日|相对平时|PONS 规模参考价|现价 PONS 锚|现价锚/);
+  assert.match(html, /PAIR 平台交易量回温/);
+  assert.match(html, /\$PAIR 代币放量上涨/);
+  assert.match(html, /价格与成交量必须同时增强/);
+  assert.match(html, /两个滚动 24H 窗口/);
+  assert.match(app, /health\?\.tokenMomentum/);
+  assert.match(app, /飞书正常/);
 
   assert.match(styles, /--platform-pons: var\(--acid\)/);
   assert.match(styles, /--platform-long: var\(--amber\)/);
