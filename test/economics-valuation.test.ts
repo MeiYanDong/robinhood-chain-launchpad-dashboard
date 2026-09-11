@@ -132,20 +132,25 @@ function sevenDays(pairValues = [10, 20, 30, 40, 50, 60, 70]): DailyMetric[] {
   });
 }
 
-test("PAIR relative valuation uses only common-day platform volume and effective supply", () => {
+test("PAIR relative valuation uses the latest common complete day and keeps seven-day context", () => {
   const result = build({ metrics: sevenDays() });
 
   assert.equal(result.state, "available");
-  assert.equal(result.commonDayCount, 7);
-  assert.equal(result.inputs.ponsPlatformVolumeUsd.value, 700);
-  assert.equal(result.inputs.pairPlatformVolumeUsd.value, 280);
+  assert.equal(result.commonDayCount, 1);
+  assert.equal(result.comparisonDayCount, 7);
+  assert.deepEqual(result.commonDates, ["2026-09-08"]);
+  assert.equal(result.inputs.ponsPlatformVolumeUsd.value, 100);
+  assert.equal(result.inputs.pairPlatformVolumeUsd.value, 70);
+  assert.equal(result.inputs.ponsSevenDayVolumeUsd.value, 700);
+  assert.equal(result.inputs.pairSevenDayVolumeUsd.value, 280);
   assert.equal(result.inputs.ponsEffectiveSupply.value, 900);
   assert.equal(result.inputs.pairEffectiveSupply.value, 800);
-  assert.equal(result.estimateUsd, 0.9);
+  assert.ok(Math.abs((result.estimateUsd ?? 0) - 1.575) < 1e-12);
+  assert.equal(result.sevenDayEstimateUsd, 0.9);
   assert.equal(result.rangeLowUsd, 0.5625);
   assert.ok(Math.abs((result.rangeHighUsd ?? 0) - 1.2375) < 1e-12);
-  assert.ok(Math.abs((result.actualDeviationPercent ?? 0) - -33.333333333333336) < 1e-10);
-  assert.equal(result.policyScenario.estimateUsd, 1.0125);
+  assert.ok(Math.abs((result.actualDeviationPercent ?? 0) - -61.904761904761905) < 1e-10);
+  assert.ok(Math.abs((result.policyScenario.estimateUsd ?? 0) - 1.771875) < 1e-12);
   assert.equal(result.confidence, "low");
 });
 
@@ -161,11 +166,13 @@ test("benchmark price scales the estimate while PAIR actual price only changes d
 });
 
 test("missing common dates and stale PONS prices fail closed instead of becoming zero", () => {
-  const tooFew = build({ metrics: sevenDays().slice(0, 8) });
-  assert.equal(tooFew.commonDayCount, 4);
-  assert.equal(tooFew.state, "unavailable");
-  assert.equal(tooFew.estimateUsd, null);
-  assert.ok(tooFew.reasons.some((item) => item.code === "INSUFFICIENT_COMMON_DAYS"));
+  const noCommonDay = build({
+    metrics: [volume("pons", "2026-09-02", 100), volume("pair", "2026-09-03", 10)],
+  });
+  assert.equal(noCommonDay.commonDayCount, 0);
+  assert.equal(noCommonDay.state, "unavailable");
+  assert.equal(noCommonDay.estimateUsd, null);
+  assert.ok(noCommonDay.reasons.some((item) => item.code === "INSUFFICIENT_COMMON_DAYS"));
 
   const stale = build({
     metrics: sevenDays(),
@@ -187,6 +194,14 @@ test("a recorded zero is retained and a one-day outlier does not define the quar
   assert.ok((outlier.rangeHighUsd ?? Number.POSITIVE_INFINITY) < 1);
 });
 
+test("a sharp platform-volume decline reaches the primary reference before the seven-day average", () => {
+  const decline = build({ metrics: sevenDays([100, 80, 60, 40, 20, 10, 1]) });
+
+  assert.ok((decline.estimateUsd ?? Number.POSITIVE_INFINITY) < 0.03);
+  assert.ok((decline.sevenDayEstimateUsd ?? 0) > 0.9);
+  assert.ok((decline.latestVsSevenDayPercent ?? 0) < -95);
+});
+
 test("duplicate daily observations resolve to the newest collected value", () => {
   const metrics = sevenDays();
   metrics.push(
@@ -195,7 +210,8 @@ test("duplicate daily observations resolve to the newest collected value", () =>
   );
   const result = build({ metrics });
 
-  assert.equal(result.inputs.pairPlatformVolumeUsd.value, 217);
+  assert.equal(result.inputs.pairPlatformVolumeUsd.value, 7);
+  assert.equal(result.inputs.pairSevenDayVolumeUsd.value, 217);
   assert.ok((result.estimateUsd ?? Number.POSITIVE_INFINITY) < 1);
 });
 

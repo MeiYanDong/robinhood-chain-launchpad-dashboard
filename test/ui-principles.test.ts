@@ -89,6 +89,9 @@ test("launchpad dashboard is split into four task views and defaults to a concis
   assert.match(html, /id="pair-flow-policy-usd"/);
   assert.match(html, /id="pair-flow-locker-pair"/);
   assert.match(html, /id="valuation-estimate-price"/);
+  assert.match(html, /id="valuation-seven-day-estimate"/);
+  assert.match(html, /按最新完整日平台量折算的 PAIR 参考价/);
+  assert.match(html, /7 日平滑对照/);
   assert.match(html, /id="valuation-formula-definition"/);
   assert.match(html, /PONS 价格 ×（PONS 有效供应量 ÷ PAIR 有效供应量）/);
   assert.match(html, /id="valuation-equation-substitution"/);
@@ -97,6 +100,7 @@ test("launchpad dashboard is split into four task views and defaults to a concis
   assert.match(html, /id="valuation-input-pair-supply"/);
   assert.match(html, /id="valuation-input-pons-volume"/);
   assert.match(html, /id="valuation-input-pair-volume"/);
+  assert.match(html, /id="valuation-volume-heading"/);
   assert.match(html, /id="valuation-policy-equation"/);
   assert.match(html, /id="valuation-reasons"/);
   assert.match(html, /id="valuation-history-chart"/);

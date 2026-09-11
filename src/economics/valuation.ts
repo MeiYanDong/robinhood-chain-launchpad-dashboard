@@ -11,13 +11,13 @@ import type {
   TokenEconomicsRow,
 } from "./types.js";
 
-export const PAIR_RELATIVE_VALUATION_MODEL_VERSION = "pons-volume-parity-v1" as const;
+export const PAIR_RELATIVE_VALUATION_MODEL_VERSION = "pons-latest-day-volume-parity-v2" as const;
 export const PAIR_RELATIVE_VALUATION_MAX_DAYS = 7;
-export const PAIR_RELATIVE_VALUATION_MIN_DAYS = 5 as const;
+export const PAIR_RELATIVE_VALUATION_MIN_DAYS = 1 as const;
 export const PAIR_RELATIVE_VALUATION_PRICE_FRESHNESS_MINUTES = 30;
 
 const FORMULA =
-  "PONS price × (PONS effective supply ÷ PAIR effective supply) × (PAIR common-day volume ÷ PONS common-day volume)";
+  "PONS price × (PONS effective supply ÷ PAIR effective supply) × (PAIR latest closed-day volume ÷ PONS latest closed-day volume)";
 
 interface BuildPairRelativeValuationInput {
   now: Date;
@@ -132,7 +132,7 @@ function metricEvidenceQuality(metrics: DailyMetric[]): EvidenceQuality {
   return official ? "official" : "third_party";
 }
 
-function volumeInput(metrics: DailyMetric[], label: string): EvidenceValue {
+function volumeInput(metrics: DailyMetric[], label: string, note: string): EvidenceValue {
   if (metrics.length === 0) return unknownValue(`${label} 没有共同闭合 UTC 日成交量。`);
   const sources = [...new Set(metrics.map((metric) => metric.source))];
   return derivedValue({
@@ -140,7 +140,7 @@ function volumeInput(metrics: DailyMetric[], label: string): EvidenceValue {
     quality: metricEvidenceQuality(metrics),
     source: sources.join("+"),
     asOf: latestAsOf(metrics),
-    note: `最近 ${metrics.length} 个共同闭合 UTC 日求和；缺失日未补 0。`,
+    note,
   });
 }
 
@@ -173,25 +173,24 @@ function reason(
 
 function confidence(input: {
   selectedMetrics: DailyMetric[];
-  selectedDayCount: number;
+  comparisonDayCount: number;
   totalCommonDayCount: number;
   ponsPriceQuality: EvidenceQuality;
 }): PairRelativeValuationConfidence {
   if (
-    input.selectedDayCount < PAIR_RELATIVE_VALUATION_MAX_DAYS ||
+    input.comparisonDayCount < PAIR_RELATIVE_VALUATION_MAX_DAYS ||
     input.totalCommonDayCount < 14 ||
     input.selectedMetrics.some((metric) => metric.quality === "partial")
   ) {
     return "low";
   }
   if (
-    input.totalCommonDayCount >= 30 &&
     ["official", "onchain"].includes(input.ponsPriceQuality) &&
     metricEvidenceQuality(input.selectedMetrics) === "official"
   ) {
-    return "high";
+    return "medium";
   }
-  return "medium";
+  return "low";
 }
 
 export function buildPairRelativeValuation(
@@ -211,15 +210,41 @@ export function buildPairRelativeValuation(
       return pons !== undefined && pons.value > 0 && pairByDate.has(date);
     })
     .sort();
-  const commonDates = allCommonDates.slice(-PAIR_RELATIVE_VALUATION_MAX_DAYS);
-  const ponsMetrics = commonDates
+  const comparisonDates = allCommonDates.slice(-PAIR_RELATIVE_VALUATION_MAX_DAYS);
+  const latestCommonDate = comparisonDates.at(-1) ?? null;
+  const commonDates = latestCommonDate ? [latestCommonDate] : [];
+  const ponsMetrics = comparisonDates
     .map((date) => ponsByDate.get(date))
     .filter((metric): metric is DailyMetric => metric !== undefined);
-  const pairMetrics = commonDates
+  const pairMetrics = comparisonDates
     .map((date) => pairByDate.get(date))
     .filter((metric): metric is DailyMetric => metric !== undefined);
-  const ponsVolume = volumeInput(ponsMetrics, "Pons");
-  const pairVolume = volumeInput(pairMetrics, "PAIR");
+  const latestPonsMetric = latestCommonDate ? ponsByDate.get(latestCommonDate) : undefined;
+  const latestPairMetric = latestCommonDate ? pairByDate.get(latestCommonDate) : undefined;
+  const ponsVolume = volumeInput(
+    latestPonsMetric ? [latestPonsMetric] : [],
+    "Pons",
+    latestCommonDate
+      ? `${latestCommonDate} 完整 UTC 日成交量；缺失日未补 0。`
+      : "最新共同完整 UTC 日成交量不可用。",
+  );
+  const pairVolume = volumeInput(
+    latestPairMetric ? [latestPairMetric] : [],
+    "PAIR",
+    latestCommonDate
+      ? `${latestCommonDate} 完整 UTC 日成交量；缺失日未补 0。`
+      : "最新共同完整 UTC 日成交量不可用。",
+  );
+  const ponsSevenDayVolume = volumeInput(
+    ponsMetrics,
+    "Pons",
+    `最近 ${ponsMetrics.length} 个共同完整 UTC 日求和；仅用于 7 日平滑对照。`,
+  );
+  const pairSevenDayVolume = volumeInput(
+    pairMetrics,
+    "PAIR",
+    `最近 ${pairMetrics.length} 个共同完整 UTC 日求和；仅用于 7 日平滑对照。`,
+  );
   const reasons: PairRelativeValuationReason[] = [];
 
   if (commonDates.length < PAIR_RELATIVE_VALUATION_MIN_DAYS) {
@@ -227,7 +252,7 @@ export function buildPairRelativeValuation(
       reason(
         "INSUFFICIENT_COMMON_DAYS",
         "blocking",
-        `共同闭合日只有 ${commonDates.length} 天，至少需要 ${PAIR_RELATIVE_VALUATION_MIN_DAYS} 天。`,
+        `最新共同完整 UTC 日不可用，至少需要 ${PAIR_RELATIVE_VALUATION_MIN_DAYS} 天。`,
       ),
     );
   }
@@ -264,9 +289,18 @@ export function buildPairRelativeValuation(
   if (ponsPrice.quality === "third_party") {
     reasons.push(reason("THIRD_PARTY_BENCHMARK_PRICE", "note", "PONS 基准价格来自第三方市场源。"));
   }
+  reasons.push(
+    reason(
+      "LATEST_DAY_VOLUME_REACTIVE",
+      "note",
+      "主参考价使用最新完整 UTC 日成交量，能更快反映降温，也会比 7 日平滑值波动更大。",
+    ),
+  );
 
   const blocking = reasons.some((candidate) => candidate.severity === "blocking");
   let estimateUsd: number | null = null;
+  let sevenDayEstimateUsd: number | null = null;
+  let latestVsSevenDayPercent: number | null = null;
   let rangeLowUsd: number | null = null;
   let rangeHighUsd: number | null = null;
   if (
@@ -282,7 +316,7 @@ export function buildPairRelativeValuation(
     const ponsPriceValue = ponsPrice.value;
     const supplyRatio = ponsSupply.value / pairSupply.value;
     const calculated = ponsPriceValue * supplyRatio * (pairVolume.value / ponsVolume.value);
-    const dailyEstimates = commonDates.map((date) => {
+    const dailyEstimates = comparisonDates.map((date) => {
       const pons = ponsByDate.get(date);
       const pair = pairByDate.get(date);
       return pons && pair ? ponsPriceValue * supplyRatio * (pair.value / pons.value) : Number.NaN;
@@ -291,6 +325,18 @@ export function buildPairRelativeValuation(
       estimateUsd = calculated;
       rangeLowUsd = quantile(dailyEstimates, 0.25);
       rangeHighUsd = quantile(dailyEstimates, 0.75);
+      if (
+        finiteNumber(ponsSevenDayVolume.value) &&
+        ponsSevenDayVolume.value > 0 &&
+        finiteNumber(pairSevenDayVolume.value)
+      ) {
+        const smoothed =
+          ponsPriceValue * supplyRatio * (pairSevenDayVolume.value / ponsSevenDayVolume.value);
+        if (Number.isFinite(smoothed)) {
+          sevenDayEstimateUsd = smoothed;
+          latestVsSevenDayPercent = smoothed > 0 ? (calculated / smoothed - 1) * 100 : null;
+        }
+      }
     } else {
       reasons.push(reason("CALCULATION_INVALID", "blocking", "相对估值计算结果无效。"));
     }
@@ -324,15 +370,20 @@ export function buildPairRelativeValuation(
     state,
     observedAt: input.observedAt,
     priceFreshnessMinutes: freshnessMinutes,
-    windowDefinition: "latest_7_common_closed_utc_days",
+    windowDefinition: "latest_common_closed_utc_day",
     minimumCommonDays: PAIR_RELATIVE_VALUATION_MIN_DAYS,
     commonDayCount: commonDates.length,
     totalCommonDayCount: allCommonDates.length,
     commonDates,
     platformWindowStart: commonDates[0] ?? null,
     platformWindowEnd: commonDates.at(-1) ?? null,
+    comparisonWindowDefinition: "latest_7_common_closed_utc_days",
+    comparisonDayCount: comparisonDates.length,
+    comparisonDates,
     formula: FORMULA,
     estimateUsd,
+    sevenDayEstimateUsd,
+    latestVsSevenDayPercent,
     rangeLowUsd,
     rangeHighUsd,
     actualPriceUsd,
@@ -348,7 +399,7 @@ export function buildPairRelativeValuation(
       state === "available"
         ? confidence({
             selectedMetrics,
-            selectedDayCount: commonDates.length,
+            comparisonDayCount: comparisonDates.length,
             totalCommonDayCount: allCommonDates.length,
             ponsPriceQuality: ponsPrice.quality,
           })
@@ -360,6 +411,8 @@ export function buildPairRelativeValuation(
       pairEffectiveSupply: pairSupply,
       ponsPlatformVolumeUsd: ponsVolume,
       pairPlatformVolumeUsd: pairVolume,
+      ponsSevenDayVolumeUsd: ponsSevenDayVolume,
+      pairSevenDayVolumeUsd: pairSevenDayVolume,
     },
     reasons,
   };
@@ -391,6 +444,8 @@ function invalidatePairRelativeValuation(
     ...valuation,
     state: "unavailable",
     estimateUsd: null,
+    sevenDayEstimateUsd: null,
+    latestVsSevenDayPercent: null,
     rangeLowUsd: null,
     rangeHighUsd: null,
     actualPriceUsd: null,
@@ -442,6 +497,7 @@ export function toPairRelativeValuationHistoryPoint(
     state: valuation.state,
     platformWindowEnd: valuation.platformWindowEnd,
     estimateUsd: valuation.estimateUsd,
+    sevenDayEstimateUsd: valuation.sevenDayEstimateUsd,
     rangeLowUsd: valuation.rangeLowUsd,
     rangeHighUsd: valuation.rangeHighUsd,
     actualPriceUsd: valuation.actualPriceUsd,

@@ -21,7 +21,7 @@ const ECONOMICS_DEFINITION_LABELS = {
   executed_buyback: "实际回购",
   net_profit: "净利润",
   pair_relative_valuation: "PAIR 相对估值",
-  valuation_range: "7 日估值区间",
+  valuation_range: "近 7 个完整日逐日参考区间",
   valuation_deviation: "实际价格偏离",
   policy_scenario: "手续费分配情景",
   pair_flow_today_volume: "今日主池成交",
@@ -40,6 +40,8 @@ const EVIDENCE_LABELS = {
 const VALUATION_FORMULA_LABELS = {
   "PONS price × (PONS effective supply ÷ PAIR effective supply) × (PAIR common-day volume ÷ PONS common-day volume)":
     "PONS 价格 ×（PONS 有效供应量 ÷ PAIR 有效供应量）×（PAIR 7日平台量 ÷ PONS 7日平台量）",
+  "PONS price × (PONS effective supply ÷ PAIR effective supply) × (PAIR latest closed-day volume ÷ PONS latest closed-day volume)":
+    "PONS 价格 ×（PONS 有效供应量 ÷ PAIR 有效供应量）×（PAIR 最新完整日平台量 ÷ PONS 最新完整日平台量）",
 };
 const VALUATION_SOURCE_LABELS = {
   "gmgn.ponsTokenInfo": "GMGN",
@@ -1687,8 +1689,8 @@ function renderLaunchpadOverview() {
       : `${gapDirection} ${formatPercent(Math.abs(gap))}`
     : "暂不可比";
   $("#overview-valuation-gap-note").textContent = Number.isFinite(valuation?.estimateUsd)
-    ? `按 PONS 平台规模折算的 PAIR 参考价 ${formatTokenPrice(valuation.estimateUsd)}`
-    : "按 PONS 平台规模折算，不是价格预测";
+    ? `按最新完整日平台量折算的 PAIR 参考价 ${formatTokenPrice(valuation.estimateUsd)}`
+    : "按最新完整日平台量折算，不是价格预测";
 
   body.replaceChildren();
   for (const item of activityRows) {
@@ -1736,7 +1738,7 @@ function renderLaunchpadOverview() {
   }
   if (Number.isFinite(gap)) {
     insights.push(
-      `PAIR 当前价 ${formatTokenPrice(valuation.actualPriceUsd)}，相对按 PONS 平台规模折算的 PAIR 参考价 ${formatTokenPrice(valuation.estimateUsd)} ${gapDirection}${gapDirection === "持平" ? "" : ` ${formatPercent(Math.abs(gap))}`}；已有 ${formatCount(valuation.totalCommonDayCount)} 天双方都具备数据。`,
+      `PAIR 当前价 ${formatTokenPrice(valuation.actualPriceUsd)}，相对按最新完整日平台量折算的 PAIR 参考价 ${formatTokenPrice(valuation.estimateUsd)} ${gapDirection}${gapDirection === "持平" ? "" : ` ${formatPercent(Math.abs(gap))}`}；7 日平滑对照为 ${formatTokenPrice(valuation.sevenDayEstimateUsd)}。`,
     );
   } else {
     insights.push("PAIR 与 PONS 双方都有数据的日期不足，暂不计算折算参考价。");
@@ -2591,7 +2593,7 @@ function renderValuationWindow(valuation) {
   target.classList.remove("is-current", "is-delayed", "is-unavailable");
   if (!valuation?.platformWindowStart || !valuation?.platformWindowEnd) {
     const dayCount = Number.isFinite(valuation?.commonDayCount) ? valuation.commonDayCount : 0;
-    const minimum = Number.isFinite(valuation?.minimumCommonDays) ? valuation.minimumCommonDays : 5;
+    const minimum = Number.isFinite(valuation?.minimumCommonDays) ? valuation.minimumCommonDays : 1;
     target.textContent = `双方都有数据的日期不足 · ${dayCount}/${minimum} 天`;
     target.classList.add("is-unavailable");
     return;
@@ -2603,7 +2605,14 @@ function renderValuationWindow(valuation) {
     : "";
   const lagLabel =
     lag === null ? "" : lag === 0 ? " · 已更新到最新可统计日期" : ` · 距最新可统计日期 ${lag} 天`;
-  target.textContent = `对比日期 ${formatUtcRange(valuation.platformWindowStart, valuation.platformWindowEnd)} · ${valuation.commonDayCount} 天${history}${lagLabel}`;
+  if (valuation.windowDefinition === "latest_common_closed_utc_day") {
+    const comparison = Number.isFinite(valuation.comparisonDayCount)
+      ? ` · 近 ${valuation.comparisonDayCount} 日作为平滑对照`
+      : "";
+    target.textContent = `主参考使用 ${formatUtcDay(valuation.platformWindowEnd)}单日交易量${comparison}${history}${lagLabel}`;
+  } else {
+    target.textContent = `对比日期 ${formatUtcRange(valuation.platformWindowStart, valuation.platformWindowEnd)} · ${valuation.commonDayCount} 天${history}${lagLabel}`;
+  }
   target.classList.add(lag === null ? "is-unavailable" : lag > 0 ? "is-delayed" : "is-current");
 }
 
@@ -2613,6 +2622,11 @@ function renderValuationCalculation(valuation) {
   formula.textContent = valuationFormulaLabel(valuation?.formula);
   formula.title = valuation?.formula ?? "等待模型数据";
   renderValuationWindow(valuation);
+  const volumeDay = valuation?.platformWindowEnd
+    ? `${formatUtcDay(valuation.platformWindowEnd)}平台交易量`
+    : "最新完整日平台交易量";
+  $("#valuation-volume-heading").textContent = volumeDay;
+  $("#valuation-volume-note").textContent = "PONS 与 PAIR 使用同一个完整 UTC 日";
 
   renderValuationInput(
     "#valuation-input-pons-price",
@@ -2698,6 +2712,10 @@ function renderPairRelativeValuation() {
 
   $("#valuation-actual-price").textContent = formatTokenPrice(valuation?.actualPriceUsd);
   $("#valuation-estimate-price").textContent = formatTokenPrice(valuation?.estimateUsd);
+  $("#valuation-seven-day-estimate").textContent = formatTokenPrice(valuation?.sevenDayEstimateUsd);
+  $("#valuation-seven-day-estimate").title = Number.isFinite(valuation?.latestVsSevenDayPercent)
+    ? `单日主参考相对 7 日平滑值 ${formatSignedPercent(valuation.latestVsSevenDayPercent)}`
+    : "等待 7 个共同完整 UTC 日";
   $("#valuation-range").textContent = formatPriceRange(
     valuation?.rangeLowUsd,
     valuation?.rangeHighUsd,
@@ -2727,9 +2745,9 @@ function renderPairRelativeValuation() {
   );
   deviation.title = Number.isFinite(deviationValue)
     ? deviationValue > 0
-      ? "PAIR 当前价格高于按 PONS 平台规模折算的 PAIR 参考价"
+      ? "PAIR 当前价格高于按最新完整日平台量折算的 PAIR 参考价"
       : deviationValue < 0
-        ? "PAIR 当前价格低于按 PONS 平台规模折算的 PAIR 参考价"
+        ? "PAIR 当前价格低于按最新完整日平台量折算的 PAIR 参考价"
         : "PAIR 当前价格与折算参考价相同"
     : "缺少可比结果";
   $("#valuation-policy-price").textContent = formatTokenPrice(

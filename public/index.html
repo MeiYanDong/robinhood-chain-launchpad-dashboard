@@ -11,9 +11,9 @@
     <title>全链数据｜Robinhood Chain</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css?v=0.11.0" />
-    <link rel="stylesheet" href="./styles-v2.css?v=0.20.12" />
-    <link rel="stylesheet" href="./workbench.css?v=0.20.12" />
-    <script src="./app.js?v=0.20.12" type="module"></script>
+    <link rel="stylesheet" href="./styles-v2.css?v=0.21.0" />
+    <link rel="stylesheet" href="./workbench.css?v=0.21.0" />
+    <script src="./app.js?v=0.21.0" type="module"></script>
   </head>
   <body class="radar-v2">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -762,8 +762,8 @@
               </div>
               <dl>
                 <div><dt>PAIR 当前价格</dt><dd id="intelligence-pair-actual">—</dd></div>
-                <div><dt>按 PONS 平台规模折算</dt><dd id="intelligence-pair-implied">—</dd></div>
-                <div><dt>合理波动区间</dt><dd id="intelligence-pair-range">—</dd></div>
+                <div><dt>按最新完整日平台量折算</dt><dd id="intelligence-pair-implied">—</dd></div>
+                <div><dt>近 7 日逐日参考区间</dt><dd id="intelligence-pair-range">—</dd></div>
                 <div><dt>当前溢价 / 折价</dt><dd id="intelligence-pair-gap">—</dd></div>
               </dl>
             </article>
@@ -838,7 +838,7 @@
                 >?</button>
               </span>
               <strong id="overview-valuation-gap">—</strong>
-              <small id="overview-valuation-gap-note">按 PONS 平台规模折算，不是价格预测</small>
+              <small id="overview-valuation-gap-note">按最新完整日平台量折算，不是价格预测</small>
             </article>
           </div>
 
@@ -1307,7 +1307,7 @@
             <div>
               <span>PAIR 平台规模对比</span>
               <h1 id="pair-valuation-title">PAIR vs PONS</h1>
-              <p>以 PONS 为比较基准，按双方有效供应量和最近 7 日平台交易量，折算出 PAIR 的参考价格。</p>
+              <p>以 PONS 为比较基准，主参考使用双方最新完整 UTC 日交易量；7 日结果只作为平滑对照。</p>
             </div>
             <strong class="valuation-state" id="pair-valuation-state">等待数据</strong>
           </header>
@@ -1319,16 +1319,29 @@
             </article>
             <article class="valuation-metric valuation-metric--estimate">
               <span class="metric-label">
-                按 PONS 平台规模折算的 PAIR 参考价
+                按最新完整日平台量折算的 PAIR 参考价
                 <button
                   class="metric-help"
                   type="button"
                   aria-label="解释 PAIR 折算参考价"
                   data-help-title="为什么这是 PAIR 的参考价？"
-                  data-help="这不是 PONS 的币价。系统从 PONS 当前价格出发，再按 PONS 与 PAIR 的有效供应量和同一 7 天平台交易量折算，结果对应的是 PAIR。它是经营规模比较，不是未来价格预测。"
+                  data-help="这不是 PONS 的币价。系统从 PONS 当前价格出发，再按双方有效供应量和最新一个共同完整 UTC 日的平台交易量折算，结果对应 PAIR。它能快速反映平台降温，但单日波动较大，因此同时展示 7 日平滑对照。"
                 >?</button>
               </span>
               <strong id="valuation-estimate-price">—</strong>
+            </article>
+            <article class="valuation-metric">
+              <span class="metric-label">
+                7 日平滑对照
+                <button
+                  class="metric-help"
+                  type="button"
+                  aria-label="解释 7 日平滑对照"
+                  data-help-title="为什么还保留 7 日值？"
+                  data-help="主参考价已经改用最新完整日。7 日值不参与主结果，只用于判断当天是否受到短期暴涨暴跌影响。"
+                >?</button>
+              </span>
+              <strong id="valuation-seven-day-estimate">—</strong>
             </article>
             <article class="valuation-metric valuation-metric--research" hidden>
               <span>历史波动区间</span>
@@ -1379,7 +1392,7 @@
                 <strong id="pons-forecast-upside">—</strong>
               </article>
               <article class="is-pair-anchor">
-                <span>按预测后的 PONS 价格折算 PAIR</span>
+                <span>预测 PONS × 最新完整日平台量折算 PAIR</span>
                 <strong id="pair-adjusted-anchor">—</strong>
                 <small id="pair-adjusted-range">—</small>
               </article>
@@ -1412,7 +1425,7 @@
             </header>
 
             <p class="valuation-formula" id="valuation-formula-definition">
-              PONS 价格 ×（PONS 有效供应量 ÷ PAIR 有效供应量）×（PAIR 7日平台量 ÷ PONS 7日平台量）
+              PONS 价格 ×（PONS 有效供应量 ÷ PAIR 有效供应量）×（PAIR 最新完整日平台量 ÷ PONS 最新完整日平台量）
             </p>
             <output
               class="valuation-equation"
@@ -1462,8 +1475,8 @@
                     </tr>
                     <tr>
                       <th scope="row">
-                        7日平台交易量
-                        <small>双方相同日期范围内的 7 天合计</small>
+                        <span id="valuation-volume-heading">最新完整日平台交易量</span>
+                        <small id="valuation-volume-note">PONS 与 PAIR 使用同一个完整 UTC 日</small>
                       </th>
                       <td>
                         <strong id="valuation-input-pons-volume">—</strong>

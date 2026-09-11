@@ -377,7 +377,7 @@ export async function verifyRuntime(
 
   const valuation = await readJson(base, "/api/economics/valuation", fetcher, timeoutMs);
   if (
-    valuation.payload.modelVersion !== "pons-volume-parity-v1" ||
+    valuation.payload.modelVersion !== "pons-latest-day-volume-parity-v2" ||
     !["available", "unavailable"].includes(String(valuation.payload.state)) ||
     !isRecord(valuation.payload.inputs) ||
     !Array.isArray(valuation.payload.commonDates)

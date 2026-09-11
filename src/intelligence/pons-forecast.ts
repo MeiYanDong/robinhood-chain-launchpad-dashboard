@@ -267,7 +267,7 @@ function unavailablePairAnchor(actualPriceUsd: number | null): PairAdjustedAncho
     actualDeviationPercent: null,
     currentConversionFactor: null,
     formula:
-      "PONS 7日预测价格 ×（PONS 有效供应量 ÷ PAIR 有效供应量）×（PAIR 7日平台量 ÷ PONS 7日平台量）",
+      "PONS 7日预测价格 ×（PONS 有效供应量 ÷ PAIR 有效供应量）×（PAIR 最新完整日平台量 ÷ PONS 最新完整日平台量）",
   };
 }
 
@@ -318,7 +318,7 @@ function adjustedPairAnchor(input: {
       actualPriceUsd !== null && adjusted > 0 ? (actualPriceUsd / adjusted - 1) * 100 : null,
     currentConversionFactor: factor,
     formula:
-      "PONS 7日预测价格 ×（PONS 有效供应量 ÷ PAIR 有效供应量）×（PAIR 7日平台量 ÷ PONS 7日平台量）",
+      "PONS 7日预测价格 ×（PONS 有效供应量 ÷ PAIR 有效供应量）×（PAIR 最新完整日平台量 ÷ PONS 最新完整日平台量）",
   };
 }
 
@@ -511,7 +511,7 @@ export function buildPonsPriceForecast(input: ForecastInput): PonsPriceForecast 
       "链上广度、资金、市场强度与 Pons 平台成交仅用于寻找相似历史阶段；四个维度等距，不手填权重。",
       "匹配样本不足时退回纯价格历史分布，并自动降为低置信度。",
       "七日结果按不重叠窗口计数，避免把连续滚动样本误当成独立样本。",
-      "PAIR 调整锚只替换 PONS 输入价格；供应量比与 7 日平台量比保持当前值。",
+      "PAIR 调整锚只替换 PONS 输入价格；供应量比与最新完整日平台量比保持当前值。",
       "持币地址增长当前权重为 0，只展示和积累历史。",
     ],
     warning:
