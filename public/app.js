@@ -2233,7 +2233,7 @@ function renderPairWarmingMonitor() {
     warming: "已回温",
     strong: "强回温",
   };
-  stateNode.className = "";
+  stateNode.className = "pair-monitor-state";
   if (!warming?.configured) {
     stateNode.textContent = "通知未启用";
     stateNode.classList.add("is-unavailable");
@@ -2271,6 +2271,51 @@ function renderPairWarmingMonitor() {
     ? `最近通知 ${formatDateTime(warming.lastSentAt)}`
     : "尚未触发通知";
   $("#pair-warming-meta").textContent = `${coverage} · ${evaluated} · ${lastAlert}`;
+
+  const momentum = health?.tokenMomentum;
+  const momentumSnapshot = momentum?.state;
+  const momentumStateNode = $("#pair-token-momentum-state");
+  const momentumLabels = {
+    cold: "尚未共振",
+    watch: "等待再次确认",
+    active: "已放量上涨",
+  };
+  momentumStateNode.className = "pair-monitor-state";
+  if (!momentum?.configured) {
+    momentumStateNode.textContent = "通知未启用";
+    momentumStateNode.classList.add("is-unavailable");
+  } else if (!momentumSnapshot) {
+    momentumStateNode.textContent = "等待建立基线";
+  } else if (momentumSnapshot.qualityStatus !== "ok") {
+    momentumStateNode.textContent = "数据待核验";
+    momentumStateNode.classList.add("is-unavailable");
+  } else {
+    momentumStateNode.textContent = momentumLabels[momentumSnapshot.state] ?? "等待判断";
+    momentumStateNode.classList.add(`is-${momentumSnapshot.state}`);
+  }
+  $("#pair-token-momentum-price").textContent = formatTokenPrice(momentumSnapshot?.currentPriceUsd);
+  $("#pair-token-momentum-price-change").textContent = formatSignedPercent(
+    momentumSnapshot?.priceOneHourChangePct,
+  );
+  $("#pair-token-momentum-volume").textContent = formatUsd(momentumSnapshot?.currentVolume24hUsd);
+  $("#pair-token-momentum-volume-change").textContent = formatSignedPercent(
+    momentumSnapshot?.volumeOneHourChangePct,
+  );
+  const momentumDelivery = !momentum?.configured
+    ? "飞书未启用"
+    : momentum.failed > 0
+      ? `飞书 ${formatCount(momentum.failed)} 条待重试`
+      : momentum.pending > 0
+        ? `飞书 ${formatCount(momentum.pending)} 条待发送`
+        : "飞书正常";
+  const momentumEvaluated = momentumSnapshot?.lastEvaluatedAt
+    ? `判断于 ${formatDateTime(momentumSnapshot.lastEvaluatedAt)}`
+    : "尚未完成判断";
+  const momentumLastAlert = momentum?.lastSentAt
+    ? `最近通知 ${formatDateTime(momentum.lastSentAt)}`
+    : "尚未触发通知";
+  $("#pair-token-momentum-meta").textContent =
+    `${momentumDelivery} · ${momentumEvaluated} · ${momentumLastAlert}`;
 }
 
 function formatPriceRange(low, high) {

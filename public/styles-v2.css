@@ -6635,7 +6635,7 @@ body[data-product-context="pair-flow"] .economics-section {
   font-weight: 600;
 }
 
-#pair-warming-state {
+.pair-monitor-state {
   padding: 0.3rem 0.62rem;
   border: 1px solid rgba(131, 237, 176, 0.2);
   border-radius: 999px;
@@ -6646,14 +6646,15 @@ body[data-product-context="pair-flow"] .economics-section {
   font-weight: 500;
 }
 
-#pair-warming-state.is-watch,
-#pair-warming-state.is-unavailable {
+.pair-monitor-state.is-watch,
+.pair-monitor-state.is-unavailable {
   border-color: rgba(247, 190, 87, 0.22);
   background: var(--warning-soft);
   color: var(--amber);
 }
 
-#pair-warming-state.is-strong {
+.pair-monitor-state.is-strong,
+.pair-monitor-state.is-active {
   border-color: rgba(131, 237, 176, 0.45);
   box-shadow: 0 0 18px rgba(131, 237, 176, 0.1);
 }
@@ -6693,6 +6694,24 @@ body[data-product-context="pair-flow"] .economics-section {
   color: #718079;
   font-family: var(--mono);
   font-size: 0.5625rem;
+}
+
+.pair-token-momentum-monitor {
+  background:
+    linear-gradient(90deg, rgba(131, 237, 176, 0.045), transparent 42%),
+    rgba(7, 13, 10, 0.72);
+}
+
+.pair-token-momentum-monitor .pair-warming-monitor__head h2::before {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 0.5rem;
+  border-radius: 999px;
+  background: var(--acid);
+  box-shadow: 0 0 12px rgba(131, 237, 176, 0.5);
+  content: "";
+  vertical-align: 0.08rem;
 }
 
 .activity-control,

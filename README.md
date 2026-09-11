@@ -403,6 +403,9 @@ DEV 监控重复全表扫描与整表写回的修复、`0.22.1` 发布恢复和�
 PAIR 15 分钟回温判断、两次确认、覆盖门禁、飞书去重与 `0.23.0` 自治更新回读见
 [`docs/evidence/pair-volume-warming-production-deployment-2026-09-11.md`](docs/evidence/pair-volume-warming-production-deployment-2026-09-11.md)。
 
+PAIR 代币价格与自身滚动 24H 交易量共振、首次基线抑制、两次确认及 `0.24.0` 回读见
+[`docs/evidence/pair-token-momentum-production-deployment-2026-09-11.md`](docs/evidence/pair-token-momentum-production-deployment-2026-09-11.md)。
+
 部署配置固化在 [`deploy/`](deploy/)；新版本应使用不可变 release 目录并原子切换
 `current` 软链接，保留上一版用于回滚。发布后必须同时验证公网首页、`/healthz`、
 `/api/overview?window=30`、`/api/platform-activity`、`/api/platform-activity/alerts/health`、
@@ -461,6 +464,12 @@ PAIR 15 分钟回温判断、两次确认、覆盖门禁、飞书去重与 `0.23
 | `PAIR_VOLUME_WARMING_CONSECUTIVE_SAMPLES` | `2` | 连续多少个 15 分钟快照满足门槛后才通知，过滤单次尖峰 |
 | `PAIR_VOLUME_WARMING_REARM_SAMPLES` | `4` | 连续多少个快照退出候选后，才允许下一轮回温再次通知 |
 | `PAIR_VOLUME_WARMING_UPGRADE_PCT` | `30` | 同一轮回温比首次通知值再上升多少时升级为强回温通知 |
+| `PAIR_TOKEN_MOMENTUM_ALERT_ENABLED` | `true` | 开启 PAIR 代币价格与自身交易量共振判断；仍需配置飞书 Webhook 才会投递 |
+| `PAIR_TOKEN_MOMENTUM_PRICE_ONE_HOUR_PCT` | `8` | PAIR 价格较约一小时前至少上涨多少才进入异动候选 |
+| `PAIR_TOKEN_MOMENTUM_VOLUME_ONE_HOUR_PCT` | `20` | PAIR 滚动 24H 交易量较约一小时前至少上涨多少才进入异动候选 |
+| `PAIR_TOKEN_MOMENTUM_MIN_VOLUME_DELTA_USD` | `25000` | 两个滚动 24H 窗口的交易量差额最低门槛，过滤低金额百分比噪声 |
+| `PAIR_TOKEN_MOMENTUM_CONSECUTIVE_SAMPLES` | `2` | 连续多少个新快照同时满足价格、交易量和金额门槛后才通知 |
+| `PAIR_TOKEN_MOMENTUM_REARM_SAMPLES` | `4` | 连续多少个快照退出候选后才允许下一轮通知 |
 | `DEV_MONITOR_ENABLED` | `false` | 启用服务端 DEV 发行与买入监听；生产 unit 显式设为 `true` |
 | `DEV_MONITOR_RPC_URL` | Robinhood Chain 官方 RPC | DEV 雷达只读日志、交易与 receipt 来源；可由 `PAIR_V2_RPC_URL` 兜底 |
 | `DEV_MONITOR_POLL_SECONDS` | `8` | 确认后链上发行与重点地址买入轮询间隔 |
@@ -489,7 +498,7 @@ PAIR 15 分钟回温判断、两次确认、覆盖门禁、飞书去重与 `0.23
 | `GET /healthz` | 服务与可用缓存状态 |
 | `GET /api/overview?window=1\|7\|30` | 汇总和平台排名 |
 | `GET /api/platform-activity` | Pons、Long、PAIR 日度成交历史、7/30 日活跃倍数与窗口交易量 |
-| `GET /api/platform-activity/alerts/health` | PAIR 完整日 ±10% 与盘中 15 分钟回温告警的状态、队列和最近投递；不返回 Webhook |
+| `GET /api/platform-activity/alerts/health` | PAIR 完整日、平台回温及代币价格—成交量共振告警的状态、队列和最近投递；不返回 Webhook |
 | `GET /api/platforms/:id` | 单平台 64 日序列、scope、来源 |
 | `GET /api/coverage` | 指标定义、警告、30 日覆盖矩阵 |
 | `GET /api/sources` | 采集运行与来源健康 |

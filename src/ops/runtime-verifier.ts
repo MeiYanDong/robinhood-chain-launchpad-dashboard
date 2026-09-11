@@ -170,6 +170,7 @@ export async function verifyRuntime(
     timeoutMs,
   );
   const pairWarmingAlert = pairDailyVolumeAlert.payload.warming;
+  const pairTokenMomentumAlert = pairDailyVolumeAlert.payload.tokenMomentum;
   if (
     pairDailyVolumeAlert.payload.ok !== true ||
     pairDailyVolumeAlert.payload.service !== "rhc-pair-daily-volume-alert" ||
@@ -185,11 +186,20 @@ export async function verifyRuntime(
     pairWarmingAlert.oneHourThresholdPct !== 15 ||
     pairWarmingAlert.sixHourLowThresholdPct !== 25 ||
     pairWarmingAlert.consecutiveSamples !== 2 ||
-    pairWarmingAlert.rearmSamples !== 4
+    pairWarmingAlert.rearmSamples !== 4 ||
+    !isRecord(pairTokenMomentumAlert) ||
+    pairTokenMomentumAlert.configured !== true ||
+    pairTokenMomentumAlert.evaluationCadenceMinutes !== 15 ||
+    pairTokenMomentumAlert.comparison !== "price_and_rolling_24h_volume_vs_one_hour" ||
+    pairTokenMomentumAlert.priceOneHourThresholdPct !== 8 ||
+    pairTokenMomentumAlert.volumeOneHourThresholdPct !== 20 ||
+    pairTokenMomentumAlert.minimumVolumeDeltaUsd !== 25_000 ||
+    pairTokenMomentumAlert.consecutiveSamples !== 2 ||
+    pairTokenMomentumAlert.rearmSamples !== 4
   ) {
     throw new RuntimeVerificationError(
       "RUNTIME_NOT_READY",
-      "PAIR volume alerts are not configured for the daily and intraday thresholds",
+      "PAIR volume alerts are not configured for the daily, platform, and token thresholds",
     );
   }
 

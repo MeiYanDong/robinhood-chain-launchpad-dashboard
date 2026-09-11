@@ -84,6 +84,10 @@ test("PAIR daily volume alert settings default to 10 percent and reuse the PAIR 
   assert.equal(configured.feishuWebhookUrl, "https://open.feishu.cn/open-apis/bot/v2/hook/test");
   assert.equal(configured.detailUrl, "https://radar.example/market/");
   assert.deepEqual(configured.warming, DEFAULT_PAIR_DAILY_VOLUME_ALERT_SETTINGS.warming);
+  assert.deepEqual(
+    configured.tokenMomentum,
+    DEFAULT_PAIR_DAILY_VOLUME_ALERT_SETTINGS.tokenMomentum,
+  );
   assert.equal(
     pairDailyVolumeAlertSettingsFromEnv({
       DEV_MONITOR_FEISHU_WEBHOOK_URL:
@@ -235,6 +239,21 @@ test("PAIR daily volume notifier sends once and persists its dedupe state", asyn
       consecutiveSamples: 2,
       rearmSamples: 4,
       upgradeThresholdPct: 30,
+      state: null,
+      pending: 0,
+      failed: 0,
+      lastSentAt: null,
+    });
+    assert.deepEqual(health.tokenMomentum, {
+      configured: true,
+      evaluationCadenceMinutes: 15,
+      tokenAddress: "0x6b1d42927b1a84ec28fa88d4fc6fa7af404966be",
+      comparison: "price_and_rolling_24h_volume_vs_one_hour",
+      priceOneHourThresholdPct: 8,
+      volumeOneHourThresholdPct: 20,
+      minimumVolumeDeltaUsd: 25_000,
+      consecutiveSamples: 2,
+      rearmSamples: 4,
       state: null,
       pending: 0,
       failed: 0,

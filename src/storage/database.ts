@@ -15,6 +15,11 @@ import type {
   PairWarmingAlert,
   PairWarmingStateRecord,
 } from "../platform-activity/warming.js";
+import type {
+  PairTokenMomentumAlert,
+  PairTokenMomentumSnapshot,
+  PairTokenMomentumStateRecord,
+} from "../platform-activity/token-momentum.js";
 
 export interface CollectionRun {
   id: number;
@@ -92,6 +97,11 @@ export interface PlatformVolumeAlertOutboxRow {
 }
 
 export interface PairWarmingAlertOutboxRow extends PairWarmingAlert {
+  id: number;
+  attempts: number;
+}
+
+export interface PairTokenMomentumAlertOutboxRow extends PairTokenMomentumAlert {
   id: number;
   attempts: number;
 }
@@ -222,6 +232,28 @@ export class DashboardDatabase {
 
       CREATE INDEX IF NOT EXISTS idx_pair_volume_warming_alert_delivery
         ON pair_volume_warming_alert_outbox(status, next_attempt_at, id ASC);
+
+      CREATE TABLE IF NOT EXISTS pair_token_momentum_state (
+        singleton_id INTEGER PRIMARY KEY CHECK(singleton_id = 1),
+        payload_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS pair_token_momentum_alert_outbox (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        dedupe_key TEXT NOT NULL UNIQUE,
+        observed_at TEXT NOT NULL,
+        payload_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        attempts INTEGER NOT NULL DEFAULT 0,
+        next_attempt_at TEXT NOT NULL,
+        sent_at TEXT,
+        last_error TEXT
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_pair_token_momentum_alert_delivery
+        ON pair_token_momentum_alert_outbox(status, next_attempt_at, id ASC);
     `);
   }
 
@@ -827,6 +859,180 @@ export class DashboardDatabase {
           SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
           MAX(sent_at) AS last_sent_at
         FROM pair_volume_warming_alert_outbox
+      `)
+      .get() as { pending: number | null; failed: number | null; last_sent_at: string | null };
+    return {
+      pending: row.pending ?? 0,
+      failed: row.failed ?? 0,
+      lastSentAt: row.last_sent_at,
+    };
+  }
+
+  getPairTokenMomentumSnapshots(
+    since: string,
+    tokenAddress: string,
+    limit = 256,
+  ): PairTokenMomentumSnapshot[] {
+    const pairTables = this.db
+      .prepare(
+        `SELECT COUNT(*) AS count FROM sqlite_schema
+         WHERE type = 'table' AND name IN ('pair_collection_runs', 'pair_token_snapshots', 'pair_source_health')`,
+      )
+      .get() as { count: number };
+    if (pairTables.count !== 3) return [];
+    const rows = this.db
+      .prepare(`
+        SELECT
+          snapshots.run_id,
+          runs.observed_at,
+          snapshots.token_address,
+          snapshots.price_usd,
+          snapshots.volume_24h_usd,
+          snapshots.market_cap_usd,
+          snapshots.liquidity_depth_usd,
+          snapshots.market_data_updated_at,
+          COALESCE(source.status, 'failed') AS source_status
+        FROM pair_token_snapshots AS snapshots
+        JOIN pair_collection_runs AS runs ON runs.id = snapshots.run_id
+        LEFT JOIN pair_source_health AS source
+          ON source.run_id = snapshots.run_id AND source.source = 'pair.officialApi'
+        WHERE runs.status IN ('success', 'partial')
+          AND runs.observed_at IS NOT NULL
+          AND runs.observed_at >= ?
+          AND snapshots.token_address = ?
+        ORDER BY runs.observed_at DESC, snapshots.run_id DESC
+        LIMIT ?
+      `)
+      .all(since, tokenAddress.toLowerCase(), limit) as unknown as Array<Record<string, unknown>>;
+    return rows
+      .map((row) => ({
+        runId: Number(row.run_id),
+        observedAt: String(row.observed_at),
+        tokenAddress: String(row.token_address),
+        priceUsd: row.price_usd === null ? null : Number(row.price_usd),
+        volume24hUsd: row.volume_24h_usd === null ? null : Number(row.volume_24h_usd),
+        marketCapUsd: row.market_cap_usd === null ? null : Number(row.market_cap_usd),
+        liquidityDepthUsd:
+          row.liquidity_depth_usd === null ? null : Number(row.liquidity_depth_usd),
+        marketDataUpdatedAt:
+          row.market_data_updated_at === null ? null : String(row.market_data_updated_at),
+        sourceStatus: row.source_status as PairTokenMomentumSnapshot["sourceStatus"],
+      }))
+      .reverse();
+  }
+
+  getPairTokenMomentumState(): PairTokenMomentumStateRecord | null {
+    const row = this.db
+      .prepare("SELECT payload_json FROM pair_token_momentum_state WHERE singleton_id = 1")
+      .get() as { payload_json: string } | undefined;
+    if (!row) return null;
+    try {
+      return JSON.parse(row.payload_json) as PairTokenMomentumStateRecord;
+    } catch {
+      return null;
+    }
+  }
+
+  savePairTokenMomentumState(state: PairTokenMomentumStateRecord): void {
+    this.db
+      .prepare(`
+        INSERT INTO pair_token_momentum_state(singleton_id, payload_json, updated_at)
+        VALUES (1, ?, ?)
+        ON CONFLICT(singleton_id) DO UPDATE SET
+          payload_json = excluded.payload_json,
+          updated_at = excluded.updated_at
+      `)
+      .run(JSON.stringify(state), state.updatedAt);
+  }
+
+  enqueuePairTokenMomentumAlert(alert: PairTokenMomentumAlert): boolean {
+    const result = this.db
+      .prepare(`
+        INSERT OR IGNORE INTO pair_token_momentum_alert_outbox(
+          dedupe_key, observed_at, payload_json, created_at, next_attempt_at
+        ) VALUES (?, ?, ?, ?, ?)
+      `)
+      .run(
+        alert.dedupeKey,
+        alert.observedAt,
+        JSON.stringify(alert),
+        alert.createdAt,
+        alert.createdAt,
+      );
+    return Number(result.changes) === 1;
+  }
+
+  pendingPairTokenMomentumAlerts(now: string, limit = 5): PairTokenMomentumAlertOutboxRow[] {
+    const rows = this.db
+      .prepare(`
+        SELECT id, payload_json, attempts
+        FROM pair_token_momentum_alert_outbox
+        WHERE status IN ('pending', 'failed')
+          AND attempts < 5
+          AND next_attempt_at <= ?
+        ORDER BY id ASC
+        LIMIT ?
+      `)
+      .all(now, limit) as unknown as Array<{
+      id: number;
+      payload_json: string;
+      attempts: number;
+    }>;
+    return rows.flatMap((row) => {
+      try {
+        return [
+          {
+            ...(JSON.parse(row.payload_json) as PairTokenMomentumAlert),
+            id: row.id,
+            attempts: row.attempts,
+          },
+        ];
+      } catch {
+        return [];
+      }
+    });
+  }
+
+  markPairTokenMomentumAlertSent(id: number, sentAt: string): void {
+    this.db
+      .prepare(`
+        UPDATE pair_token_momentum_alert_outbox
+        SET status = 'sent', attempts = attempts + 1, sent_at = ?, last_error = NULL
+        WHERE id = ?
+      `)
+      .run(sentAt, id);
+  }
+
+  markPairTokenMomentumAlertFailed(
+    id: number,
+    error: string,
+    now: Date,
+    previousAttempts: number,
+  ): void {
+    const delayMinutes = Math.min(60, 2 ** previousAttempts * 5);
+    const nextAttemptAt = new Date(now.valueOf() + delayMinutes * 60_000).toISOString();
+    this.db
+      .prepare(`
+        UPDATE pair_token_momentum_alert_outbox
+        SET status = 'failed', attempts = attempts + 1,
+            next_attempt_at = ?, last_error = ?
+        WHERE id = ?
+      `)
+      .run(nextAttemptAt, error.slice(0, 240), id);
+  }
+
+  pairTokenMomentumAlertSummary(): {
+    pending: number;
+    failed: number;
+    lastSentAt: string | null;
+  } {
+    const row = this.db
+      .prepare(`
+        SELECT
+          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending,
+          SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
+          MAX(sent_at) AS last_sent_at
+        FROM pair_token_momentum_alert_outbox
       `)
       .get() as { pending: number | null; failed: number | null; last_sent_at: string | null };
     return {
