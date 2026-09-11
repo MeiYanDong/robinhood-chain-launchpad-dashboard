@@ -52,7 +52,8 @@
 和定时器；自动回滚守卫未触发。
 
 重启初期 `robinhood-chain-long-refresh.service` 曾在 collector 监听 4176 前执行一次，因连接拒绝留下
-瞬时失败记录；collector 随后的内置 Long 刷新成功，公开 Long health 返回 `ok=true`、`stale=false`。
+瞬时失败记录；collector 随后的内置 Long 刷新成功，18:50 CST 的下一次定时刷新也以退出码 `0`
+完成，公开 Long health 返回 `ok=true`、`stale=false`。
 
 ## 当前边界
 
