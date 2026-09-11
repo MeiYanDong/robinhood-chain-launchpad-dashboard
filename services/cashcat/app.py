@@ -147,7 +147,7 @@ def _run_cycle() -> Dict[str, Any]:
 
 @app.on_event("startup")
 def start_worker() -> None:
-    if not _enabled("CASHCAT_AUTOSTART", True) or SCHEDULER.running:
+    if not _enabled("CASHCAT_AUTOSTART", False) or SCHEDULER.running:
         return
     SCHEDULER.add_job(
         _run_cycle,

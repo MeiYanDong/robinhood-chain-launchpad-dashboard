@@ -52,7 +52,9 @@ launchctl print "gui/$(id -u)/com.cashcat.sentinel"
 ## Linux / SWAS 部署
 
 生产部署使用独立的 `cashcat` 用户、版本化 `/opt/cashcat-sentinel/releases/`、持久化
-`/var/lib/cashcat-sentinel/` 和 systemd 单 worker。服务只监听 `127.0.0.1:8010`；公网由
+`/var/lib/cashcat-sentinel/` 和 systemd 单 worker。自 2026-09-12 起，CashCat 自动采集与
+日报调度退役，`CASHCAT_AUTOSTART=0`；服务继续只读提供已有历史报告和兼容 API，不删除
+历史数据。服务只监听 `127.0.0.1:8010`；公网由
 现有 Robinhood Chain Radar 的 Nginx 在 `/cashcat/` 子路径提供只读访问，所有 POST
 接口继续限制在 loopback。
 
@@ -115,7 +117,7 @@ PYTHONPATH=. python -m unittest discover -s tests -v
 | `CASHCAT_LIQ_CLIFF` | `1.50` | 流动性断崖倍数 |
 | `CASHCAT_HOLDERS_CLIFF` | `1.50` | 持币地址断崖倍数 |
 | `CASHCAT_VOLUME_CLIFF` | `1.30` | 多周期量几何领先倍数 |
-| `CASHCAT_AUTOSTART` | `1` | 是否启动后台任务 |
+| `CASHCAT_AUTOSTART` | `0` | 是否启动后台任务；生产已退役采集，仅保留只读历史服务 |
 | `CASHCAT_RETENTION_DAYS` | `30` | SQLite 快照与事件保留天数 |
 | `CASHCAT_TWITTER_TIMEOUT_SECONDS` | `30` | 单次 Twitter 实盘查询超时 |
 | `CASHCAT_TWITTER_MIN_REQUEST_INTERVAL_SECONDS` | `5.2` | TwitterAPI.io 请求最小间隔，兼容低 QPS 套餐 |

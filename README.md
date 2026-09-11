@@ -321,7 +321,7 @@ npm run dev
   <https://47.251.99.37/launchpads/>（PAIR 经营）、<https://47.251.99.37/pair-alpha/>、
   <https://47.251.99.37/pair-v2/> 和 <https://47.251.99.37/pair-flow/>；
 - <https://47.251.99.37/leaders/> 作为全链数据中的“龙头与热度”下钻页继续可用，但不占一级导航；
-- CashCat 不再作为重点资产或一级页面展示；旧 `/market/`、`/alpha/`、`/assets/cashcat/`
+- CashCat 不再采集，也不再作为重点资产或一级页面展示；只读服务保留已有历史报告，旧 `/market/`、`/alpha/`、`/assets/cashcat/`
   和 `/cashcat/` 入口会跳转到对应的新工作台。`/cashcat/api/*` 与 `/cashcat/reports/*`
   仍由独立 CashCat 服务提供，历史数据没有删除；兼容端口 API 继续可用；
 - 当前生产应用版本与 release 以 `/api/meta` 及部署证据回读为准；
@@ -349,6 +349,9 @@ npm run dev
   行情状态，不读取其它服务数据库；
 - 发布目录：`/opt/robinhood-chain-launchpad/current`；
 - 持久化 SQLite：`/var/lib/robinhood-chain-launchpad/launchpad-dashboard.sqlite`；
+- 存储维护定时器：`robinhood-chain-storage-maintenance.timer`，每天清理可再生浏览器缓存、
+  只保留当前版与两个回滚 release；该服务被 systemd 禁止访问 SQLite。数据库副本瘦身与
+  云端恢复边界见 [`docs/runbooks/storage-retention.md`](docs/runbooks/storage-retention.md)；
 - SWAS 与 UFW 允许公网 `80/TCP`、`443/TCP` 和兼容端口 `4174/TCP`；
 - 当前是无需登录的只读 HTTPS 看板；公网 IP 证书由 Let's Encrypt 签发，
   `robinhood-chain-certbot-renew.timer` 每天两次检查短期证书续期；公网手动刷新按 IP 限制为平均每分钟 1 次，

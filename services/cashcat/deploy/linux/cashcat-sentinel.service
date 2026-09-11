@@ -11,7 +11,7 @@ WorkingDirectory=/opt/cashcat-sentinel/current
 Environment=HOME=/var/lib/cashcat-sentinel
 Environment=PYTHONUNBUFFERED=1
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
-Environment=CASHCAT_AUTOSTART=1
+Environment=CASHCAT_AUTOSTART=0
 Environment=CASHCAT_DB_PATH=/var/lib/cashcat-sentinel/cashcat-sentinel.db
 Environment=CASHCAT_NARRATIVE_PATH=/var/lib/cashcat-sentinel/narrative.json
 Environment=CASHCAT_REPORT_DIR=/var/lib/cashcat-sentinel/reports
