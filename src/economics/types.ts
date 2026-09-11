@@ -153,7 +153,7 @@ export type PairRelativeValuationReasonCode =
   | "CALCULATION_INVALID"
   | "SHORT_SHARED_HISTORY"
   | "PARTIAL_VOLUME_INPUT"
-  | "LATEST_DAY_VOLUME_REACTIVE"
+  | "DUAL_WINDOW_OUTPUT"
   | "THIRD_PARTY_BENCHMARK_PRICE"
   | "ECONOMICS_SNAPSHOT_STALE";
 
@@ -168,43 +168,45 @@ export interface PairRelativeValuationInputs {
   pairActualPriceUsd: EvidenceValue;
   ponsEffectiveSupply: EvidenceValue;
   pairEffectiveSupply: EvidenceValue;
-  ponsPlatformVolumeUsd: EvidenceValue;
-  pairPlatformVolumeUsd: EvidenceValue;
+  ponsLatestDayVolumeUsd: EvidenceValue;
+  pairLatestDayVolumeUsd: EvidenceValue;
   ponsSevenDayVolumeUsd: EvidenceValue;
   pairSevenDayVolumeUsd: EvidenceValue;
 }
 
 export interface PairRelativeValuationPolicyScenario {
   state: PairRelativeValuationState;
-  estimateUsd: number | null;
+  sevenDayReferenceUsd: number | null;
+  latestDayReferenceUsd: number | null;
   ponsFeeAllocationPercent: number | null;
   pairFeeAllocationPercent: number | null;
   assumption: "all_other_factors_equal";
 }
 
 export interface PairRelativeValuation {
-  modelVersion: "pons-latest-day-volume-parity-v2";
+  modelVersion: "pons-dual-window-parity-v3";
   state: PairRelativeValuationState;
   observedAt: string;
   priceFreshnessMinutes: number;
-  windowDefinition: "latest_common_closed_utc_day";
-  minimumCommonDays: 1;
-  commonDayCount: number;
+  primaryWindowDefinition: "latest_7_common_closed_utc_days";
+  primaryMinimumDays: 7;
+  sevenDayCount: number;
+  sevenDayDates: string[];
+  sevenDayWindowStart: string | null;
+  sevenDayWindowEnd: string | null;
+  latestDayWindowDefinition: "latest_common_closed_utc_day";
+  latestDayDate: string | null;
   totalCommonDayCount: number;
-  commonDates: string[];
-  platformWindowStart: string | null;
-  platformWindowEnd: string | null;
-  comparisonWindowDefinition: "latest_7_common_closed_utc_days";
-  comparisonDayCount: number;
-  comparisonDates: string[];
-  formula: string;
-  estimateUsd: number | null;
-  sevenDayEstimateUsd: number | null;
-  latestVsSevenDayPercent: number | null;
-  rangeLowUsd: number | null;
-  rangeHighUsd: number | null;
+  sevenDayFormula: string;
+  latestDayFormula: string;
+  sevenDayReferenceUsd: number | null;
+  latestDayReferenceUsd: number | null;
+  latestDayVsSevenDayPercent: number | null;
+  dailyReferenceRangeLowUsd: number | null;
+  dailyReferenceRangeHighUsd: number | null;
   actualPriceUsd: number | null;
-  actualDeviationPercent: number | null;
+  actualVsSevenDayPercent: number | null;
+  actualVsLatestDayPercent: number | null;
   policyScenario: PairRelativeValuationPolicyScenario;
   confidence: PairRelativeValuationConfidence;
   inputs: PairRelativeValuationInputs;
@@ -212,16 +214,26 @@ export interface PairRelativeValuation {
 }
 
 export interface PairRelativeValuationHistoryPoint {
-  modelVersion: PairRelativeValuation["modelVersion"] | "pons-volume-parity-v1";
+  modelVersion:
+    | PairRelativeValuation["modelVersion"]
+    | "pons-latest-day-volume-parity-v2"
+    | "pons-volume-parity-v1";
   observedAt: string;
   state: PairRelativeValuationState;
   platformWindowEnd: string | null;
-  estimateUsd: number | null;
+  sevenDayReferenceUsd?: number | null;
+  latestDayReferenceUsd?: number | null;
+  actualVsSevenDayPercent?: number | null;
+  actualVsLatestDayPercent?: number | null;
+  dailyReferenceRangeLowUsd?: number | null;
+  dailyReferenceRangeHighUsd?: number | null;
+  /** Legacy V1/V2 fields retained only while reading persisted history. */
+  estimateUsd?: number | null;
   sevenDayEstimateUsd?: number | null;
-  rangeLowUsd: number | null;
-  rangeHighUsd: number | null;
+  rangeLowUsd?: number | null;
+  rangeHighUsd?: number | null;
   actualPriceUsd: number | null;
-  actualDeviationPercent: number | null;
+  actualDeviationPercent?: number | null;
   confidence: PairRelativeValuationConfidence;
 }
 
@@ -237,9 +249,8 @@ export interface PairRelativeValuationDailyPoint {
   state: "closed" | "forming";
   pons: TokenDailyCandle | null;
   pairActual: DailyOhlc | null;
-  pairSpotAnchor: DailyOhlc | null;
-  rangeLowUsd: number | null;
-  rangeHighUsd: number | null;
+  pairSevenDayReference: DailyOhlc | null;
+  pairLatestDayReference: DailyOhlc | null;
   sampleCount: number;
   lastObservedAt: string | null;
 }

@@ -377,10 +377,12 @@ export async function verifyRuntime(
 
   const valuation = await readJson(base, "/api/economics/valuation", fetcher, timeoutMs);
   if (
-    valuation.payload.modelVersion !== "pons-latest-day-volume-parity-v2" ||
+    valuation.payload.modelVersion !== "pons-dual-window-parity-v3" ||
     !["available", "unavailable"].includes(String(valuation.payload.state)) ||
     !isRecord(valuation.payload.inputs) ||
-    !Array.isArray(valuation.payload.commonDates)
+    !Array.isArray(valuation.payload.sevenDayDates) ||
+    valuation.payload.primaryWindowDefinition !== "latest_7_common_closed_utc_days" ||
+    valuation.payload.latestDayWindowDefinition !== "latest_common_closed_utc_day"
   ) {
     throw new RuntimeVerificationError(
       "RUNTIME_CONTRACT_ERROR",
@@ -582,12 +584,12 @@ export async function verifyRuntime(
         path: "/api/economics/valuation",
         status: valuation.status,
         targetDate:
-          typeof valuation.payload.platformWindowEnd === "string"
-            ? valuation.payload.platformWindowEnd
+          typeof valuation.payload.latestDayDate === "string"
+            ? valuation.payload.latestDayDate
             : null,
         itemCount:
-          typeof valuation.payload.commonDayCount === "number"
-            ? valuation.payload.commonDayCount
+          typeof valuation.payload.sevenDayCount === "number"
+            ? valuation.payload.sevenDayCount
             : null,
       },
       {

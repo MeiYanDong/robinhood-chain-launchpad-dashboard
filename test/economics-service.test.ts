@@ -378,16 +378,17 @@ test("economics service separates value, platform flow, policy, execution, and p
       "not_applicable",
     );
     assert.equal(database.latest()?.payload.service, "rhc-launchpad-economics");
-    assert.equal(response.pairRelativeValuation.state, "available");
-    assert.equal(response.pairRelativeValuation.commonDayCount, 1);
+    assert.equal(response.pairRelativeValuation.state, "unavailable");
+    assert.equal(response.pairRelativeValuation.sevenDayCount, 1);
+    assert.ok(response.pairRelativeValuation.latestDayReferenceUsd !== null);
     assert.equal(database.valuationHistory().length, 1);
-    assert.equal(service.valuation()?.modelVersion, "pons-latest-day-volume-parity-v2");
+    assert.equal(service.valuation()?.modelVersion, "pons-dual-window-parity-v3");
     assert.equal(service.health().ok, true);
     assert.match(service.sources().definitions.executed_buyback, /逐笔证据/);
   });
 });
 
-test("economics service calculates the latest-day PAIR anchor and persists seven-day context", async () => {
+test("economics service calculates and persists separate seven-day and latest-day references", async () => {
   const metrics = [
     "2026-08-26",
     "2026-08-27",
@@ -402,11 +403,17 @@ test("economics service calculates the latest-day PAIR anchor and persists seven
     const valuation = response.pairRelativeValuation;
 
     assert.equal(valuation.state, "available");
-    assert.equal(valuation.commonDayCount, 1);
-    assert.equal(valuation.comparisonDayCount, 7);
-    assert.ok(Math.abs((valuation.estimateUsd ?? 0) - 0.0375) < 1e-12);
-    assert.ok(Math.abs((valuation.sevenDayEstimateUsd ?? 0) - 0.0375) < 1e-12);
-    assert.equal(database.valuationHistory()[0]?.estimateUsd, valuation.estimateUsd);
+    assert.equal(valuation.sevenDayCount, 7);
+    assert.ok(Math.abs((valuation.sevenDayReferenceUsd ?? 0) - 0.0375) < 1e-12);
+    assert.ok(Math.abs((valuation.latestDayReferenceUsd ?? 0) - 0.0375) < 1e-12);
+    assert.equal(
+      database.valuationHistory()[0]?.sevenDayReferenceUsd,
+      valuation.sevenDayReferenceUsd,
+    );
+    assert.equal(
+      database.valuationHistory()[0]?.latestDayReferenceUsd,
+      valuation.latestDayReferenceUsd,
+    );
     assert.equal(service.valuationHistory().points.length, 1);
     assert.equal(service.valuationHistory().daily[0]?.pons?.closeUsd, 0.2);
 
@@ -421,7 +428,8 @@ test("economics service calculates the latest-day PAIR anchor and persists seven
     setNow("2026-09-03T02:00:00.000Z");
     const stale = service.snapshot();
     assert.equal(stale?.pairRelativeValuation.state, "unavailable");
-    assert.equal(stale?.pairRelativeValuation.estimateUsd, null);
+    assert.equal(stale?.pairRelativeValuation.sevenDayReferenceUsd, null);
+    assert.equal(stale?.pairRelativeValuation.latestDayReferenceUsd, null);
     assert.ok(
       stale?.pairRelativeValuation.reasons.some((item) => item.code === "ECONOMICS_SNAPSHOT_STALE"),
     );

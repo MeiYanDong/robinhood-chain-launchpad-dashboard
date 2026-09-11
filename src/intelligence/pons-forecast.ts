@@ -5,6 +5,7 @@ import { shiftUtcDate } from "../utils/time.js";
 import type {
   ChainHeatModel,
   PairAdjustedAnchor,
+  PairAdjustedProjection,
   PairHolderObservation,
   PonsForecastDriver,
   PonsPriceForecast,
@@ -256,18 +257,66 @@ function pairHolderObservation(pair: PairLeaderboardResponse): PairHolderObserva
   };
 }
 
-function unavailablePairAnchor(actualPriceUsd: number | null): PairAdjustedAnchor {
+function unavailablePairProjection(formula: string): PairAdjustedProjection {
   return {
     state: "unavailable",
-    spotPonsAnchorUsd: null,
-    adjustedPonsAnchorUsd: null,
+    spotPonsReferenceUsd: null,
+    adjustedPonsReferenceUsd: null,
     rangeLowUsd: null,
     rangeHighUsd: null,
-    actualPriceUsd,
     actualDeviationPercent: null,
-    currentConversionFactor: null,
-    formula:
-      "PONS 7日预测价格 ×（PONS 有效供应量 ÷ PAIR 有效供应量）×（PAIR 最新完整日平台量 ÷ PONS 最新完整日平台量）",
+    conversionFactor: null,
+    formula,
+  };
+}
+
+const PAIR_SEVEN_DAY_ADJUSTED_FORMULA =
+  "PONS 7日预测价格 ×（PONS 有效供应量 ÷ PAIR 有效供应量）×（PAIR 最近7个共同完整日平台量 ÷ PONS 最近7个共同完整日平台量）";
+const PAIR_LATEST_DAY_ADJUSTED_FORMULA =
+  "PONS 7日预测价格 ×（PONS 有效供应量 ÷ PAIR 有效供应量）×（PAIR 最新共同完整日平台量 ÷ PONS 最新共同完整日平台量）";
+
+function adjustedPairProjection(input: {
+  formula: string;
+  currentPonsPrice: number | null;
+  forecastMidpoint: number | null;
+  forecastLow: number | null;
+  forecastHigh: number | null;
+  ponsSupply: number | null;
+  pairSupply: number | null;
+  ponsVolume: number | null;
+  pairVolume: number | null;
+  actualPriceUsd: number | null;
+}): PairAdjustedProjection {
+  if (
+    input.currentPonsPrice === null ||
+    input.ponsSupply === null ||
+    !(input.ponsSupply > 0) ||
+    input.pairSupply === null ||
+    !(input.pairSupply > 0) ||
+    input.ponsVolume === null ||
+    !(input.ponsVolume > 0) ||
+    input.pairVolume === null ||
+    input.pairVolume < 0 ||
+    input.forecastMidpoint === null ||
+    input.forecastLow === null ||
+    input.forecastHigh === null
+  ) {
+    return unavailablePairProjection(input.formula);
+  }
+  const factor = (input.ponsSupply / input.pairSupply) * (input.pairVolume / input.ponsVolume);
+  const adjusted = input.forecastMidpoint * factor;
+  return {
+    state: "available",
+    spotPonsReferenceUsd: input.currentPonsPrice * factor,
+    adjustedPonsReferenceUsd: adjusted,
+    rangeLowUsd: input.forecastLow * factor,
+    rangeHighUsd: input.forecastHigh * factor,
+    actualDeviationPercent:
+      input.actualPriceUsd !== null && adjusted > 0
+        ? (input.actualPriceUsd / adjusted - 1) * 100
+        : null,
+    conversionFactor: factor,
+    formula: input.formula,
   };
 }
 
@@ -278,47 +327,41 @@ function adjustedPairAnchor(input: {
   forecastLow: number | null;
   forecastHigh: number | null;
 }): PairAdjustedAnchor {
-  const valuation = input.economics?.pairRelativeValuation;
-  const ponsSupply = valuation?.inputs?.ponsEffectiveSupply?.value;
-  const pairSupply = valuation?.inputs?.pairEffectiveSupply?.value;
-  const ponsVolume = valuation?.inputs?.ponsPlatformVolumeUsd?.value;
-  const pairVolume = valuation?.inputs?.pairPlatformVolumeUsd?.value;
-  const actualPriceUsd = valuation?.actualPriceUsd ?? null;
-  if (
-    input.currentPonsPrice === null ||
-    ponsSupply === null ||
-    ponsSupply === undefined ||
-    !(ponsSupply > 0) ||
-    pairSupply === null ||
-    pairSupply === undefined ||
-    !(pairSupply > 0) ||
-    ponsVolume === null ||
-    ponsVolume === undefined ||
-    !(ponsVolume > 0) ||
-    pairVolume === null ||
-    pairVolume === undefined ||
-    pairVolume < 0 ||
-    input.forecastMidpoint === null ||
-    input.forecastLow === null ||
-    input.forecastHigh === null
-  ) {
-    return unavailablePairAnchor(actualPriceUsd);
-  }
-  const factor = (ponsSupply / pairSupply) * (pairVolume / ponsVolume);
-  const spotAnchor = input.currentPonsPrice * factor;
-  const adjusted = input.forecastMidpoint * factor;
-  return {
-    state: "available",
-    spotPonsAnchorUsd: spotAnchor,
-    adjustedPonsAnchorUsd: adjusted,
-    rangeLowUsd: input.forecastLow * factor,
-    rangeHighUsd: input.forecastHigh * factor,
+  // Read through a loose record so a transient V2 snapshot remains usable during an atomic deploy.
+  const valuation = record(input.economics?.pairRelativeValuation);
+  const inputs = record(valuation?.inputs);
+  const ponsSupply = finite(record(inputs?.ponsEffectiveSupply)?.value);
+  const pairSupply = finite(record(inputs?.pairEffectiveSupply)?.value);
+  const actualPriceUsd = finite(valuation?.actualPriceUsd);
+  const sevenDay = adjustedPairProjection({
+    ...input,
+    formula: PAIR_SEVEN_DAY_ADJUSTED_FORMULA,
+    ponsSupply,
+    pairSupply,
+    ponsVolume: finite(record(inputs?.ponsSevenDayVolumeUsd)?.value),
+    pairVolume: finite(record(inputs?.pairSevenDayVolumeUsd)?.value),
     actualPriceUsd,
-    actualDeviationPercent:
-      actualPriceUsd !== null && adjusted > 0 ? (actualPriceUsd / adjusted - 1) * 100 : null,
-    currentConversionFactor: factor,
-    formula:
-      "PONS 7日预测价格 ×（PONS 有效供应量 ÷ PAIR 有效供应量）×（PAIR 最新完整日平台量 ÷ PONS 最新完整日平台量）",
+  });
+  const latestPonsVolume =
+    finite(record(inputs?.ponsLatestDayVolumeUsd)?.value) ??
+    finite(record(inputs?.ponsPlatformVolumeUsd)?.value);
+  const latestPairVolume =
+    finite(record(inputs?.pairLatestDayVolumeUsd)?.value) ??
+    finite(record(inputs?.pairPlatformVolumeUsd)?.value);
+  const latestDay = adjustedPairProjection({
+    ...input,
+    formula: PAIR_LATEST_DAY_ADJUSTED_FORMULA,
+    ponsSupply,
+    pairSupply,
+    ponsVolume: latestPonsVolume,
+    pairVolume: latestPairVolume,
+    actualPriceUsd,
+  });
+  return {
+    state: sevenDay.state,
+    actualPriceUsd,
+    sevenDay,
+    latestDay,
   };
 }
 
@@ -511,7 +554,7 @@ export function buildPonsPriceForecast(input: ForecastInput): PonsPriceForecast 
       "链上广度、资金、市场强度与 Pons 平台成交仅用于寻找相似历史阶段；四个维度等距，不手填权重。",
       "匹配样本不足时退回纯价格历史分布，并自动降为低置信度。",
       "七日结果按不重叠窗口计数，避免把连续滚动样本误当成独立样本。",
-      "PAIR 调整锚只替换 PONS 输入价格；供应量比与最新完整日平台量比保持当前值。",
+      "PAIR 调整参考只替换 PONS 输入价格；七日主结果与最新单日短期结果分别计算，不做加权平均。",
       "持币地址增长当前权重为 0，只展示和积累历史。",
     ],
     warning:

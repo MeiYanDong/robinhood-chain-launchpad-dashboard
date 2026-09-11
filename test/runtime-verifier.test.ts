@@ -130,17 +130,27 @@ test("runtime verification performs only the twenty-three documented GET checks"
       platforms: [{ platformId: "pons" }, { platformId: "long" }, { platformId: "pair" }],
       buybacks: [],
       pairRelativeValuation: {
-        modelVersion: "pons-latest-day-volume-parity-v2",
+        modelVersion: "pons-dual-window-parity-v3",
         state: "available",
       },
     },
     "/api/economics/valuation": {
-      modelVersion: "pons-latest-day-volume-parity-v2",
+      modelVersion: "pons-dual-window-parity-v3",
       state: "available",
       inputs: {},
-      commonDates: ["2026-08-27"],
-      commonDayCount: 1,
-      platformWindowEnd: "2026-08-27",
+      primaryWindowDefinition: "latest_7_common_closed_utc_days",
+      latestDayWindowDefinition: "latest_common_closed_utc_day",
+      sevenDayDates: [
+        "2026-08-21",
+        "2026-08-22",
+        "2026-08-23",
+        "2026-08-24",
+        "2026-08-25",
+        "2026-08-26",
+        "2026-08-27",
+      ],
+      sevenDayCount: 7,
+      latestDayDate: "2026-08-27",
     },
     "/api/economics/valuation/history": {
       service: "rhc-launchpad-economics",
@@ -239,7 +249,7 @@ test("runtime verification performs only the twenty-three documented GET checks"
   assert.equal(result.checks[12]?.itemCount, 2);
   assert.equal(result.checks[14]?.itemCount, 8);
   assert.equal(result.checks[16]?.itemCount, 3);
-  assert.equal(result.checks[17]?.itemCount, 1);
+  assert.equal(result.checks[17]?.itemCount, 7);
   assert.equal(result.checks[18]?.itemCount, 1);
   assert.equal(result.checks[20]?.itemCount, 1);
   assert.equal(result.checks[22]?.targetDate, "2026-08-29");

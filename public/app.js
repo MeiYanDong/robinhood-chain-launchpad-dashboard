@@ -21,8 +21,8 @@ const ECONOMICS_DEFINITION_LABELS = {
   executed_buyback: "实际回购",
   net_profit: "净利润",
   pair_relative_valuation: "PAIR 相对估值",
-  valuation_range: "近 7 个完整日逐日参考区间",
-  valuation_deviation: "实际价格偏离",
+  valuation_range: "七日主参考与最新单日参考",
+  valuation_deviation: "实际价格相对两条参考",
   policy_scenario: "手续费分配情景",
   pair_flow_today_volume: "今日主池成交",
   pair_flow_market_acquired: "市场买入 PAIR",
@@ -41,6 +41,10 @@ const VALUATION_FORMULA_LABELS = {
   "PONS price × (PONS effective supply ÷ PAIR effective supply) × (PAIR common-day volume ÷ PONS common-day volume)":
     "PONS 价格 ×（PONS 有效供应量 ÷ PAIR 有效供应量）×（PAIR 7日平台量 ÷ PONS 7日平台量）",
   "PONS price × (PONS effective supply ÷ PAIR effective supply) × (PAIR latest closed-day volume ÷ PONS latest closed-day volume)":
+    "PONS 价格 ×（PONS 有效供应量 ÷ PAIR 有效供应量）×（PAIR 最新完整日平台量 ÷ PONS 最新完整日平台量）",
+  "PONS price × (PONS effective supply ÷ PAIR effective supply) × (PAIR latest 7 common closed-day volume ÷ PONS latest 7 common closed-day volume)":
+    "PONS 价格 ×（PONS 有效供应量 ÷ PAIR 有效供应量）×（PAIR 近 7 个完整日平台量 ÷ PONS 近 7 个完整日平台量）",
+  "PONS price × (PONS effective supply ÷ PAIR effective supply) × (PAIR latest common closed-day volume ÷ PONS latest common closed-day volume)":
     "PONS 价格 ×（PONS 有效供应量 ÷ PAIR 有效供应量）×（PAIR 最新完整日平台量 ÷ PONS 最新完整日平台量）",
 };
 const VALUATION_SOURCE_LABELS = {
@@ -1147,12 +1151,15 @@ function renderPlatformTokenAnchor() {
   status.className = valuation?.state === "available" ? "is-available" : "is-unavailable";
   status.title = valuation?.reason ?? "";
   $("#intelligence-pair-actual").textContent = formatTokenPrice(valuation?.pairActualPriceUsd);
-  $("#intelligence-pair-implied").textContent = formatTokenPrice(valuation?.pairImpliedPriceUsd);
-  $("#intelligence-pair-range").textContent = formatPriceRange(
-    valuation?.rangeLowUsd,
-    valuation?.rangeHighUsd,
+  $("#intelligence-pair-seven-day").textContent = formatTokenPrice(
+    valuation?.pairSevenDayReferenceUsd,
   );
-  $("#intelligence-pair-gap").textContent = formatSignedPercent(valuation?.actualDeviationPercent);
+  $("#intelligence-pair-latest-day").textContent = formatTokenPrice(
+    valuation?.pairLatestDayReferenceUsd,
+  );
+  $("#intelligence-pair-gap-seven-day").textContent = formatSignedPercent(
+    valuation?.actualVsSevenDayPercent,
+  );
 }
 
 function renderCohorts() {
@@ -1678,7 +1685,7 @@ function renderLaunchpadOverview() {
     : "还没有平台累积足够历史数据";
 
   const valuation = state.economics.pairRelativeValuation;
-  const gap = valuation?.actualDeviationPercent;
+  const gap = valuation?.actualVsSevenDayPercent;
   const gapDirection = !Number.isFinite(gap) ? null : gap > 0 ? "溢价" : gap < 0 ? "折价" : "持平";
   $("#overview-valuation-label").textContent = gapDirection
     ? `PAIR 当前${gapDirection}`
@@ -1688,9 +1695,9 @@ function renderLaunchpadOverview() {
       ? formatPercent(0)
       : `${gapDirection} ${formatPercent(Math.abs(gap))}`
     : "暂不可比";
-  $("#overview-valuation-gap-note").textContent = Number.isFinite(valuation?.estimateUsd)
-    ? `按最新完整日平台量折算的 PAIR 参考价 ${formatTokenPrice(valuation.estimateUsd)}`
-    : "按最新完整日平台量折算，不是价格预测";
+  $("#overview-valuation-gap-note").textContent = Number.isFinite(valuation?.sevenDayReferenceUsd)
+    ? `七日主参考 ${formatTokenPrice(valuation.sevenDayReferenceUsd)} · 最新单日 ${formatTokenPrice(valuation.latestDayReferenceUsd)}`
+    : "七日主参考暂不可用，不输出溢价或折价";
 
   body.replaceChildren();
   for (const item of activityRows) {
@@ -1738,7 +1745,7 @@ function renderLaunchpadOverview() {
   }
   if (Number.isFinite(gap)) {
     insights.push(
-      `PAIR 当前价 ${formatTokenPrice(valuation.actualPriceUsd)}，相对按最新完整日平台量折算的 PAIR 参考价 ${formatTokenPrice(valuation.estimateUsd)} ${gapDirection}${gapDirection === "持平" ? "" : ` ${formatPercent(Math.abs(gap))}`}；7 日平滑对照为 ${formatTokenPrice(valuation.sevenDayEstimateUsd)}。`,
+      `PAIR 当前价 ${formatTokenPrice(valuation.actualPriceUsd)}，相对七日主参考 ${formatTokenPrice(valuation.sevenDayReferenceUsd)} ${gapDirection}${gapDirection === "持平" ? "" : ` ${formatPercent(Math.abs(gap))}`}；最新完整日短期参考为 ${formatTokenPrice(valuation.latestDayReferenceUsd)}。`,
     );
   } else {
     insights.push("PAIR 与 PONS 双方都有数据的日期不足，暂不计算折算参考价。");
@@ -2242,29 +2249,58 @@ function valuationLinePath(points, key, x, y) {
     .join(" ");
 }
 
+function historySevenDayReference(point) {
+  if (Number.isFinite(point?.sevenDayReferenceUsd)) return point.sevenDayReferenceUsd;
+  if (
+    point?.modelVersion === "pons-latest-day-volume-parity-v2" &&
+    Number.isFinite(point?.sevenDayEstimateUsd)
+  ) {
+    return point.sevenDayEstimateUsd;
+  }
+  if (point?.modelVersion === "pons-volume-parity-v1" && Number.isFinite(point?.estimateUsd)) {
+    return point.estimateUsd;
+  }
+  return null;
+}
+
+function historyLatestDayReference(point) {
+  if (Number.isFinite(point?.latestDayReferenceUsd)) return point.latestDayReferenceUsd;
+  return point?.modelVersion === "pons-latest-day-volume-parity-v2" &&
+    Number.isFinite(point?.estimateUsd)
+    ? point.estimateUsd
+    : null;
+}
+
 function renderValuationHistory() {
   const svg = $("#valuation-history-chart");
   const empty = $("#valuation-chart-empty");
   svg.replaceChildren();
   renderValuationDailyTable();
   const daily = state.valuationHistory?.daily ?? [];
-  const sourcePoints =
-    daily.length > 0
-      ? daily.map((point) => ({
-          observedAt: point.lastObservedAt ?? `${point.date}T12:00:00.000Z`,
-          date: point.date,
-          estimateUsd: point.pairSpotAnchor?.closeUsd ?? null,
-          actualPriceUsd: point.pairActual?.closeUsd ?? null,
-          rangeLowUsd: point.rangeLowUsd,
-          rangeHighUsd: point.rangeHighUsd,
-        }))
-      : (state.valuationHistory?.points ?? []);
+  const hasDualDaily = daily.some(
+    (point) => point.pairSevenDayReference || point.pairLatestDayReference,
+  );
+  const sourcePoints = hasDualDaily
+    ? daily.map((point) => ({
+        observedAt: point.lastObservedAt ?? `${point.date}T12:00:00.000Z`,
+        date: point.date,
+        sevenDayReferenceUsd: point.pairSevenDayReference?.closeUsd ?? null,
+        latestDayReferenceUsd: point.pairLatestDayReference?.closeUsd ?? null,
+        actualPriceUsd: point.pairActual?.closeUsd ?? null,
+      }))
+    : (state.valuationHistory?.points ?? []).map((point) => ({
+        ...point,
+        sevenDayReferenceUsd: historySevenDayReference(point),
+        latestDayReferenceUsd: historyLatestDayReference(point),
+      }));
   const points = sourcePoints
     .filter((point) => {
       const timestamp = Date.parse(point.observedAt);
       return (
         Number.isFinite(timestamp) &&
-        [point.estimateUsd, point.actualPriceUsd].some((value) => Number.isFinite(value))
+        [point.sevenDayReferenceUsd, point.latestDayReferenceUsd, point.actualPriceUsd].some(
+          (value) => Number.isFinite(value),
+        )
       );
     })
     .map((point) => ({ ...point, timestamp: Date.parse(point.observedAt) }));
@@ -2282,7 +2318,7 @@ function renderValuationHistory() {
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
   const values = points.flatMap((point) =>
-    [point.rangeLowUsd, point.rangeHighUsd, point.estimateUsd, point.actualPriceUsd].filter(
+    [point.sevenDayReferenceUsd, point.latestDayReferenceUsd, point.actualPriceUsd].filter(
       (value) => Number.isFinite(value),
     ),
   );
@@ -2315,24 +2351,16 @@ function renderValuationHistory() {
     );
   }
 
-  const bandPoints = points.filter(
-    (point) => Number.isFinite(point.rangeLowUsd) && Number.isFinite(point.rangeHighUsd),
-  );
-  if (bandPoints.length > 1) {
-    const upper = bandPoints
-      .map((point) => `${x(point).toFixed(2)},${y(point.rangeHighUsd).toFixed(2)}`)
-      .join(" L");
-    const lower = [...bandPoints]
-      .reverse()
-      .map((point) => `${x(point).toFixed(2)},${y(point.rangeLowUsd).toFixed(2)}`)
-      .join(" L");
-    svg.append(svgElement("path", { d: `M${upper} L${lower} Z`, class: "valuation-chart-band" }));
-  }
-
-  const estimatePath = valuationLinePath(points, "estimateUsd", x, y);
+  const sevenDayPath = valuationLinePath(points, "sevenDayReferenceUsd", x, y);
+  const latestDayPath = valuationLinePath(points, "latestDayReferenceUsd", x, y);
   const actualPath = valuationLinePath(points, "actualPriceUsd", x, y);
-  if (estimatePath) {
-    svg.append(svgElement("path", { d: estimatePath, class: "valuation-chart-line" }));
+  if (sevenDayPath) {
+    svg.append(svgElement("path", { d: sevenDayPath, class: "valuation-chart-line is-seven-day" }));
+  }
+  if (latestDayPath) {
+    svg.append(
+      svgElement("path", { d: latestDayPath, class: "valuation-chart-line is-latest-day" }),
+    );
   }
   if (actualPath) {
     svg.append(svgElement("path", { d: actualPath, class: "valuation-chart-line is-actual" }));
@@ -2340,7 +2368,8 @@ function renderValuationHistory() {
 
   for (const point of points) {
     for (const [key, label, className] of [
-      ["estimateUsd", "PAIR 折算参考价", ""],
+      ["sevenDayReferenceUsd", "PAIR 七日主参考", " is-seven-day"],
+      ["latestDayReferenceUsd", "PAIR 最新单日参考", " is-latest-day"],
       ["actualPriceUsd", "PAIR 实际价", " is-actual"],
     ]) {
       if (!Number.isFinite(point[key])) continue;
@@ -2371,14 +2400,16 @@ function renderValuationHistory() {
     y: height - 7,
     class: "valuation-chart-label",
   });
-  startLabel.textContent = formatDateTime(points[0].observedAt);
+  startLabel.textContent = `${formatUtcDay(points[0].date ?? points[0].observedAt.slice(0, 10))} UTC`;
   const endLabel = svgElement("text", {
     x: width - padding.right,
     y: height - 7,
     class: "valuation-chart-label",
     "text-anchor": "end",
   });
-  endLabel.textContent = formatDateTime(points.at(-1).observedAt);
+  endLabel.textContent = `${formatUtcDay(
+    points.at(-1).date ?? points.at(-1).observedAt.slice(0, 10),
+  )} UTC`;
   svg.append(maxLabel, minLabel, startLabel, endLabel);
 }
 
@@ -2400,7 +2431,8 @@ function renderValuationDailyTable() {
           : "—",
       ),
       element("td", "", formatTokenPrice(point.pairActual?.closeUsd)),
-      element("td", "", formatTokenPrice(point.pairSpotAnchor?.closeUsd)),
+      element("td", "", formatTokenPrice(point.pairSevenDayReference?.closeUsd)),
+      element("td", "", formatTokenPrice(point.pairLatestDayReference?.closeUsd)),
       element("td", "", formatCount(point.sampleCount)),
     );
     body.append(row);
@@ -2408,7 +2440,7 @@ function renderValuationDailyTable() {
   if (body.childElementCount === 0) {
     const row = element("tr");
     const cell = element("td", "", "等待每日价格与估值快照");
-    cell.colSpan = 6;
+    cell.colSpan = 7;
     row.append(cell);
     body.append(row);
   }
@@ -2462,15 +2494,26 @@ function renderPonsForecast() {
     ? `${formatPercent(forecast?.positiveOutcomePercent)} 上涨`
     : `${formatCount(forecast?.outcomeSampleCount)} 个样本`;
   const adjusted = forecast?.pairAdjustedAnchor;
-  $("#pair-adjusted-anchor").textContent = reliableForecast
-    ? formatTokenPrice(adjusted?.adjustedPonsAnchorUsd)
+  $("#pair-adjusted-seven-day").textContent = reliableForecast
+    ? formatTokenPrice(adjusted?.sevenDay?.adjustedPonsReferenceUsd)
     : "不展示";
-  $("#pair-adjusted-range").textContent = reliableForecast
-    ? formatPriceRange(adjusted?.rangeLowUsd, adjusted?.rangeHighUsd)
+  $("#pair-adjusted-seven-day-range").textContent = reliableForecast
+    ? formatPriceRange(adjusted?.sevenDay?.rangeLowUsd, adjusted?.sevenDay?.rangeHighUsd)
     : "等待足够的相似历史";
-  $("#pair-adjusted-anchor").title = Number.isFinite(adjusted?.actualDeviationPercent)
-    ? `PAIR 实际价相对预测后折算参考价 ${formatSignedPercent(adjusted.actualDeviationPercent)}`
-    : (adjusted?.formula ?? "等待预测后折算参考价");
+  $("#pair-adjusted-seven-day").title = Number.isFinite(adjusted?.sevenDay?.actualDeviationPercent)
+    ? `PAIR 实际价相对预测后七日参考 ${formatSignedPercent(adjusted.sevenDay.actualDeviationPercent)}`
+    : (adjusted?.sevenDay?.formula ?? "等待预测后七日参考");
+  $("#pair-adjusted-latest-day").textContent = reliableForecast
+    ? formatTokenPrice(adjusted?.latestDay?.adjustedPonsReferenceUsd)
+    : "不展示";
+  $("#pair-adjusted-latest-day-range").textContent = reliableForecast
+    ? formatPriceRange(adjusted?.latestDay?.rangeLowUsd, adjusted?.latestDay?.rangeHighUsd)
+    : "等待足够的相似历史";
+  $("#pair-adjusted-latest-day").title = Number.isFinite(
+    adjusted?.latestDay?.actualDeviationPercent,
+  )
+    ? `PAIR 实际价相对预测后单日参考 ${formatSignedPercent(adjusted.latestDay.actualDeviationPercent)}`
+    : (adjusted?.latestDay?.formula ?? "等待预测后单日参考");
   $("#pons-forecast-chain").textContent = forecast
     ? `${forecast.chainLabel}${Number.isFinite(forecast.ponsActivityMultiple) ? ` · Pons ${forecast.ponsActivityMultiple.toFixed(2)}×` : ""}`
     : "—";
@@ -2591,42 +2634,49 @@ function closedDayLag(windowEnd, observedAt) {
 function renderValuationWindow(valuation) {
   const target = $("#valuation-window-state");
   target.classList.remove("is-current", "is-delayed", "is-unavailable");
-  if (!valuation?.platformWindowStart || !valuation?.platformWindowEnd) {
-    const dayCount = Number.isFinite(valuation?.commonDayCount) ? valuation.commonDayCount : 0;
-    const minimum = Number.isFinite(valuation?.minimumCommonDays) ? valuation.minimumCommonDays : 1;
-    target.textContent = `双方都有数据的日期不足 · ${dayCount}/${minimum} 天`;
+  if (!valuation?.latestDayDate) {
+    target.textContent = "双方还没有共同完整 UTC 日";
     target.classList.add("is-unavailable");
     return;
   }
 
-  const lag = closedDayLag(valuation.platformWindowEnd, valuation.observedAt);
+  const lag = closedDayLag(valuation.latestDayDate, valuation.observedAt);
   const history = Number.isFinite(valuation.totalCommonDayCount)
     ? ` · 已有 ${valuation.totalCommonDayCount} 天可对比数据`
     : "";
   const lagLabel =
     lag === null ? "" : lag === 0 ? " · 已更新到最新可统计日期" : ` · 距最新可统计日期 ${lag} 天`;
-  if (valuation.windowDefinition === "latest_common_closed_utc_day") {
-    const comparison = Number.isFinite(valuation.comparisonDayCount)
-      ? ` · 近 ${valuation.comparisonDayCount} 日作为平滑对照`
-      : "";
-    target.textContent = `主参考使用 ${formatUtcDay(valuation.platformWindowEnd)}单日交易量${comparison}${history}${lagLabel}`;
-  } else {
-    target.textContent = `对比日期 ${formatUtcRange(valuation.platformWindowStart, valuation.platformWindowEnd)} · ${valuation.commonDayCount} 天${history}${lagLabel}`;
-  }
-  target.classList.add(lag === null ? "is-unavailable" : lag > 0 ? "is-delayed" : "is-current");
+  const sevenDayWindow =
+    valuation.sevenDayWindowStart && valuation.sevenDayWindowEnd
+      ? `${formatUtcRange(valuation.sevenDayWindowStart, valuation.sevenDayWindowEnd)} · ${valuation.sevenDayCount}/${valuation.primaryMinimumDays} 天`
+      : `${valuation.sevenDayCount ?? 0}/${valuation.primaryMinimumDays ?? 7} 天`;
+  target.textContent = `七日主参考 ${sevenDayWindow} · 最新单日 ${formatUtcDay(valuation.latestDayDate)}${history}${lagLabel}`;
+  target.classList.add(
+    valuation.state !== "available" || lag === null
+      ? "is-unavailable"
+      : lag > 0
+        ? "is-delayed"
+        : "is-current",
+  );
 }
 
 function renderValuationCalculation(valuation) {
   const inputs = valuation?.inputs;
-  const formula = $("#valuation-formula-definition");
-  formula.textContent = valuationFormulaLabel(valuation?.formula);
-  formula.title = valuation?.formula ?? "等待模型数据";
+  const sevenDayFormula = $("#valuation-seven-day-formula-definition");
+  const latestDayFormula = $("#valuation-latest-day-formula-definition");
+  sevenDayFormula.textContent = valuationFormulaLabel(valuation?.sevenDayFormula);
+  sevenDayFormula.title = valuation?.sevenDayFormula ?? "等待模型数据";
+  latestDayFormula.textContent = valuationFormulaLabel(valuation?.latestDayFormula);
+  latestDayFormula.title = valuation?.latestDayFormula ?? "等待模型数据";
   renderValuationWindow(valuation);
-  const volumeDay = valuation?.platformWindowEnd
-    ? `${formatUtcDay(valuation.platformWindowEnd)}平台交易量`
+  const volumeDay = valuation?.latestDayDate
+    ? `${formatUtcDay(valuation.latestDayDate)}平台交易量`
     : "最新完整日平台交易量";
-  $("#valuation-volume-heading").textContent = volumeDay;
-  $("#valuation-volume-note").textContent = "PONS 与 PAIR 使用同一个完整 UTC 日";
+  $("#valuation-latest-day-volume-heading").textContent = volumeDay;
+  $("#valuation-seven-day-volume-note").textContent =
+    valuation?.sevenDayWindowStart && valuation?.sevenDayWindowEnd
+      ? `${formatUtcRange(valuation.sevenDayWindowStart, valuation.sevenDayWindowEnd)}，双方日期完全相同`
+      : "双方使用相同的 7 个完整 UTC 日";
 
   renderValuationInput(
     "#valuation-input-pons-price",
@@ -2653,44 +2703,76 @@ function renderValuationCalculation(valuation) {
     (value) => formatValuationQuantity(value),
   );
   renderValuationInput(
-    "#valuation-input-pons-volume",
-    "#valuation-input-pons-volume-meta",
-    inputs?.ponsPlatformVolumeUsd,
+    "#valuation-input-pons-seven-day-volume",
+    "#valuation-input-pons-seven-day-volume-meta",
+    inputs?.ponsSevenDayVolumeUsd,
     (value) => formatValuationQuantity(value, "usd"),
   );
   renderValuationInput(
-    "#valuation-input-pair-volume",
-    "#valuation-input-pair-volume-meta",
-    inputs?.pairPlatformVolumeUsd,
+    "#valuation-input-pair-seven-day-volume",
+    "#valuation-input-pair-seven-day-volume-meta",
+    inputs?.pairSevenDayVolumeUsd,
+    (value) => formatValuationQuantity(value, "usd"),
+  );
+  renderValuationInput(
+    "#valuation-input-pons-latest-day-volume",
+    "#valuation-input-pons-latest-day-volume-meta",
+    inputs?.ponsLatestDayVolumeUsd,
+    (value) => formatValuationQuantity(value, "usd"),
+  );
+  renderValuationInput(
+    "#valuation-input-pair-latest-day-volume",
+    "#valuation-input-pair-latest-day-volume-meta",
+    inputs?.pairLatestDayVolumeUsd,
     (value) => formatValuationQuantity(value, "usd"),
   );
 
-  const substitution = [
+  const baseSubstitution = [
     formatTokenPrice(inputs?.ponsPriceUsd?.value),
     `(${formatValuationQuantity(inputs?.ponsEffectiveSupply?.value)} ÷ ${formatValuationQuantity(inputs?.pairEffectiveSupply?.value)})`,
-    `(${formatValuationQuantity(inputs?.pairPlatformVolumeUsd?.value, "usd")} ÷ ${formatValuationQuantity(inputs?.ponsPlatformVolumeUsd?.value, "usd")})`,
+  ];
+  const sevenDaySubstitution = [
+    ...baseSubstitution,
+    `(${formatValuationQuantity(inputs?.pairSevenDayVolumeUsd?.value, "usd")} ÷ ${formatValuationQuantity(inputs?.ponsSevenDayVolumeUsd?.value, "usd")})`,
   ].join(" × ");
-  const inputsReady = [
+  const latestDaySubstitution = [
+    ...baseSubstitution,
+    `(${formatValuationQuantity(inputs?.pairLatestDayVolumeUsd?.value, "usd")} ÷ ${formatValuationQuantity(inputs?.ponsLatestDayVolumeUsd?.value, "usd")})`,
+  ].join(" × ");
+  const sevenDayReady = [
     inputs?.ponsPriceUsd?.value,
     inputs?.ponsEffectiveSupply?.value,
     inputs?.pairEffectiveSupply?.value,
-    inputs?.pairPlatformVolumeUsd?.value,
-    inputs?.ponsPlatformVolumeUsd?.value,
-    valuation?.estimateUsd,
+    inputs?.pairSevenDayVolumeUsd?.value,
+    inputs?.ponsSevenDayVolumeUsd?.value,
+    valuation?.sevenDayReferenceUsd,
   ].every((value) => Number.isFinite(value));
-  $("#valuation-equation-substitution").textContent = inputsReady
-    ? `${substitution} = ${formatTokenPrice(valuation?.estimateUsd)}`
-    : "输入不足，暂不计算 PAIR 折算参考价";
+  const latestDayReady = [
+    inputs?.ponsPriceUsd?.value,
+    inputs?.ponsEffectiveSupply?.value,
+    inputs?.pairEffectiveSupply?.value,
+    inputs?.pairLatestDayVolumeUsd?.value,
+    inputs?.ponsLatestDayVolumeUsd?.value,
+    valuation?.latestDayReferenceUsd,
+  ].every((value) => Number.isFinite(value));
+  $("#valuation-seven-day-equation").textContent = sevenDayReady
+    ? `${sevenDaySubstitution} = ${formatTokenPrice(valuation?.sevenDayReferenceUsd)}`
+    : "七日输入不足，暂不计算";
+  $("#valuation-latest-day-equation").textContent = latestDayReady
+    ? `${latestDaySubstitution} = ${formatTokenPrice(valuation?.latestDayReferenceUsd)}`
+    : "最新单日输入不足，暂不计算";
 
   const ponsPolicy = valuation?.policyScenario?.ponsFeeAllocationPercent;
   const pairPolicy = valuation?.policyScenario?.pairFeeAllocationPercent;
-  const policyEquation = $("#valuation-policy-equation");
-  policyEquation.textContent =
-    Number.isFinite(valuation?.estimateUsd) &&
-    Number.isFinite(ponsPolicy) &&
-    Number.isFinite(pairPolicy)
-      ? `${formatTokenPrice(valuation?.estimateUsd)} × (PAIR ${formatCount(pairPolicy)}% ÷ PONS ${formatCount(ponsPolicy)}%) = ${formatTokenPrice(valuation?.policyScenario?.estimateUsd)}`
-      : "PAIR 折算参考价不可用，情景暂不计算";
+  const policyInputsReady = Number.isFinite(ponsPolicy) && Number.isFinite(pairPolicy);
+  $("#valuation-policy-seven-day-equation").textContent =
+    policyInputsReady && Number.isFinite(valuation?.sevenDayReferenceUsd)
+      ? `七日：${formatTokenPrice(valuation.sevenDayReferenceUsd)} × (${formatCount(pairPolicy)}% ÷ ${formatCount(ponsPolicy)}%) = ${formatTokenPrice(valuation?.policyScenario?.sevenDayReferenceUsd)}`
+      : "七日费用情景暂不可用";
+  $("#valuation-policy-latest-day-equation").textContent =
+    policyInputsReady && Number.isFinite(valuation?.latestDayReferenceUsd)
+      ? `单日：${formatTokenPrice(valuation.latestDayReferenceUsd)} × (${formatCount(pairPolicy)}% ÷ ${formatCount(ponsPolicy)}%) = ${formatTokenPrice(valuation?.policyScenario?.latestDayReferenceUsd)}`
+      : "最新单日费用情景暂不可用";
 
   const reasons = $("#valuation-reasons");
   const reasonItems = valuation?.reasons ?? [];
@@ -2711,54 +2793,64 @@ function renderPairRelativeValuation() {
   status.title = valuation?.reasons?.map((item) => item.message).join("\n") ?? "等待估值数据";
 
   $("#valuation-actual-price").textContent = formatTokenPrice(valuation?.actualPriceUsd);
-  $("#valuation-estimate-price").textContent = formatTokenPrice(valuation?.estimateUsd);
-  $("#valuation-seven-day-estimate").textContent = formatTokenPrice(valuation?.sevenDayEstimateUsd);
-  $("#valuation-seven-day-estimate").title = Number.isFinite(valuation?.latestVsSevenDayPercent)
-    ? `单日主参考相对 7 日平滑值 ${formatSignedPercent(valuation.latestVsSevenDayPercent)}`
-    : "等待 7 个共同完整 UTC 日";
-  $("#valuation-range").textContent = formatPriceRange(
-    valuation?.rangeLowUsd,
-    valuation?.rangeHighUsd,
+  $("#valuation-seven-day-reference").textContent = formatTokenPrice(
+    valuation?.sevenDayReferenceUsd,
   );
-  const deviation = $("#valuation-deviation");
-  const deviationValue = valuation?.actualDeviationPercent;
-  const deviationDirection = !Number.isFinite(deviationValue)
+  $("#valuation-latest-day-reference").textContent = formatTokenPrice(
+    valuation?.latestDayReferenceUsd,
+  );
+
+  const sevenDayGap = valuation?.actualVsSevenDayPercent;
+  const sevenDayDirection = !Number.isFinite(sevenDayGap)
     ? null
-    : deviationValue > 0
+    : sevenDayGap > 0
       ? "溢价"
-      : deviationValue < 0
+      : sevenDayGap < 0
         ? "折价"
         : "持平";
-  $("#valuation-deviation-label").textContent = deviationDirection
-    ? `PAIR 当前${deviationDirection}`
-    : "PAIR 当前溢价 / 折价";
-  deviation.textContent = Number.isFinite(deviationValue)
-    ? formatPercent(Math.abs(deviationValue))
+  $("#valuation-actual-vs-seven-day").textContent = sevenDayDirection
+    ? `PAIR 当前相对七日：${sevenDayDirection}${sevenDayDirection === "持平" ? "" : ` ${formatPercent(Math.abs(sevenDayGap))}`}`
+    : "PAIR 当前相对七日：—";
+
+  const latestGap = valuation?.actualVsLatestDayPercent;
+  const latestDirection = !Number.isFinite(latestGap)
+    ? null
+    : latestGap > 0
+      ? "溢价"
+      : latestGap < 0
+        ? "折价"
+        : "持平";
+  $("#valuation-latest-deviation-label").textContent = latestDirection
+    ? `当前相对最新单日${latestDirection}`
+    : "当前相对最新单日";
+  const latestDeviation = $("#valuation-actual-vs-latest-day");
+  latestDeviation.textContent = Number.isFinite(latestGap)
+    ? latestDirection === "持平"
+      ? formatPercent(0)
+      : formatPercent(Math.abs(latestGap))
     : "—";
-  deviation.classList.remove("is-premium", "is-discount", "is-unavailable");
-  deviation.classList.add(
-    !Number.isFinite(deviationValue)
-      ? "is-unavailable"
-      : deviationValue >= 0
-        ? "is-premium"
-        : "is-discount",
+  latestDeviation.classList.remove("is-premium", "is-discount", "is-unavailable");
+  latestDeviation.classList.add(
+    !Number.isFinite(latestGap) ? "is-unavailable" : latestGap >= 0 ? "is-premium" : "is-discount",
   );
-  deviation.title = Number.isFinite(deviationValue)
-    ? deviationValue > 0
-      ? "PAIR 当前价格高于按最新完整日平台量折算的 PAIR 参考价"
-      : deviationValue < 0
-        ? "PAIR 当前价格低于按最新完整日平台量折算的 PAIR 参考价"
-        : "PAIR 当前价格与折算参考价相同"
+  latestDeviation.title = Number.isFinite(latestGap)
+    ? latestGap > 0
+      ? "PAIR 当前价格高于最新完整日短期参考"
+      : latestGap < 0
+        ? "PAIR 当前价格低于最新完整日短期参考"
+        : "PAIR 当前价格与最新完整日短期参考相同"
     : "缺少可比结果";
-  $("#valuation-policy-price").textContent = formatTokenPrice(
-    valuation?.policyScenario?.estimateUsd,
-  );
-  const ponsPolicy = valuation?.policyScenario?.ponsFeeAllocationPercent;
-  const pairPolicy = valuation?.policyScenario?.pairFeeAllocationPercent;
-  $("#valuation-policy-label").textContent =
-    Number.isFinite(ponsPolicy) && Number.isFinite(pairPolicy)
-      ? "费用分配比例调整"
-      : "费用分配情景";
+
+  const shortTermGap = valuation?.latestDayVsSevenDayPercent;
+  $("#valuation-latest-vs-seven-day").textContent = !Number.isFinite(shortTermGap)
+    ? "相对七日常态：—"
+    : shortTermGap > 0
+      ? `较七日常态升温 ${formatPercent(Math.abs(shortTermGap))}`
+      : shortTermGap < 0
+        ? `较七日常态降温 ${formatPercent(Math.abs(shortTermGap))}`
+        : "与七日常态持平";
+  $("#valuation-latest-vs-seven-day").title =
+    "最新完整日参考与七日主参考的差异，只表示平台短期升温或降温。";
   const referenceState =
     valuation?.state !== "available"
       ? "暂不参考"
