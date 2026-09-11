@@ -12,6 +12,7 @@ import type { DevMonitorDatabase } from "./database.js";
 import {
   buildDevMonitorNotificationEligibility,
   NON_PAIR_TEAM_NOTIFICATION_REASON,
+  type DevMonitorNotificationEligibility,
 } from "./notification-policy.js";
 import {
   isPairOfficialProtocolToken,
@@ -21,6 +22,7 @@ import {
 } from "./pair-team.js";
 import type {
   DevMonitorProfile,
+  DevMonitorProject,
   DevMonitorSnapshot,
   DevMonitorSourceHealth,
   PairDevLaunchItem,
@@ -53,6 +55,52 @@ function activeProfiles(profiles: DevMonitorProfile[], limit: number): DevMonito
     .filter((profile) => profile.tier === "proven" || profile.tier === "repeat")
     .sort((left, right) => right.score - left.score || left.address.localeCompare(right.address))
     .slice(0, limit);
+}
+
+function sameProjectEvidence(left: DevMonitorProject, right: DevMonitorProject): boolean {
+  return (
+    left.address === right.address &&
+    left.platform === right.platform &&
+    left.creator === right.creator &&
+    left.launchId === right.launchId &&
+    left.transactionHash === right.transactionHash &&
+    left.blockNumber === right.blockNumber &&
+    left.blockHash === right.blockHash &&
+    left.launchedAt === right.launchedAt &&
+    left.attribution === right.attribution &&
+    left.attributionConfidence === right.attributionConfidence &&
+    left.symbol === right.symbol &&
+    left.marketCapUsd === right.marketCapUsd &&
+    left.liquidityUsd === right.liquidityUsd &&
+    left.volume24hUsd === right.volume24hUsd &&
+    left.qualityQualified === right.qualityQualified
+  );
+}
+
+function sameStringList(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function sameProfileEvidence(left: DevMonitorProfile, right: DevMonitorProfile): boolean {
+  return (
+    left.address === right.address &&
+    left.tier === right.tier &&
+    left.score === right.score &&
+    left.label === right.label &&
+    sameStringList(left.platforms, right.platforms) &&
+    left.launchCount === right.launchCount &&
+    left.qualifiedLaunchCount === right.qualifiedLaunchCount &&
+    left.successfulLaunchCount === right.successfulLaunchCount &&
+    left.topMarketCapUsd === right.topMarketCapUsd &&
+    left.topLiquidityUsd === right.topLiquidityUsd &&
+    left.topVolume24hUsd === right.topVolume24hUsd &&
+    left.topProject?.address === right.topProject?.address &&
+    left.topProject?.symbol === right.topProject?.symbol &&
+    left.topProject?.platform === right.topProject?.platform &&
+    sameStringList(left.reasons, right.reasons) &&
+    left.firstSeenAt === right.firstSeenAt &&
+    left.lastSeenAt === right.lastSeenAt
+  );
 }
 
 function nextFromBlock(
@@ -100,6 +148,12 @@ export class DevMonitorService {
   private readonly warn: (event: string, context: Record<string, unknown>) => void;
   private refreshPromise: Promise<DevMonitorSnapshot> | null = null;
   private timer: NodeJS.Timeout | null = null;
+  private projectCache: DevMonitorProject[] | null = null;
+  private projectIndex = new Map<string, number>();
+  private pairProjectCache: DevMonitorProject[] | null = null;
+  private profileCache: DevMonitorProfile[] | null = null;
+  private profilesDirty = true;
+  private notificationEligibilityCache: DevMonitorNotificationEligibility | null = null;
 
   constructor(
     private readonly database: DevMonitorDatabase,
@@ -148,12 +202,79 @@ export class DevMonitorService {
     return promise;
   }
 
+  private projects(): DevMonitorProject[] {
+    if (this.projectCache) return this.projectCache;
+    this.projectCache = this.database.projects();
+    this.projectIndex = new Map(
+      this.projectCache.map((project, index) => [project.address, index] as const),
+    );
+    return this.projectCache;
+  }
+
+  private pairProjects(): DevMonitorProject[] {
+    this.pairProjectCache ??= this.projects().filter((project) => project.platform === "pair_v2");
+    return this.pairProjectCache;
+  }
+
+  private profiles(): DevMonitorProfile[] {
+    this.profileCache ??= this.database.profiles();
+    return this.profileCache;
+  }
+
+  private upsertProjects(projects: DevMonitorProject[]): DevMonitorProject[] {
+    if (projects.length === 0) return [];
+    const cached = this.projects();
+    const changed = projects.filter((project) => {
+      const index = this.projectIndex.get(project.address);
+      const previous = index === undefined ? undefined : cached[index];
+      return !previous || !sameProjectEvidence(previous, project);
+    });
+    if (changed.length === 0) return [];
+
+    const inserted = this.database.upsertProjects(changed);
+    for (const project of changed) {
+      const index = this.projectIndex.get(project.address);
+      if (index === undefined) {
+        this.projectIndex.set(project.address, cached.length);
+        cached.push(project);
+      } else {
+        cached[index] = project;
+      }
+    }
+    this.pairProjectCache = null;
+    this.profilesDirty = true;
+    this.notificationEligibilityCache = null;
+    return inserted;
+  }
+
+  private refreshProfiles(projects: DevMonitorProject[], observedAt: string): DevMonitorProfile[] {
+    if (!this.profilesDirty) return this.profiles();
+    const previous = this.profiles();
+    const previousByAddress = new Map(previous.map((profile) => [profile.address, profile]));
+    const current = deriveDevProfiles(projects, observedAt);
+    const changed = current.filter((profile) => {
+      const prior = previousByAddress.get(profile.address);
+      return !prior || !sameProfileEvidence(prior, profile);
+    });
+    if (changed.length > 0) this.database.saveProfiles(changed);
+    this.profileCache = current;
+    this.profilesDirty = false;
+    return current;
+  }
+
+  private notificationEligibility(
+    projects: DevMonitorProject[],
+  ): DevMonitorNotificationEligibility {
+    this.notificationEligibilityCache ??= buildDevMonitorNotificationEligibility(projects);
+    return this.notificationEligibilityCache;
+  }
+
   private async refreshNow(): Promise<DevMonitorSnapshot> {
     const now = this.now();
     const observedAt = now.toISOString();
     if (!this.settings.enabled) return this.disabledSnapshot(observedAt);
     const baselineComplete = this.database.baselineComplete();
-    const previousProfiles = this.database.profiles();
+    const previousProfiles = this.profiles();
     const sources: DevMonitorSourceHealth[] = [];
     const warnings: string[] = [];
     let head: number;
@@ -167,7 +288,7 @@ export class DevMonitorService {
 
     const pairSnapshot = this.pairV2.snapshot();
     const pairProjects = pairV2Projects(pairSnapshot, observedAt);
-    const insertedPairProjects = this.database.upsertProjects(pairProjects);
+    const insertedPairProjects = this.upsertProjects(pairProjects);
     const pairV2BaselineComplete = this.database.state("pair_v2_baseline_complete") === "1";
     if (pairSnapshot && !pairV2BaselineComplete) {
       this.database.setState("pair_v2_baseline_complete", "1", observedAt);
@@ -199,7 +320,7 @@ export class DevMonitorService {
       );
       try {
         const projects = await this.collector.scanLaunchSource(source, fromBlock, head);
-        const inserted = this.database.upsertProjects(projects);
+        const inserted = this.upsertProjects(projects);
         if (cursor !== null && baselineComplete) alertableProjects.push(...inserted);
         this.database.setCursor(source.id, head, observedAt);
         sources.push({
@@ -234,8 +355,8 @@ export class DevMonitorService {
     if (marketDue) {
       this.database.setState("last_market_attempt_at", observedAt, observedAt);
       try {
-        const enrichment = await this.collector.enrichProjects(this.database.projects());
-        this.database.upsertProjects(enrichment.updates);
+        const enrichment = await this.collector.enrichProjects(this.projects());
+        this.upsertProjects(enrichment.updates);
         const sourceStatus =
           enrichment.failedBatches === 0
             ? "ok"
@@ -272,10 +393,9 @@ export class DevMonitorService {
       }
     }
 
-    const projects = this.database.projects();
-    const notificationEligibility = buildDevMonitorNotificationEligibility(projects);
-    const profiles = deriveDevProfiles(projects, observedAt);
-    this.database.saveProfiles(profiles);
+    const projects = this.projects();
+    const notificationEligibility = this.notificationEligibility(projects);
+    const profiles = this.refreshProfiles(projects, observedAt);
     const watched = activeProfiles(profiles, this.settings.watchedDeveloperLimit);
     const buyCursor = this.database.cursor("dev_buys");
     const buyFromBlock = nextFromBlock(buyCursor, head, 1, this.settings.reorgOverlapBlocks);
@@ -372,7 +492,10 @@ export class DevMonitorService {
       }
     }
 
-    if (this.notifier.configured) {
+    if (
+      this.notifier.configured &&
+      (alertableProjects.length > 0 || alertableActivities.length > 0)
+    ) {
       const alerts = planDevMonitorAlerts({
         baselineComplete,
         previousProfiles,
@@ -435,16 +558,14 @@ export class DevMonitorService {
   }
 
   pairLaunches(query: PairDevLaunchesQuery): PairDevLaunchesResponse {
-    const profiles = new Map(this.database.profiles().map((profile) => [profile.address, profile]));
+    const profiles = new Map(this.profiles().map((profile) => [profile.address, profile]));
     const pairSnapshot = this.pairV2.snapshot();
     const pairTokens = new Map(
       [...(pairSnapshot?.tokens ?? []), ...(pairSnapshot?.alphaRadar?.tokens ?? [])].map(
         (token) => [token.address.toLowerCase(), token],
       ),
     );
-    const allItems = this.database
-      .projects()
-      .filter((project) => project.platform === "pair_v2")
+    const allItems = this.pairProjects()
       .flatMap((project): PairDevLaunchItem[] => {
         const profile = profiles.get(project.creator);
         if (!profile) return [];
