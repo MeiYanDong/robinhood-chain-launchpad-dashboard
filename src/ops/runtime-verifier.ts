@@ -169,6 +169,7 @@ export async function verifyRuntime(
     fetcher,
     timeoutMs,
   );
+  const pairWarmingAlert = pairDailyVolumeAlert.payload.warming;
   if (
     pairDailyVolumeAlert.payload.ok !== true ||
     pairDailyVolumeAlert.payload.service !== "rhc-pair-daily-volume-alert" ||
@@ -176,11 +177,19 @@ export async function verifyRuntime(
     pairDailyVolumeAlert.payload.platformId !== "pair" ||
     pairDailyVolumeAlert.payload.metric !== "volume_usd" ||
     pairDailyVolumeAlert.payload.comparison !== "last_two_complete_utc_days" ||
-    pairDailyVolumeAlert.payload.thresholdPct !== 10
+    pairDailyVolumeAlert.payload.thresholdPct !== 10 ||
+    !isRecord(pairWarmingAlert) ||
+    pairWarmingAlert.configured !== true ||
+    pairWarmingAlert.evaluationCadenceMinutes !== 15 ||
+    pairWarmingAlert.comparison !== "rolling_24h_recovery" ||
+    pairWarmingAlert.oneHourThresholdPct !== 15 ||
+    pairWarmingAlert.sixHourLowThresholdPct !== 25 ||
+    pairWarmingAlert.consecutiveSamples !== 2 ||
+    pairWarmingAlert.rearmSamples !== 4
   ) {
     throw new RuntimeVerificationError(
       "RUNTIME_NOT_READY",
-      "PAIR daily volume alert is not configured for the 10 percent threshold",
+      "PAIR volume alerts are not configured for the daily and intraday thresholds",
     );
   }
 

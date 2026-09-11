@@ -6602,6 +6602,99 @@ body[data-product-context="pair-flow"] .economics-section {
   background: rgba(3, 8, 6, 0.28);
 }
 
+.pair-warming-monitor {
+  display: grid;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(7, 13, 10, 0.72);
+}
+
+.pair-warming-monitor__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.pair-warming-monitor__head > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.pair-warming-monitor__head span,
+.pair-warming-monitor__metrics span {
+  color: var(--paper-muted);
+  font-size: 0.625rem;
+}
+
+.pair-warming-monitor__head h2 {
+  margin: 0;
+  color: var(--paper);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+#pair-warming-state {
+  padding: 0.3rem 0.62rem;
+  border: 1px solid rgba(131, 237, 176, 0.2);
+  border-radius: 999px;
+  background: rgba(131, 237, 176, 0.08);
+  color: var(--acid);
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+}
+
+#pair-warming-state.is-watch,
+#pair-warming-state.is-unavailable {
+  border-color: rgba(247, 190, 87, 0.22);
+  background: var(--warning-soft);
+  color: var(--amber);
+}
+
+#pair-warming-state.is-strong {
+  border-color: rgba(131, 237, 176, 0.45);
+  box-shadow: 0 0 18px rgba(131, 237, 176, 0.1);
+}
+
+.pair-warming-monitor__metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.pair-warming-monitor__metrics article {
+  display: grid;
+  min-width: 0;
+  gap: 0.34rem;
+  padding: 10px 12px;
+  border-right: 1px solid var(--line);
+}
+
+.pair-warming-monitor__metrics article:last-child {
+  border-right: 0;
+}
+
+.pair-warming-monitor__metrics strong {
+  overflow: hidden;
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  font-weight: 520;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pair-warming-monitor > p {
+  margin: 0;
+  color: #718079;
+  font-family: var(--mono);
+  font-size: 0.5625rem;
+}
+
 .activity-control,
 .activity-volume-switch {
   display: flex;
@@ -7149,6 +7242,22 @@ body[data-product-context="pair-flow"] .economics-section {
 
   .activity-board__controls {
     grid-template-columns: 1fr;
+  }
+
+  .pair-warming-monitor__head {
+    align-items: flex-start;
+  }
+
+  .pair-warming-monitor__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pair-warming-monitor__metrics article:nth-child(2) {
+    border-right: 0;
+  }
+
+  .pair-warming-monitor__metrics article:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--line);
   }
 
   .activity-explainer {

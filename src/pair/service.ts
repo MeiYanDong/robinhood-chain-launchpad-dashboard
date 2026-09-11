@@ -16,6 +16,7 @@ export interface PairTokenServiceDependencies {
   collect?: PairTokenCollector["collect"];
   now?: () => Date;
   warn?: (event: string, context: Record<string, unknown>) => void;
+  afterRefresh?: () => Promise<void>;
 }
 
 function errorName(error: unknown): string {
@@ -71,6 +72,7 @@ export class PairTokenService {
   private readonly collect: PairTokenCollector["collect"];
   private readonly now: () => Date;
   private readonly warn: (event: string, context: Record<string, unknown>) => void;
+  private readonly afterRefresh: () => Promise<void>;
 
   constructor(
     private readonly database: PairTokenDatabase,
@@ -81,6 +83,7 @@ export class PairTokenService {
     this.collect = dependencies.collect ?? collector.collect.bind(collector);
     this.now = dependencies.now ?? (() => new Date());
     this.warn = dependencies.warn ?? ((event, context) => console.warn(event, context));
+    this.afterRefresh = dependencies.afterRefresh ?? (async () => undefined);
   }
 
   async ensureFresh(): Promise<void> {
@@ -131,6 +134,11 @@ export class PairTokenService {
         ? "partial"
         : "success";
       this.database.completeRun(runId, status, batch);
+      try {
+        await this.afterRefresh();
+      } catch (error) {
+        this.warn("pair_volume_alert_evaluation_failed", { reason: errorDiagnostic(error) });
+      }
       return {
         observedAt: batch.observedAt,
         status,

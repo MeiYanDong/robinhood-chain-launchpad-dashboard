@@ -10,6 +10,11 @@ import type {
   SourceHealth,
 } from "../domain/types.js";
 import type { PlatformVolumeAlert } from "../platform-activity/alerts.js";
+import type {
+  PairRollingVolumeSnapshot,
+  PairWarmingAlert,
+  PairWarmingStateRecord,
+} from "../platform-activity/warming.js";
 
 export interface CollectionRun {
   id: number;
@@ -83,6 +88,11 @@ export interface PlatformVolumeAlertOutboxRow {
   thresholdPct: number;
   source: string;
   createdAt: string;
+  attempts: number;
+}
+
+export interface PairWarmingAlertOutboxRow extends PairWarmingAlert {
+  id: number;
   attempts: number;
 }
 
@@ -189,6 +199,29 @@ export class DashboardDatabase {
 
       CREATE INDEX IF NOT EXISTS idx_platform_volume_alert_delivery
         ON platform_volume_alert_outbox(status, next_attempt_at, id ASC);
+
+      CREATE TABLE IF NOT EXISTS pair_volume_warming_state (
+        singleton_id INTEGER PRIMARY KEY CHECK(singleton_id = 1),
+        payload_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS pair_volume_warming_alert_outbox (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        dedupe_key TEXT NOT NULL UNIQUE,
+        level TEXT NOT NULL,
+        observed_at TEXT NOT NULL,
+        payload_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        attempts INTEGER NOT NULL DEFAULT 0,
+        next_attempt_at TEXT NOT NULL,
+        sent_at TEXT,
+        last_error TEXT
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_pair_volume_warming_alert_delivery
+        ON pair_volume_warming_alert_outbox(status, next_attempt_at, id ASC);
     `);
   }
 
@@ -637,6 +670,163 @@ export class DashboardDatabase {
           SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
           MAX(sent_at) AS last_sent_at
         FROM platform_volume_alert_outbox
+      `)
+      .get() as { pending: number | null; failed: number | null; last_sent_at: string | null };
+    return {
+      pending: row.pending ?? 0,
+      failed: row.failed ?? 0,
+      lastSentAt: row.last_sent_at,
+    };
+  }
+
+  getPairRollingVolumeSnapshots(since: string, limit = 256): PairRollingVolumeSnapshot[] {
+    const pairTables = this.db
+      .prepare(
+        `SELECT COUNT(*) AS count FROM sqlite_schema
+         WHERE type = 'table' AND name IN ('pair_collection_runs', 'pair_universe_aggregates', 'pair_source_health')`,
+      )
+      .get() as { count: number };
+    if (pairTables.count !== 3) return [];
+    const rows = this.db
+      .prepare(`
+        SELECT
+          aggregates.run_id,
+          runs.observed_at,
+          aggregates.token_count,
+          aggregates.volume_observed_count,
+          aggregates.volume_24h_usd,
+          COALESCE(source.status, 'failed') AS source_status
+        FROM pair_universe_aggregates AS aggregates
+        JOIN pair_collection_runs AS runs ON runs.id = aggregates.run_id
+        LEFT JOIN pair_source_health AS source
+          ON source.run_id = aggregates.run_id AND source.source = 'pair.officialApi'
+        WHERE runs.status IN ('success', 'partial')
+          AND runs.observed_at IS NOT NULL
+          AND runs.observed_at >= ?
+        ORDER BY runs.observed_at DESC, aggregates.run_id DESC
+        LIMIT ?
+      `)
+      .all(since, limit) as unknown as Array<Record<string, unknown>>;
+    return rows
+      .map((row) => ({
+        runId: Number(row.run_id),
+        observedAt: String(row.observed_at),
+        tokenCount: Number(row.token_count),
+        volumeObservedCount: Number(row.volume_observed_count),
+        volume24hUsd: Number(row.volume_24h_usd),
+        sourceStatus: row.source_status as PairRollingVolumeSnapshot["sourceStatus"],
+      }))
+      .reverse();
+  }
+
+  getPairWarmingState(): PairWarmingStateRecord | null {
+    const row = this.db
+      .prepare("SELECT payload_json FROM pair_volume_warming_state WHERE singleton_id = 1")
+      .get() as { payload_json: string } | undefined;
+    if (!row) return null;
+    try {
+      return JSON.parse(row.payload_json) as PairWarmingStateRecord;
+    } catch {
+      return null;
+    }
+  }
+
+  savePairWarmingState(state: PairWarmingStateRecord): void {
+    this.db
+      .prepare(`
+        INSERT INTO pair_volume_warming_state(singleton_id, payload_json, updated_at)
+        VALUES (1, ?, ?)
+        ON CONFLICT(singleton_id) DO UPDATE SET
+          payload_json = excluded.payload_json,
+          updated_at = excluded.updated_at
+      `)
+      .run(JSON.stringify(state), state.updatedAt);
+  }
+
+  enqueuePairWarmingAlert(alert: PairWarmingAlert): boolean {
+    const result = this.db
+      .prepare(`
+        INSERT OR IGNORE INTO pair_volume_warming_alert_outbox(
+          dedupe_key, level, observed_at, payload_json, created_at, next_attempt_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `)
+      .run(
+        alert.dedupeKey,
+        alert.level,
+        alert.observedAt,
+        JSON.stringify(alert),
+        alert.createdAt,
+        alert.createdAt,
+      );
+    return Number(result.changes) === 1;
+  }
+
+  pendingPairWarmingAlerts(now: string, limit = 5): PairWarmingAlertOutboxRow[] {
+    const rows = this.db
+      .prepare(`
+        SELECT id, payload_json, attempts
+        FROM pair_volume_warming_alert_outbox
+        WHERE status IN ('pending', 'failed')
+          AND attempts < 5
+          AND next_attempt_at <= ?
+        ORDER BY id ASC
+        LIMIT ?
+      `)
+      .all(now, limit) as unknown as Array<{
+      id: number;
+      payload_json: string;
+      attempts: number;
+    }>;
+    return rows.flatMap((row) => {
+      try {
+        return [
+          {
+            ...(JSON.parse(row.payload_json) as PairWarmingAlert),
+            id: row.id,
+            attempts: row.attempts,
+          },
+        ];
+      } catch {
+        return [];
+      }
+    });
+  }
+
+  markPairWarmingAlertSent(id: number, sentAt: string): void {
+    this.db
+      .prepare(`
+        UPDATE pair_volume_warming_alert_outbox
+        SET status = 'sent', attempts = attempts + 1, sent_at = ?, last_error = NULL
+        WHERE id = ?
+      `)
+      .run(sentAt, id);
+  }
+
+  markPairWarmingAlertFailed(id: number, error: string, now: Date, previousAttempts: number): void {
+    const delayMinutes = Math.min(60, 2 ** previousAttempts * 5);
+    const nextAttemptAt = new Date(now.valueOf() + delayMinutes * 60_000).toISOString();
+    this.db
+      .prepare(`
+        UPDATE pair_volume_warming_alert_outbox
+        SET status = 'failed', attempts = attempts + 1,
+            next_attempt_at = ?, last_error = ?
+        WHERE id = ?
+      `)
+      .run(nextAttemptAt, error.slice(0, 240), id);
+  }
+
+  pairWarmingAlertSummary(): {
+    pending: number;
+    failed: number;
+    lastSentAt: string | null;
+  } {
+    const row = this.db
+      .prepare(`
+        SELECT
+          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending,
+          SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
+          MAX(sent_at) AS last_sent_at
+        FROM pair_volume_warming_alert_outbox
       `)
       .get() as { pending: number | null; failed: number | null; last_sent_at: string | null };
     return {
