@@ -935,6 +935,94 @@ test("service creates a no-spam baseline, then alerts when an existing proven DE
   }
 });
 
+test("service only persists DEV project and profile rows when evidence changes", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "dev-monitor-cache-"));
+  const database = new DevMonitorDatabase(join(directory, "test.sqlite"));
+  let projectWrites = 0;
+  let profileWrites = 0;
+  const persistProjects = database.upsertProjects.bind(database);
+  const persistProfiles = database.saveProfiles.bind(database);
+  database.upsertProjects = (projects) => {
+    projectWrites += projects.length;
+    return persistProjects(projects);
+  };
+  database.saveProfiles = (profiles) => {
+    profileWrites += profiles.length;
+    persistProfiles(profiles);
+  };
+  let current = new Date("2026-09-06T00:10:00.000Z");
+  const pairDashboard = {
+    events: [
+      {
+        id: `4663:${TX_HASH}:1`,
+        type: "launch",
+        project: TOKEN,
+        actor: DEV,
+        transactionHash: TX_HASH,
+        blockNumber: 90,
+        timestamp: "2026-09-06T00:00:00.000Z",
+      },
+    ],
+    tokens: [
+      {
+        address: TOKEN,
+        creator: DEV,
+        symbol: "ALPHA",
+        marketCapUsd: 50_000,
+        liquidityUsd: 15_000,
+        volume24hUsd: 30_000,
+        alpha: { quality: { state: "qualified" } },
+      },
+    ],
+    overview: { latestBlock: 100 },
+  } as unknown as PairV2DashboardResponse;
+  const collector = {
+    confirmedHead: async () => 100,
+    scanLaunchSource: async () => [],
+    enrichProjects: async () => ({
+      updates: [],
+      requestedProjects: 0,
+      totalBatches: 0,
+      successfulBatches: 0,
+      failedBatches: 0,
+    }),
+    scanBuys: async () => [],
+  } as unknown as DevMonitorCollector;
+  const service = new DevMonitorService(
+    database,
+    { ...DEFAULT_DEV_MONITOR_SETTINGS, enabled: true },
+    { snapshot: () => pairDashboard },
+    { collector, now: () => current },
+  );
+
+  try {
+    await service.refresh();
+    assert.equal(projectWrites, 1);
+    assert.equal(profileWrites, 1);
+
+    current = new Date("2026-09-06T00:10:30.000Z");
+    await service.refresh();
+    assert.equal(projectWrites, 1, "observedAt alone must not rewrite the project row");
+    assert.equal(profileWrites, 1, "unchanged project evidence must not rebuild profiles");
+    assert.equal(database.projects()[0]?.observedAt, "2026-09-06T00:10:00.000Z");
+    assert.equal(database.profiles()[0]?.updatedAt, "2026-09-06T00:10:00.000Z");
+
+    const token = pairDashboard.tokens[0];
+    assert.ok(token);
+    token.volume24hUsd = 31_000;
+    current = new Date("2026-09-06T00:11:00.000Z");
+    await service.refresh();
+    assert.equal(projectWrites, 2);
+    assert.equal(profileWrites, 2);
+    assert.equal(database.projects()[0]?.volume24hUsd, 31_000);
+    assert.equal(database.profiles()[0]?.updatedAt, "2026-09-06T00:11:00.000Z");
+  } finally {
+    service.stop();
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("DEV buy catch-up advances in bounded segments without replaying historical alerts", async () => {
   const directory = mkdtempSync(join(tmpdir(), "dev-monitor-buy-catchup-"));
   const database = new DevMonitorDatabase(join(directory, "test.sqlite"));
