@@ -50,6 +50,10 @@ def compact(source: Path, destination: Path) -> dict[str, object]:
         source_connection.execute("PRAGMA query_only=ON")
         source_connection.backup(destination_connection, pages=4096)
         destination_connection.commit()
+        # The backup inherits WAL mode from production. Switch the offline copy
+        # before dropping large tables so the deletions do not first duplicate
+        # several gigabytes into a temporary WAL file.
+        destination_connection.execute("PRAGMA journal_mode=DELETE")
 
         schema = destination_connection.execute(
             "SELECT type,name,tbl_name,sql FROM sqlite_master WHERE sql IS NOT NULL"
@@ -86,7 +90,6 @@ def compact(source: Path, destination: Path) -> dict[str, object]:
             destination_connection.execute(f"DROP TABLE {quote_identifier(table)}")
         destination_connection.commit()
 
-        destination_connection.execute("PRAGMA journal_mode=DELETE")
         destination_connection.execute("VACUUM")
         integrity = [
             row[0] for row in destination_connection.execute("PRAGMA quick_check").fetchall()

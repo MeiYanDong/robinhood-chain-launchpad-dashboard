@@ -409,6 +409,9 @@ PAIR 15 分钟回温判断、两次确认、覆盖门禁、飞书去重与 `0.23
 PAIR 代币价格与自身滚动 24H 交易量共振、首次基线抑制、两次确认及 `0.24.0` 回读见
 [`docs/evidence/pair-token-momentum-production-deployment-2026-09-11.md`](docs/evidence/pair-token-momentum-production-deployment-2026-09-11.md)。
 
+CashCat 停采、云端恢复点、数据库副本瘦身、自动保留策略和磁盘从 96% 收敛至 17% 的证据见
+[`docs/evidence/storage-retention-production-deployment-2026-09-12.md`](docs/evidence/storage-retention-production-deployment-2026-09-12.md)。
+
 部署配置固化在 [`deploy/`](deploy/)；新版本应使用不可变 release 目录并原子切换
 `current` 软链接，保留上一版用于回滚。发布后必须同时验证公网首页、`/healthz`、
 `/api/overview?window=30`、`/api/platform-activity`、`/api/platform-activity/alerts/health`、
