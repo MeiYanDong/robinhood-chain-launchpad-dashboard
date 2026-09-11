@@ -397,6 +397,9 @@ PAIR 相对估值切换为最新共同完整 UTC 日、七日平滑对照、缓�
 PAIR 七日主参考与最新单日短期参考并列展示、V3 历史兼容、生产恢复过程与 `0.22.0` 公网回读见
 [`docs/evidence/pair-dual-window-valuation-production-deployment-2026-09-11.md`](docs/evidence/pair-dual-window-valuation-production-deployment-2026-09-11.md)。
 
+DEV 监控重复全表扫描与整表写回的修复、`0.22.1` 发布恢复和生产资源回读见
+[`docs/evidence/dev-monitor-hot-loop-production-deployment-2026-09-11.md`](docs/evidence/dev-monitor-hot-loop-production-deployment-2026-09-11.md)。
+
 部署配置固化在 [`deploy/`](deploy/)；新版本应使用不可变 release 目录并原子切换
 `current` 软链接，保留上一版用于回滚。发布后必须同时验证公网首页、`/healthz`、
 `/api/overview?window=30`、`/api/platform-activity`、`/api/platform-activity/alerts/health`、
