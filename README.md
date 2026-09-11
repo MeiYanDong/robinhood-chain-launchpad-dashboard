@@ -452,6 +452,12 @@ DEV 监控重复全表扫描与整表写回的修复、`0.22.1` 发布恢复和�
 | `PAIR_DAILY_VOLUME_ALERT_THRESHOLD_PCT` | `10` | 最近两个完整 UTC 日的交易量涨跌绝对值达到该百分比时告警 |
 | `PAIR_DAILY_VOLUME_ALERT_RETRY_SECONDS` | `300` | 失败 outbox 的后台重试检查间隔；单条最多尝试 5 次并指数退避 |
 | `PAIR_DAILY_VOLUME_ALERT_DETAIL_URL` | `https://47.251.99.37/launchpads/?view=platforms` | 飞书消息中的只读看板入口，只接受无凭据 HTTPS URL |
+| `PAIR_VOLUME_WARMING_ALERT_ENABLED` | `true` | 开启 PAIR 盘中交易量回温判断；仍需配置飞书 Webhook 才会投递 |
+| `PAIR_VOLUME_WARMING_ONE_HOUR_PCT` | `15` | 已统计滚动 24H 交易量较约一小时前上升多少时进入回温候选 |
+| `PAIR_VOLUME_WARMING_SIX_HOUR_PCT` | `25` | 已统计滚动 24H 交易量较近六小时低点上升多少时进入回温候选 |
+| `PAIR_VOLUME_WARMING_CONSECUTIVE_SAMPLES` | `2` | 连续多少个 15 分钟快照满足门槛后才通知，过滤单次尖峰 |
+| `PAIR_VOLUME_WARMING_REARM_SAMPLES` | `4` | 连续多少个快照退出候选后，才允许下一轮回温再次通知 |
+| `PAIR_VOLUME_WARMING_UPGRADE_PCT` | `30` | 同一轮回温比首次通知值再上升多少时升级为强回温通知 |
 | `DEV_MONITOR_ENABLED` | `false` | 启用服务端 DEV 发行与买入监听；生产 unit 显式设为 `true` |
 | `DEV_MONITOR_RPC_URL` | Robinhood Chain 官方 RPC | DEV 雷达只读日志、交易与 receipt 来源；可由 `PAIR_V2_RPC_URL` 兜底 |
 | `DEV_MONITOR_POLL_SECONDS` | `8` | 确认后链上发行与重点地址买入轮询间隔 |
@@ -480,7 +486,7 @@ DEV 监控重复全表扫描与整表写回的修复、`0.22.1` 发布恢复和�
 | `GET /healthz` | 服务与可用缓存状态 |
 | `GET /api/overview?window=1\|7\|30` | 汇总和平台排名 |
 | `GET /api/platform-activity` | Pons、Long、PAIR 日度成交历史、7/30 日活跃倍数与窗口交易量 |
-| `GET /api/platform-activity/alerts/health` | PAIR 日交易量 10% 飞书告警配置、队列与最近投递状态；不返回 Webhook |
+| `GET /api/platform-activity/alerts/health` | PAIR 完整日 ±10% 与盘中 15 分钟回温告警的状态、队列和最近投递；不返回 Webhook |
 | `GET /api/platforms/:id` | 单平台 64 日序列、scope、来源 |
 | `GET /api/coverage` | 指标定义、警告、30 日覆盖矩阵 |
 | `GET /api/sources` | 采集运行与来源健康 |

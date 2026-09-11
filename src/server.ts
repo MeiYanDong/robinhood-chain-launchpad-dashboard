@@ -71,7 +71,9 @@ const pairCollector = new PairTokenCollector(pairSettings, {
       fetchJson(url, { retries: 0, timeoutMs: pairSettings.apiTimeoutMs }),
     ),
 });
-const pair = new PairTokenService(pairDatabase, pairSettings, pairCollector);
+const pair = new PairTokenService(pairDatabase, pairSettings, pairCollector, {
+  afterRefresh: () => pairDailyVolumeAlerts.evaluateWarming().then(() => undefined),
+});
 const pairFlowSettings = pairFlowSettingsFromEnv();
 const pairFlowDatabase = new PairFlowDatabase(databasePath);
 const pairFlowCollector = new PairFlowCollector(pairFlowSettings, {
@@ -180,6 +182,7 @@ async function warmInitialData(): Promise<void> {
     pairDailyVolumeAlerts.evaluate(dashboard.health().targetDate),
   );
   await refresh("pair", () => pair.ensureFresh());
+  await refresh("pair_volume_warming_alert", () => pairDailyVolumeAlerts.evaluateWarming());
   await refresh("long", () => long.ensureFresh());
   await refresh("economics", () => economics.ensureFresh());
   await refresh("pair_flow", () => pairFlow.ensureFresh());

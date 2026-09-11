@@ -2,6 +2,14 @@ import type { DailyMetric, SourceHealth } from "../domain/types.js";
 import type { DashboardDatabase, PlatformVolumeAlertOutboxRow } from "../storage/database.js";
 import { shiftUtcDate } from "../utils/time.js";
 import { PAIR_PROTOCOL_DAILY_SOURCE } from "../collectors/pair-protocol.js";
+import {
+  DEFAULT_PAIR_WARMING_ALERT_SETTINGS,
+  initialPairWarmingState,
+  planPairVolumeWarming,
+  type PairWarmingAlert,
+  type PairWarmingAlertSettings,
+  type PairWarmingPlan,
+} from "./warming.js";
 
 const PAIR_PLATFORM_ID = "pair";
 const PAIR_SOURCE_HEALTH_ID = "pair.officialStats";
@@ -12,6 +20,7 @@ export interface PairDailyVolumeAlertSettings {
   retrySeconds: number;
   feishuWebhookUrl: string | null;
   detailUrl: string;
+  warming: PairWarmingAlertSettings;
 }
 
 export const DEFAULT_PAIR_DAILY_VOLUME_ALERT_SETTINGS: PairDailyVolumeAlertSettings = {
@@ -20,6 +29,7 @@ export const DEFAULT_PAIR_DAILY_VOLUME_ALERT_SETTINGS: PairDailyVolumeAlertSetti
   retrySeconds: 300,
   feishuWebhookUrl: null,
   detailUrl: "https://47.251.99.37/launchpads/?view=platforms",
+  warming: DEFAULT_PAIR_WARMING_ALERT_SETTINGS,
 };
 
 export interface PlatformVolumeAlert {
@@ -61,6 +71,26 @@ export interface PairDailyVolumeAlertHealth {
   pending: number;
   failed: number;
   lastSentAt: string | null;
+  warming: {
+    configured: boolean;
+    evaluationCadenceMinutes: 15;
+    comparison: "rolling_24h_recovery";
+    oneHourThresholdPct: number;
+    sixHourLowThresholdPct: number;
+    consecutiveSamples: number;
+    rearmSamples: number;
+    upgradeThresholdPct: number;
+    state: ReturnType<DashboardDatabase["getPairWarmingState"]>;
+    pending: number;
+    failed: number;
+    lastSentAt: string | null;
+  };
+}
+
+export interface PairWarmingAlertEvaluation {
+  status: PairWarmingPlan["status"] | "disabled";
+  inserted: boolean;
+  state: ReturnType<DashboardDatabase["getPairWarmingState"]>;
 }
 
 export interface PairDailyVolumeAlertDependencies {
@@ -74,6 +104,19 @@ function positiveNumber(value: string | undefined, fallback: number, name: strin
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) throw new Error(`${name} must be positive`);
   return parsed;
+}
+
+function positiveInteger(value: string | undefined, fallback: number, name: string): number {
+  const parsed = positiveNumber(value, fallback, name);
+  if (!Number.isInteger(parsed)) throw new Error(`${name} must be an integer`);
+  return parsed;
+}
+
+function booleanValue(value: string | undefined, fallback: boolean, name: string): boolean {
+  if (value === undefined || value.trim() === "") return fallback;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new Error(`${name} must be true or false`);
 }
 
 function optionalWebhook(value: string | undefined): string | null {
@@ -125,6 +168,58 @@ export function pairDailyVolumeAlertSettingsFromEnv(
         env.DEV_MONITOR_FEISHU_WEBHOOK_URL,
     ),
     detailUrl: httpsDetailUrl(env.PAIR_DAILY_VOLUME_ALERT_DETAIL_URL),
+    warming: {
+      enabled: booleanValue(
+        env.PAIR_VOLUME_WARMING_ALERT_ENABLED,
+        DEFAULT_PAIR_WARMING_ALERT_SETTINGS.enabled,
+        "PAIR_VOLUME_WARMING_ALERT_ENABLED",
+      ),
+      oneHourThresholdPct: positiveNumber(
+        env.PAIR_VOLUME_WARMING_ONE_HOUR_PCT,
+        DEFAULT_PAIR_WARMING_ALERT_SETTINGS.oneHourThresholdPct,
+        "PAIR_VOLUME_WARMING_ONE_HOUR_PCT",
+      ),
+      sixHourLowThresholdPct: positiveNumber(
+        env.PAIR_VOLUME_WARMING_SIX_HOUR_PCT,
+        DEFAULT_PAIR_WARMING_ALERT_SETTINGS.sixHourLowThresholdPct,
+        "PAIR_VOLUME_WARMING_SIX_HOUR_PCT",
+      ),
+      consecutiveSamples: positiveInteger(
+        env.PAIR_VOLUME_WARMING_CONSECUTIVE_SAMPLES,
+        DEFAULT_PAIR_WARMING_ALERT_SETTINGS.consecutiveSamples,
+        "PAIR_VOLUME_WARMING_CONSECUTIVE_SAMPLES",
+      ),
+      rearmSamples: positiveInteger(
+        env.PAIR_VOLUME_WARMING_REARM_SAMPLES,
+        DEFAULT_PAIR_WARMING_ALERT_SETTINGS.rearmSamples,
+        "PAIR_VOLUME_WARMING_REARM_SAMPLES",
+      ),
+      upgradeThresholdPct: positiveNumber(
+        env.PAIR_VOLUME_WARMING_UPGRADE_PCT,
+        DEFAULT_PAIR_WARMING_ALERT_SETTINGS.upgradeThresholdPct,
+        "PAIR_VOLUME_WARMING_UPGRADE_PCT",
+      ),
+      freshnessMinutes: positiveNumber(
+        env.PAIR_VOLUME_WARMING_FRESHNESS_MINUTES,
+        DEFAULT_PAIR_WARMING_ALERT_SETTINGS.freshnessMinutes,
+        "PAIR_VOLUME_WARMING_FRESHNESS_MINUTES",
+      ),
+      tokenCountDriftPct: positiveNumber(
+        env.PAIR_VOLUME_WARMING_TOKEN_DRIFT_PCT,
+        DEFAULT_PAIR_WARMING_ALERT_SETTINGS.tokenCountDriftPct,
+        "PAIR_VOLUME_WARMING_TOKEN_DRIFT_PCT",
+      ),
+      observedCountDriftPct: positiveNumber(
+        env.PAIR_VOLUME_WARMING_OBSERVED_DRIFT_PCT,
+        DEFAULT_PAIR_WARMING_ALERT_SETTINGS.observedCountDriftPct,
+        "PAIR_VOLUME_WARMING_OBSERVED_DRIFT_PCT",
+      ),
+      materialMedianPct: positiveNumber(
+        env.PAIR_VOLUME_WARMING_MATERIAL_MEDIAN_PCT,
+        DEFAULT_PAIR_WARMING_ALERT_SETTINGS.materialMedianPct,
+        "PAIR_VOLUME_WARMING_MATERIAL_MEDIAN_PCT",
+      ),
+    },
   };
 }
 
@@ -207,6 +302,34 @@ function notificationText(alert: PlatformVolumeAlertOutboxRow, detailUrl: string
   ].join("\n");
 }
 
+function optionalChange(value: number | null): string {
+  return value === null ? "不可计算" : formatChange(value);
+}
+
+function warmingNotificationText(alert: PairWarmingAlert, detailUrl: string): string {
+  const title = alert.level === "strong" ? "PAIR 平台交易量强回温" : "PAIR 平台交易量回温";
+  const medianLevel =
+    alert.currentVsSevenDayMedianPct === null
+      ? "不可计算"
+      : `${alert.currentVsSevenDayMedianPct.toFixed(1)}%`;
+  return [
+    `[RHC Radar｜${title}]`,
+    `滚动 24H 已观测下限：${formatUsd(alert.currentValueUsd)}`,
+    `约 1H 变化：${optionalChange(alert.oneHourChangePct)}`,
+    `较近 6H 低点：${optionalChange(alert.sixHourLowChangePct)}`,
+    alert.latestCompleteDate && alert.latestCompleteValueUsd !== null
+      ? `最新完整日 ${alert.latestCompleteDate}：${formatUsd(alert.latestCompleteValueUsd)}`
+      : "最新完整日：不可用",
+    alert.sevenDayMedianValueUsd !== null
+      ? `近 7 个完整日中位数：${formatUsd(alert.sevenDayMedianValueUsd)}（当前为 ${medianLevel}）`
+      : "近 7 个完整日中位数：不可用",
+    `覆盖：${String(alert.volumeObservedCount)}/${String(alert.tokenCount)} 枚可见代币有成交额`,
+    "判断：连续两个 15 分钟快照达到回温门槛；同一轮状态只通知一次。",
+    "口径：PAIR 官方代币 API 聚合下限，不是精确全平台总量，也不是价格预测。",
+    `看板：${detailUrl}`,
+  ].join("\n");
+}
+
 export class PairDailyVolumeAlertService {
   private readonly fetcher: typeof fetch;
   private readonly now: () => Date;
@@ -276,8 +399,34 @@ export class PairDailyVolumeAlertService {
     };
   }
 
+  async evaluateWarming(): Promise<PairWarmingAlertEvaluation> {
+    const now = this.now();
+    const previousState =
+      this.database.getPairWarmingState() ?? initialPairWarmingState(now.toISOString());
+    if (!this.settings.feishuWebhookUrl || !this.settings.warming.enabled) {
+      return { status: "disabled", inserted: false, state: previousState };
+    }
+    const since = new Date(now.valueOf() - 13 * 60 * 60_000).toISOString();
+    const daily = this.database
+      .getMetricHistory(PAIR_PLATFORM_ID, "volume_usd")
+      .filter((metric) => metric.source === PAIR_PROTOCOL_DAILY_SOURCE)
+      .map((metric) => ({ date: metric.date, valueUsd: metric.value }));
+    const plan = planPairVolumeWarming({
+      snapshots: this.database.getPairRollingVolumeSnapshots(since),
+      daily,
+      previousState,
+      settings: this.settings.warming,
+      now,
+    });
+    if (plan.status !== "duplicate") this.database.savePairWarmingState(plan.nextState);
+    const inserted = plan.alert ? this.database.enqueuePairWarmingAlert(plan.alert) : false;
+    await this.flush();
+    return { status: plan.status, inserted, state: plan.nextState };
+  }
+
   health(): PairDailyVolumeAlertHealth {
     const summary = this.database.platformVolumeAlertSummary();
+    const warmingSummary = this.database.pairWarmingAlertSummary();
     return {
       ok: this.settings.feishuWebhookUrl !== null,
       service: "rhc-pair-daily-volume-alert",
@@ -287,6 +436,18 @@ export class PairDailyVolumeAlertService {
       comparison: "last_two_complete_utc_days",
       thresholdPct: this.settings.thresholdPct,
       ...summary,
+      warming: {
+        configured: this.settings.feishuWebhookUrl !== null && this.settings.warming.enabled,
+        evaluationCadenceMinutes: 15,
+        comparison: "rolling_24h_recovery",
+        oneHourThresholdPct: this.settings.warming.oneHourThresholdPct,
+        sixHourLowThresholdPct: this.settings.warming.sixHourLowThresholdPct,
+        consecutiveSamples: this.settings.warming.consecutiveSamples,
+        rearmSamples: this.settings.warming.rearmSamples,
+        upgradeThresholdPct: this.settings.warming.upgradeThresholdPct,
+        state: this.database.getPairWarmingState(),
+        ...warmingSummary,
+      },
     };
   }
 
@@ -319,9 +480,31 @@ export class PairDailyVolumeAlertService {
         });
       }
     }
+    for (const alert of this.database.pendingPairWarmingAlerts(now.toISOString(), 5)) {
+      try {
+        await this.sendText(warmingNotificationText(alert, this.settings.detailUrl));
+        this.database.markPairWarmingAlertSent(alert.id, this.now().toISOString());
+      } catch (error) {
+        this.database.markPairWarmingAlertFailed(
+          alert.id,
+          error instanceof Error ? `${error.name}: ${error.message}` : "UnknownNotificationError",
+          this.now(),
+          alert.attempts,
+        );
+        this.warn("pair_volume_warming_alert_delivery_failed", {
+          errorName: error instanceof Error ? error.name : "UnknownNotificationError",
+          observedAt: alert.observedAt,
+          level: alert.level,
+        });
+      }
+    }
   }
 
   private async send(alert: PlatformVolumeAlertOutboxRow): Promise<void> {
+    await this.sendText(notificationText(alert, this.settings.detailUrl));
+  }
+
+  private async sendText(text: string): Promise<void> {
     if (!this.settings.feishuWebhookUrl) return;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.settings.requestTimeoutMs);
@@ -332,7 +515,7 @@ export class PairDailyVolumeAlertService {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           msg_type: "text",
-          content: { text: notificationText(alert, this.settings.detailUrl) },
+          content: { text },
         }),
       });
       if (!response.ok) throw new Error(`Feishu webhook HTTP ${String(response.status)}`);

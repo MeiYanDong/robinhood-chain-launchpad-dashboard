@@ -11,9 +11,9 @@
     <title>全链数据｜Robinhood Chain</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css?v=0.11.0" />
-    <link rel="stylesheet" href="./styles-v2.css?v=0.22.1" />
-    <link rel="stylesheet" href="./workbench.css?v=0.22.1" />
-    <script src="./app.js?v=0.22.1" type="module"></script>
+    <link rel="stylesheet" href="./styles-v2.css?v=0.23.0" />
+    <link rel="stylesheet" href="./workbench.css?v=0.23.0" />
+    <script src="./app.js?v=0.23.0" type="module"></script>
   </head>
   <body class="radar-v2">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -956,6 +956,44 @@
               >?</button>
             </div>
           </div>
+
+          <section class="pair-warming-monitor" aria-labelledby="pair-warming-title">
+            <header class="pair-warming-monitor__head">
+              <div>
+                <span>服务器每 15 分钟检查</span>
+                <h2 id="pair-warming-title">PAIR 交易量回温</h2>
+              </div>
+              <strong id="pair-warming-state">等待第一次判断</strong>
+            </header>
+            <div class="pair-warming-monitor__metrics">
+              <article>
+                <span class="metric-label">
+                  当前 24H 交易量
+                  <button
+                    class="metric-help"
+                    type="button"
+                    aria-label="解释当前 24H 交易量"
+                    data-help-title="这里统计的是什么？"
+                    data-help="把 PAIR 官方代币接口当前能看到的代币 24H 交易量相加。覆盖不完整时，它只是已经统计到的金额，不冒充全平台精确总量。"
+                  >?</button>
+                </span>
+                <strong id="pair-warming-value">—</strong>
+              </article>
+              <article>
+                <span>比约 1 小时前</span>
+                <strong id="pair-warming-1h">—</strong>
+              </article>
+              <article>
+                <span>比近 6 小时低点</span>
+                <strong id="pair-warming-6h">—</strong>
+              </article>
+              <article>
+                <span>飞书通知</span>
+                <strong id="pair-warming-alert">—</strong>
+              </article>
+            </div>
+            <p id="pair-warming-meta">等待监控状态。</p>
+          </section>
 
           <div class="activity-card-grid" id="platform-activity-cards" aria-live="polite"></div>
 

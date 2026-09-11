@@ -83,6 +83,7 @@ test("PAIR daily volume alert settings default to 10 percent and reuse the PAIR 
   assert.equal(configured.requestTimeoutMs, 5_000);
   assert.equal(configured.feishuWebhookUrl, "https://open.feishu.cn/open-apis/bot/v2/hook/test");
   assert.equal(configured.detailUrl, "https://radar.example/market/");
+  assert.deepEqual(configured.warming, DEFAULT_PAIR_DAILY_VOLUME_ALERT_SETTINGS.warming);
   assert.equal(
     pairDailyVolumeAlertSettingsFromEnv({
       DEV_MONITOR_FEISHU_WEBHOOK_URL:
@@ -198,17 +199,46 @@ test("PAIR daily volume notifier sends once and persists its dedupe state", asyn
     assert.match(payload.content?.text ?? "", /PAIR 日交易量下降 63\.0%/);
     assert.match(payload.content?.text ?? "", /最近两个完整 UTC 日/);
     assert.match(payload.content?.text ?? "", /2026-09-08/);
-    assert.deepEqual(service.health(), {
-      ok: true,
-      service: "rhc-pair-daily-volume-alert",
+    const health = service.health();
+    assert.deepEqual(
+      {
+        ok: health.ok,
+        service: health.service,
+        configured: health.configured,
+        platformId: health.platformId,
+        metric: health.metric,
+        comparison: health.comparison,
+        thresholdPct: health.thresholdPct,
+        pending: health.pending,
+        failed: health.failed,
+        lastSentAt: health.lastSentAt,
+      },
+      {
+        ok: true,
+        service: "rhc-pair-daily-volume-alert",
+        configured: true,
+        platformId: "pair",
+        metric: "volume_usd",
+        comparison: "last_two_complete_utc_days",
+        thresholdPct: 10,
+        pending: 0,
+        failed: 0,
+        lastSentAt: collectedAt,
+      },
+    );
+    assert.deepEqual(health.warming, {
       configured: true,
-      platformId: "pair",
-      metric: "volume_usd",
-      comparison: "last_two_complete_utc_days",
-      thresholdPct: 10,
+      evaluationCadenceMinutes: 15,
+      comparison: "rolling_24h_recovery",
+      oneHourThresholdPct: 15,
+      sixHourLowThresholdPct: 25,
+      consecutiveSamples: 2,
+      rearmSamples: 4,
+      upgradeThresholdPct: 30,
+      state: null,
       pending: 0,
       failed: 0,
-      lastSentAt: collectedAt,
+      lastSentAt: null,
     });
   });
 });

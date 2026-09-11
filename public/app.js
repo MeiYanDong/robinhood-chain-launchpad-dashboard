@@ -187,6 +187,7 @@ const state = {
   windowDays: 1,
   economics: null,
   platformActivity: null,
+  pairVolumeAlerts: null,
   activityWindowDays: 7,
   activityChartMode: "multiple",
   activityVolumeWindow: "30d",
@@ -2215,9 +2216,61 @@ function renderPlatformActivity() {
     ? `${formatUtcDay(payload.targetDate)}经营数据`
     : "最近一天经营数据";
   renderPlatformActivityCards();
+  renderPairWarmingMonitor();
   renderPlatformActivityChart();
   renderPlatformVolumes();
   renderPlatformOperations();
+}
+
+function renderPairWarmingMonitor() {
+  const health = state.pairVolumeAlerts;
+  const warming = health?.warming;
+  const snapshot = warming?.state;
+  const stateNode = $("#pair-warming-state");
+  const labels = {
+    cold: "尚未回温",
+    watch: "正在观察",
+    warming: "已回温",
+    strong: "强回温",
+  };
+  stateNode.className = "";
+  if (!warming?.configured) {
+    stateNode.textContent = "通知未启用";
+    stateNode.classList.add("is-unavailable");
+  } else if (!snapshot) {
+    stateNode.textContent = "等待第一次判断";
+  } else if (snapshot.qualityStatus !== "ok") {
+    stateNode.textContent = "数据待核验";
+    stateNode.classList.add("is-unavailable");
+  } else {
+    stateNode.textContent = labels[snapshot.state] ?? "等待判断";
+    stateNode.classList.add(`is-${snapshot.state}`);
+  }
+
+  $("#pair-warming-value").textContent = formatUsd(snapshot?.currentValueUsd);
+  $("#pair-warming-1h").textContent = formatSignedPercent(snapshot?.oneHourChangePct);
+  $("#pair-warming-6h").textContent = formatSignedPercent(snapshot?.sixHourLowChangePct);
+  const alertNode = $("#pair-warming-alert");
+  alertNode.textContent = !warming?.configured
+    ? "未启用"
+    : warming.failed > 0
+      ? `${formatCount(warming.failed)} 条待重试`
+      : warming.pending > 0
+        ? `${formatCount(warming.pending)} 条待发送`
+        : "已启用";
+  alertNode.className = warming?.failed > 0 ? "is-negative" : "";
+
+  const coverage =
+    Number.isFinite(snapshot?.volumeObservedCount) && Number.isFinite(snapshot?.tokenCount)
+      ? `覆盖 ${formatCount(snapshot.volumeObservedCount)}/${formatCount(snapshot.tokenCount)} 枚可见代币`
+      : "覆盖等待统计";
+  const evaluated = snapshot?.lastEvaluatedAt
+    ? `判断于 ${formatDateTime(snapshot.lastEvaluatedAt)}`
+    : "尚未完成判断";
+  const lastAlert = warming?.lastSentAt
+    ? `最近通知 ${formatDateTime(warming.lastSentAt)}`
+    : "尚未触发通知";
+  $("#pair-warming-meta").textContent = `${coverage} · ${evaluated} · ${lastAlert}`;
 }
 
 function formatPriceRange(low, high) {
@@ -5110,14 +5163,17 @@ async function loadPairTeamLaunches() {
 
 async function loadEconomics() {
   const intelligencePromise = api("/api/intelligence").catch(() => null);
-  const [economics, platformActivity, valuationHistory, pairFlow] = await Promise.all([
-    api("/api/economics"),
-    api("/api/platform-activity"),
-    api("/api/economics/valuation/history").catch(() => null),
-    api("/api/pair/flow").catch(() => null),
-  ]);
+  const [economics, platformActivity, valuationHistory, pairFlow, pairVolumeAlerts] =
+    await Promise.all([
+      api("/api/economics"),
+      api("/api/platform-activity"),
+      api("/api/economics/valuation/history").catch(() => null),
+      api("/api/pair/flow").catch(() => null),
+      api("/api/platform-activity/alerts/health").catch(() => null),
+    ]);
   state.economics = economics;
   state.platformActivity = platformActivity;
+  state.pairVolumeAlerts = pairVolumeAlerts;
   state.valuationHistory = valuationHistory;
   if (pairFlow) state.pairFlow = pairFlow;
   renderEconomics();
