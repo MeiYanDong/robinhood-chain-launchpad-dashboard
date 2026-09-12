@@ -412,6 +412,9 @@ PAIR 代币价格与自身滚动 24H 交易量共振、首次基线抑制、两�
 CashCat 停采、云端恢复点、数据库副本瘦身、自动保留策略和磁盘从 96% 收敛至 17% 的证据见
 [`docs/evidence/storage-retention-production-deployment-2026-09-12.md`](docs/evidence/storage-retention-production-deployment-2026-09-12.md)。
 
+Pons、Long、PAIR 最近 7 个完整 UTC 日的逐日交易量、日变化、缺失值边界与 `0.25.0` 公网回读见
+[`docs/evidence/platform-daily-volume-table-production-deployment-2026-09-12.md`](docs/evidence/platform-daily-volume-table-production-deployment-2026-09-12.md)。
+
 部署配置固化在 [`deploy/`](deploy/)；新版本应使用不可变 release 目录并原子切换
 `current` 软链接，保留上一版用于回滚。发布后必须同时验证公网首页、`/healthz`、
 `/api/overview?window=30`、`/api/platform-activity`、`/api/platform-activity/alerts/health`、
