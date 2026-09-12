@@ -33,6 +33,7 @@ test("full-chain daily refresh bypasses the public query cache", async () => {
     "utf8",
   );
   assert.match(service, /POST http:\/\/127\.0\.0\.1:4176\/api\/refresh\/catch-up/);
+  assert.match(service, /--retry 12 --retry-connrefused --retry-delay 2 --retry-max-time 60/);
   assert.doesNotMatch(service, /127\.0\.0\.1:4175\/api\/refresh/);
 });
 
