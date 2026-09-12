@@ -127,9 +127,42 @@ test("a legacy abrupt zero is reclassified, stays visible, and cannot enter calc
 
   assert.equal(lastDay?.rawValueUsd, 0);
   assert.equal(lastDay?.valueUsd, null);
+  assert.equal(lastDay?.changePercent, null);
   assert.equal(lastDay?.state, "suspect");
   assert.equal(pons?.activity["7d"].current?.status, "partial");
   assert.equal(pons?.volumes["7d"].status, "partial");
+});
+
+test("daily volume change only compares consecutive usable UTC days", () => {
+  const response = buildPlatformActivity({
+    targetDate: "2026-07-04",
+    generatedAt: "2026-07-05T01:00:00.000Z",
+    stale: false,
+    runStatus: "success",
+    platforms: PLATFORM_REGISTRY,
+    metrics: [
+      volumeMetric("pair", "2026-07-01", 100),
+      volumeMetric("pair", "2026-07-02", 125),
+      volumeMetric("pair", "2026-07-04", 150),
+    ],
+    stats: [],
+  });
+  const pair = response.platforms.find((platform) => platform.platformId === "pair");
+
+  assert.deepEqual(
+    pair?.daily.map((point) => ({
+      date: point.date,
+      valueUsd: point.valueUsd,
+      changePercent: point.changePercent,
+      state: point.state,
+    })),
+    [
+      { date: "2026-07-01", valueUsd: 100, changePercent: null, state: "observed" },
+      { date: "2026-07-02", valueUsd: 125, changePercent: 25, state: "observed" },
+      { date: "2026-07-03", valueUsd: null, changePercent: null, state: "missing" },
+      { date: "2026-07-04", valueUsd: 150, changePercent: null, state: "observed" },
+    ],
+  );
 });
 
 test("official all-time totals stay separate from the auditable daily sum", () => {

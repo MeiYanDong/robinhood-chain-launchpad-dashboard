@@ -18,6 +18,7 @@ export interface PlatformDailyVolumePoint {
   date: string;
   valueUsd: number | null;
   rawValueUsd: number | null;
+  changePercent: number | null;
   cumulativeObservedUsd: number;
   state: "observed" | "missing" | "suspect";
 }

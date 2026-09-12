@@ -159,14 +159,21 @@ function buildDailyPoints(
   metricByDate: ReadonlyMap<string, DailyMetric>,
 ): PlatformDailyVolumePoint[] {
   let cumulativeObservedUsd = 0;
+  let previousValueUsd: number | null = null;
   return dates.map((date) => {
     const metric = metricByDate.get(date);
     const usable = metric ? usableDailyMetric(metric) : false;
-    if (usable && metric) cumulativeObservedUsd += metric.value;
-    return {
+    const valueUsd = usable && metric ? metric.value : null;
+    const changePercent =
+      valueUsd !== null && previousValueUsd !== null && previousValueUsd > 0
+        ? ((valueUsd - previousValueUsd) / previousValueUsd) * 100
+        : null;
+    if (valueUsd !== null) cumulativeObservedUsd += valueUsd;
+    const point: PlatformDailyVolumePoint = {
       date,
-      valueUsd: usable && metric ? metric.value : null,
+      valueUsd,
       rawValueUsd: metric?.value ?? null,
+      changePercent,
       cumulativeObservedUsd,
       state: !metric
         ? "missing"
@@ -176,6 +183,8 @@ function buildDailyPoints(
             ? "suspect"
             : "missing",
     };
+    previousValueUsd = valueUsd;
+    return point;
   });
 }
 

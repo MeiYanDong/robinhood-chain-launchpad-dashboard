@@ -1505,28 +1505,122 @@ function plainActivityState(point) {
   return { value: `${multiple.toFixed(1)}×`, note: "低于自身常态", className: "is-quiet" };
 }
 
+function overviewTrendModel() {
+  const platforms = orderedPlatforms(state.platformActivity?.platforms ?? []);
+  const allDates = [
+    ...new Set(platforms.flatMap((platform) => platform.daily.map((point) => point.date))),
+  ].sort();
+  const dates = allDates.slice(-7);
+  const series = platforms.map((platform) => ({
+    platform,
+    points: dates.map((date) => {
+      const point = platform.daily.find((candidate) => candidate.date === date);
+      const pointIndex = platform.daily.indexOf(point);
+      const previous = pointIndex > 0 ? platform.daily[pointIndex - 1] : null;
+      const fallbackChangePercent =
+        point?.state === "observed" &&
+        previous?.state === "observed" &&
+        Number.isFinite(point.valueUsd) &&
+        Number.isFinite(previous.valueUsd) &&
+        previous.valueUsd > 0
+          ? ((point.valueUsd - previous.valueUsd) / previous.valueUsd) * 100
+          : null;
+      return {
+        date,
+        value: point?.valueUsd ?? null,
+        changePercent: point?.changePercent ?? fallbackChangePercent,
+        state: point?.state ?? "missing",
+      };
+    }),
+  }));
+  return { platforms, dates, series };
+}
+
+function formatDailyChangePercent(value) {
+  if (!Number.isFinite(value)) return "—";
+  return `${value > 0 ? "+" : ""}${value.toFixed(1)}%`;
+}
+
+function dailyChangePresentation(value) {
+  if (!Number.isFinite(value)) {
+    return { className: "is-unknown", symbol: "", label: "前一日不可比" };
+  }
+  if (Math.abs(value) < 0.05) {
+    return { className: "is-flat", symbol: "→", label: "0.0%" };
+  }
+  return value > 0
+    ? { className: "is-up", symbol: "↑", label: formatDailyChangePercent(value) }
+    : { className: "is-down", symbol: "↓", label: formatDailyChangePercent(value) };
+}
+
+function renderOverviewTrendTable(model) {
+  const detail = $("#overview-trend-detail");
+  const body = $("#overview-trend-body");
+  if (!detail || !body) return;
+  body.replaceChildren();
+  detail.hidden = model.dates.length === 0;
+  if (model.dates.length === 0) return;
+
+  const latestDate = model.dates.at(-1);
+  for (const date of [...model.dates].reverse()) {
+    const row = element("tr");
+    if (date === latestDate) row.className = "is-latest";
+
+    const dateCell = element("th", "overview-trend-date-cell");
+    dateCell.scope = "row";
+    dateCell.append(element("strong", "", formatUtcDay(date)));
+    if (date === latestDate) dateCell.append(element("small", "", "最新"));
+    row.append(dateCell);
+
+    for (const { platform, points } of model.series) {
+      const point = points.find((candidate) => candidate.date === date);
+      const cell = element("td", "overview-trend-volume-cell");
+      cell.dataset.platformId = platform.platformId;
+      if (point?.state === "observed" && Number.isFinite(point.value)) {
+        const value = element("strong", "", formatUsd(point.value, false));
+        const change = dailyChangePresentation(point.changePercent);
+        const delta = element(
+          "small",
+          `overview-trend-delta ${change.className}`,
+          `${change.symbol}${change.symbol ? " " : ""}${change.label}`,
+        );
+        delta.setAttribute(
+          "aria-label",
+          Number.isFinite(point.changePercent)
+            ? `较前一日${point.changePercent > 0 ? "上升" : point.changePercent < 0 ? "下降" : "持平"} ${Math.abs(point.changePercent).toFixed(1)}%`
+            : "前一日不可比",
+        );
+        cell.title = `${platform.platformName} · ${date} · ${formatUsd(point.value, false)} · ${change.label}`;
+        cell.append(value, delta);
+      } else {
+        cell.append(
+          element("strong", "", "—"),
+          element(
+            "small",
+            "overview-trend-delta is-unknown",
+            point?.state === "suspect" ? "可疑值未采用" : "当日无数据",
+          ),
+        );
+      }
+      row.append(cell);
+    }
+    body.append(row);
+  }
+}
+
 function renderOverviewTrendChart() {
   const svg = $("#overview-trend-chart");
   const empty = $("#overview-trend-empty");
   const range = $("#overview-trend-range");
   if (!svg || !empty) return;
   svg.replaceChildren();
-  const platforms = orderedPlatforms(state.platformActivity?.platforms ?? []);
-  const allDates = [
-    ...new Set(platforms.flatMap((platform) => platform.daily.map((point) => point.date))),
-  ].sort();
-  const dates = allDates.slice(-7);
+  const model = overviewTrendModel();
+  const { dates, series } = model;
+  renderOverviewTrendTable(model);
   if (range) {
     range.textContent =
       dates.length > 0 ? `${formatUtcRange(dates[0], dates.at(-1))} · UTC` : "最近 7 日";
   }
-  const series = platforms.map((platform) => ({
-    platform,
-    points: dates.map((date) => ({
-      date,
-      value: platform.daily.find((point) => point.date === date)?.valueUsd ?? null,
-    })),
-  }));
   const values = series.flatMap(({ points }) =>
     points.map((point) => point.value).filter((value) => Number.isFinite(value) && value > 0),
   );
@@ -1603,7 +1697,8 @@ function renderOverviewTrendChart() {
         tabindex: 0,
       });
       const title = svgElement("title");
-      title.textContent = `${platform.platformName} · ${point.date} · ${formatUsd(point.value)}`;
+      const change = dailyChangePresentation(point.changePercent);
+      title.textContent = `${platform.platformName} · ${point.date} · ${formatUsd(point.value, false)} · ${change.label}`;
       circle.append(title);
       svg.append(circle);
     });

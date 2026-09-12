@@ -7510,6 +7510,9 @@ body[data-launchpad-view="tokens"] #economics-view > .economics-tape {
 
 .launchpad-overview {
   display: grid;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   gap: 14px;
 }
 
@@ -7629,6 +7632,8 @@ body[data-launchpad-view="tokens"] #economics-view > .economics-tape {
 .overview-comparison,
 .overview-insights,
 .overview-trend {
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-lg);
@@ -7900,6 +7905,181 @@ body[data-launchpad-view="tokens"] #economics-view > .economics-tape {
 .overview-trend-point:focus {
   r: 6;
   outline: none;
+}
+
+.overview-trend-detail {
+  max-width: calc(100% - 32px);
+  margin: 8px 16px 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: rgba(5, 10, 8, 0.38);
+}
+
+.overview-trend-detail__head {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.overview-trend-detail__head strong {
+  color: var(--paper);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.overview-trend-detail__head > span {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #718079;
+  font-size: 0.59375rem;
+}
+
+.overview-trend-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.overview-trend-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.overview-trend-table th,
+.overview-trend-table td {
+  padding: 11px 12px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.overview-trend-table th:last-child,
+.overview-trend-table td:last-child {
+  border-right: 0;
+}
+
+.overview-trend-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.overview-trend-table thead th {
+  background: rgba(8, 14, 12, 0.98);
+  color: #718079;
+  font-size: 0.59375rem;
+  font-weight: 500;
+}
+
+.overview-trend-table thead th:first-child,
+.overview-trend-date-cell {
+  width: 112px;
+}
+
+.overview-trend-table thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+}
+
+.overview-trend-date-cell {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #090f0d;
+}
+
+.overview-trend-date-cell strong,
+.overview-trend-volume-cell strong {
+  display: block;
+  overflow: hidden;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overview-trend-date-cell strong {
+  color: #aebbb5;
+  font-size: 0.6875rem;
+}
+
+.overview-trend-date-cell small {
+  display: inline-flex;
+  margin-top: 0.25rem;
+  padding: 0.12rem 0.32rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--acid);
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.overview-trend-volume-cell strong {
+  color: var(--paper);
+  font-size: 0.75rem;
+  font-weight: 520;
+}
+
+.overview-trend-delta {
+  display: block;
+  margin-top: 0.25rem;
+  color: #6f7d76;
+  font-family: var(--mono);
+  font-size: 0.59375rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.overview-trend-delta.is-up {
+  color: var(--acid);
+}
+
+.overview-trend-delta.is-down {
+  color: var(--coral);
+}
+
+.overview-trend-delta.is-flat {
+  color: var(--paper-muted);
+}
+
+.overview-trend-table tr.is-latest > * {
+  background: rgba(99, 212, 228, 0.045);
+}
+
+.overview-trend-table tr.is-latest > .overview-trend-date-cell {
+  background: #0a1413;
+}
+
+.overview-trend-platform {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  color: #91a099;
+}
+
+.overview-trend-platform i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--platform-pons);
+  box-shadow: 0 0 9px rgba(131, 237, 176, 0.34);
+}
+
+.overview-trend-platform[data-platform-id="long"] i {
+  background: var(--platform-long);
+  box-shadow: 0 0 9px rgba(241, 197, 105, 0.28);
+}
+
+.overview-trend-platform[data-platform-id="pair"] i {
+  background: var(--platform-pair);
+  box-shadow: 0 0 9px rgba(99, 212, 228, 0.3);
 }
 
 .overview-trend > p,
@@ -8384,6 +8564,20 @@ body[data-launchpad-view="tokens"] #long-view {
   .overview-trend > header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .overview-trend-detail {
+    max-width: calc(100% - 20px);
+    margin-inline: 10px;
+  }
+
+  .overview-trend-table {
+    min-width: 660px;
+  }
+
+  .overview-trend-table th,
+  .overview-trend-table td {
+    padding: 10px;
   }
 
   body[data-launchpad-view="valuation"] .valuation-metrics {
