@@ -27,6 +27,14 @@ export interface RefreshResult {
   warnings: string[];
 }
 
+export interface CatchUpResult {
+  targetDate: string;
+  action: "refreshed" | "skipped";
+  laggingBefore: string[];
+  laggingAfter: string[];
+  refresh: RefreshResult | null;
+}
+
 export interface DashboardServiceDependencies {
   collect?: (targetDate: string) => Promise<CollectionBatch>;
   now?: () => Date;
@@ -73,6 +81,12 @@ function publicSourceHealth(source: SourceHealth): SourceHealth {
   };
 }
 
+function laggingPlatformIds(activity: PlatformActivityResponse, targetDate: string): string[] {
+  return activity.platforms
+    .filter((platform) => platform.latestUsableDate !== targetDate)
+    .map((platform) => platform.platformId);
+}
+
 export class DashboardService {
   private refreshPromise: Promise<RefreshResult> | null = null;
   private readonly collect: (targetDate: string) => Promise<CollectionBatch>;
@@ -117,6 +131,29 @@ export class DashboardService {
       });
     }
     return this.refreshPromise;
+  }
+
+  async refreshIfLagging(): Promise<CatchUpResult> {
+    const targetDate = lastClosedUtcDate(this.now());
+    const laggingBefore = laggingPlatformIds(this.platformActivity(), targetDate);
+    if (laggingBefore.length === 0) {
+      return {
+        targetDate,
+        action: "skipped",
+        laggingBefore,
+        laggingAfter: [],
+        refresh: null,
+      };
+    }
+
+    const refresh = await this.refresh();
+    return {
+      targetDate,
+      action: "refreshed",
+      laggingBefore,
+      laggingAfter: laggingPlatformIds(this.platformActivity(), targetDate),
+      refresh,
+    };
   }
 
   private async refreshNow(): Promise<RefreshResult> {

@@ -83,9 +83,9 @@ PAIR 代币页另行提供四张相互独立的 Top 5：
 08:00 快照日报。四个指标不计算综合分，缺失值不进入对应排名。默认只纳入市值至少
 `$10,000`、流动性深度至少 `$1,000` 且市场数据在 60 分钟内更新的代币。
 
-Long 代币页沿用同一组四维 Top 5。它展示 GMGN 当前可见的 `longxyz` 活跃样本，并要求每个
-新入榜候选在 LongLauncher 的 `LaunchCreated` 链上事件中完成归属核验。它不是 Long 历史发射
-全量；实时榜每 15 分钟更新，北京时间 08:12 固化截至 08:00 的日报。
+Long 代币页沿用同一组四维 Top 5。它先用 GMGN 发现当前可见的 `longxyz` 活跃样本，再用 Long
+官方 GraphQL 的 integrator 资产索引逐项核验归属。它不是 Long 历史发射全量；实时榜每 15 分钟
+更新，北京时间 08:12 固化截至 08:00 的日报。
 
 界面取舍记录见 [`docs/ui-principles.md`](docs/ui-principles.md)。
 
@@ -217,21 +217,21 @@ Top N。市值取 `marketCapUsd`，流动性取全部官方池的 `totalDepthUsd
 未知。PAIR 官方 API 或完整分页校验失败时，本次采集失败，界面继续显示上次成功快照并明确
 标记过期。详细设计与运行规则见 [`docs/pair-token-radar.md`](docs/pair-token-radar.md)。
 
-### 7. Long 代币榜：GMGN 活跃样本与 LongLauncher 链上归属
+### 7. Long 代币榜：GMGN 活跃样本与 Long 官方归属
 
 ```text
 gmgn market trending --chain robinhood --interval 24h --limit 100 \
   --platform longxyz --order-by volume --direction desc --raw
-POST https://rpc.mainnet.chain.robinhood.com  eth_getLogs
+POST https://api.long.xyz/v1/graphql  Asset + integrator_address
 ```
 
 GMGN 返回当前活跃代币的 `market_cap`、`liquidity`、`volume` 与 `holder_count`，程序在本地对
-四个指标独立排序。榜单候选随后必须命中官方 LongLauncher
-`0x22e99278308b393ea1260859b181ad7e78f5eeed` 的 `LaunchCreated` 事件；核验失败时本轮不发布。
-已确认的归属写入 SQLite，之后不重复查询不可变历史事件。
+四个指标独立排序。所有样本随后必须同时命中 Robinhood Chain `4663` 与 Long 官方 integrator
+`0x92d435c96e63c43e12d6d0ab28f6b0b04072f765` 的 `Asset` 记录；未命中的第三方标签行不会展示，
+官方归属源不可用时本轮不发布。
 
-GMGN 的 `longxyz` 标签是市场发现源，不代表历史发射全量；LongLauncher 事件只负责归属核验，
-不提供当前市值或持币人数。详细合同见
+GMGN 的 `longxyz` 标签只负责市场发现，不代表官方归属或历史发射全量；Long 官方索引只负责
+归属核验，不提供当前市值或持币人数。详细合同见
 [`docs/long-token-radar.md`](docs/long-token-radar.md)。
 
 ### 8. PAIR V2：release 证明、市场全分页与链上事件
@@ -334,7 +334,8 @@ npm run dev
 - Nginx 监听公网 `80`、`443` 和兼容端口 `4174`，反向代理到只监听
   `127.0.0.1:4175` 的 Node 服务；
 - systemd 主服务：`robinhood-chain-launchpad.service`；
-- 每日刷新定时器：`robinhood-chain-launchpad-refresh.timer`，北京时间 15:10 执行；
+- 闭合日刷新定时器：`robinhood-chain-launchpad-refresh.timer`，北京时间 15:10 首次执行；若任一
+  平台仍未补齐目标日，17:10、20:10、23:10、次日 02:10、05:10 有界补拉，数据齐全后自动跳过；
 - PAIR 日交易量告警复用每日刷新结果：比较最近两个完整 UTC 日，涨跌绝对值达到 `10%`
   才发送飞书；同一组日期只发送一次，来源降级、缺日或前一日为零时不发送；
 - PAIR 实时榜定时器：`robinhood-chain-pair-refresh.timer`，每 15 分钟执行；
@@ -493,7 +494,6 @@ Pons、Long、PAIR 最近 7 个完整 UTC 日的逐日交易量、日变化、�
 | `LONG_ACTIVE_DEPTH_FLOOR_USD` | `1000` | Long 入榜最低流动性 |
 | `LONG_REFRESH_TTL_MINUTES` | `15` | Long 实时榜自动刷新 TTL |
 | `LONG_GMGN_BIN` | `gmgn-cli` | Long 活跃样本使用的固定 GMGN CLI 路径 |
-| `LONG_RPC_URL` | Robinhood Chain 官方 RPC | LongLauncher 归属核验 RPC |
 | `ECONOMICS_GMGN_BIN` | `gmgn-cli` | PONS 市场数据使用的固定 GMGN CLI 路径 |
 | `ECONOMICS_RPC_URL` | Robinhood Chain 官方 RPC | PONS/PAIR 供应量与累计销毁余额读取 |
 | `ECONOMICS_REFRESH_TTL_MINUTES` | `15` | 三强对比快照刷新 TTL |

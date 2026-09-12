@@ -278,6 +278,38 @@ async function fetchLongMembership(session: Session, addresses: string[]): Promi
   return longAssets;
 }
 
+export interface LongAssetMembershipResult {
+  addresses: Set<string>;
+  fetchedAt: string;
+  latencyMs: number;
+}
+
+/**
+ * Resolve Long attribution through the platform's own Asset index. The
+ * integrator relationship survives launcher upgrades, unlike a single legacy
+ * launcher contract address.
+ */
+export async function collectLongAssetMembership(
+  addresses: string[],
+): Promise<LongAssetMembershipResult> {
+  const normalized = [
+    ...new Set(
+      addresses
+        .map((address) => address.toLowerCase())
+        .filter((address) => /^0x[a-f0-9]{40}$/.test(address)),
+    ),
+  ];
+  const started = performance.now();
+  const members = await withLongSession((session) => fetchLongMembership(session, normalized), {
+    timeout: 30_000,
+  });
+  return {
+    addresses: members,
+    fetchedAt: new Date().toISOString(),
+    latencyMs: Math.round(performance.now() - started),
+  };
+}
+
 async function fetchRollingRows(session: Session): Promise<LongRollingRow[]> {
   const rows: LongRollingRow[] = [];
   for (let page = 0; page < MAX_PAGES; page += 1) {

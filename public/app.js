@@ -2284,8 +2284,10 @@ function renderPlatformVolumes() {
 
 function renderPlatformActivity() {
   const payload = state.platformActivity;
+  const laggingPlatforms =
+    payload?.platforms.filter((platform) => platform.latestUsableDate !== payload.targetDate) ?? [];
   $("#platform-activity-date").textContent = payload
-    ? `数据截至 ${formatUtcDay(payload.targetDate, true)}（UTC）`
+    ? `${laggingPlatforms.length > 0 ? "目标日" : "数据截至"} ${formatUtcDay(payload.targetDate, true)}（UTC）`
     : "数据截至 —";
   const status = $("#platform-activity-state");
   status.className = "";
@@ -2297,12 +2299,15 @@ function renderPlatformActivity() {
     ? "不可用"
     : payload.stale
       ? "数据过期"
-      : payload.platforms.some((platform) => platform.firstObservedDate === null)
-        ? "部分可用"
-        : hasBuildingBaseline
-          ? "部分倍数待建立"
-          : "已更新";
+      : laggingPlatforms.length > 0
+        ? `${laggingPlatforms.map((platform) => platform.platformName).join("、")} 待更新`
+        : payload.platforms.some((platform) => platform.firstObservedDate === null)
+          ? "部分可用"
+          : hasBuildingBaseline
+            ? "部分倍数待建立"
+            : "已更新";
   if (payload?.stale) status.classList.add("is-stale");
+  if (laggingPlatforms.length > 0 && !payload?.stale) status.classList.add("is-stale");
   if (hasBuildingBaseline && !payload?.stale) status.classList.add("is-building");
   $("#platform-activity-formula").textContent = payload
     ? `1.0× = 最近 ${state.activityWindowDays} 日日均交易量与自身历史常态相同 · 至少需要 ${payload.benchmark.baselineMinimumObservations} 个历史样本`
@@ -4382,8 +4387,25 @@ function renderEconomics() {
     : "未齐";
   $("#economics-observed-at").textContent = formatDateTime(state.economics.observedAt);
   $("#header-date").textContent = state.economics.targetDate;
-  $("#platform-economics-date").textContent =
-    `${formatUtcDay(state.economics.targetDate)} · 三个平台使用同一数据日期`;
+  const activityTargetDate = state.platformActivity?.targetDate ?? state.economics.targetDate;
+  const laggingPlatforms =
+    state.platformActivity?.platforms.filter(
+      (platform) => platform.latestUsableDate !== activityTargetDate,
+    ) ?? [];
+  const comparisonDate = formatUtcDay(state.economics.targetDate);
+  if (laggingPlatforms.length === 0) {
+    $("#platform-economics-date").textContent = `${comparisonDate} · 三个平台已更新`;
+    $("#platform-economics-date").title = "";
+  } else {
+    const names = laggingPlatforms.map((platform) => platform.platformName).join("、");
+    $("#platform-economics-date").textContent =
+      `同日对比截至 ${comparisonDate} · ${names} 尚未发布 ${formatUtcDay(activityTargetDate)} 数据`;
+    $("#platform-economics-date").title = laggingPlatforms
+      .map(
+        (platform) => `${platform.platformName} 最新可用日：${platform.latestUsableDate ?? "暂无"}`,
+      )
+      .join("\n");
+  }
   renderPlatformActivity();
   renderLaunchpadOverview();
   renderPairFlow();

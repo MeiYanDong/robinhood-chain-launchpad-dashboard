@@ -37,6 +37,7 @@ function fakeDashboard(overrides: Partial<DashboardHttpApi> = {}): DashboardHttp
     coverage: () => ({ route: "coverage" }),
     sources: () => ({ route: "sources" }),
     refresh: async () => ({ route: "refresh" }),
+    refreshIfLagging: async () => ({ route: "refresh-catch-up" }),
     ...overrides,
   };
 }
@@ -516,6 +517,10 @@ test("HTTP API routes return their business results", async () => {
     assert.deepEqual(await (await fetch(`${baseUrl}/api/refresh`, { method: "POST" })).json(), {
       route: "refresh",
     });
+    assert.deepEqual(
+      await (await fetch(`${baseUrl}/api/refresh/catch-up`, { method: "POST" })).json(),
+      { route: "refresh-catch-up" },
+    );
   });
 });
 

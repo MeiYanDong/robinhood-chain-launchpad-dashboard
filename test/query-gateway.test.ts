@@ -76,6 +76,7 @@ test("query cache serves during collector failure then fails closed at expiry; s
     assert.equal((await expired.json()).code, "COLLECTOR_UNAVAILABLE");
     assert.equal(await (await fetch(url)).text(), "static");
     assert.equal((await fetch(`${url}/api/unknown`, { method: "POST" })).status, 404);
+    assert.equal((await fetch(`${url}/api/refresh/catch-up`, { method: "POST" })).status, 404);
   } finally {
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));

@@ -6,11 +6,6 @@ export interface LongTokenSettings {
   staleAfterMinutes: number;
   gmgnBinary: string;
   gmgnTimeoutMs: number;
-  rpcUrl: string;
-  rpcTimeoutMs: number;
-  rpcThrottleMs: number;
-  launcherAddress: string;
-  launcherStartBlock: string;
 }
 
 export const DEFAULT_LONG_TOKEN_SETTINGS: LongTokenSettings = {
@@ -21,24 +16,12 @@ export const DEFAULT_LONG_TOKEN_SETTINGS: LongTokenSettings = {
   staleAfterMinutes: 45,
   gmgnBinary: "gmgn-cli",
   gmgnTimeoutMs: 30_000,
-  rpcUrl: "https://rpc.mainnet.chain.robinhood.com",
-  rpcTimeoutMs: 15_000,
-  rpcThrottleMs: 350,
-  launcherAddress: "0x22e99278308b393ea1260859b181ad7e78f5eeed",
-  launcherStartBlock: "0x83c686",
 };
 
 function positiveNumber(value: string | undefined, fallback: number, name: string): number {
   if (value === undefined || value.trim() === "") return fallback;
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) throw new Error(`${name} must be positive`);
-  return parsed;
-}
-
-function nonNegativeInteger(value: string | undefined, fallback: number, name: string): number {
-  if (value === undefined || value.trim() === "") return fallback;
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 0) throw new Error(`${name} must be non-negative`);
   return parsed;
 }
 
@@ -75,17 +58,6 @@ export function longTokenSettingsFromEnv(env: NodeJS.ProcessEnv = process.env): 
       env.LONG_GMGN_TIMEOUT_MS,
       DEFAULT_LONG_TOKEN_SETTINGS.gmgnTimeoutMs,
       "LONG_GMGN_TIMEOUT_MS",
-    ),
-    rpcUrl: env.LONG_RPC_URL?.trim() || DEFAULT_LONG_TOKEN_SETTINGS.rpcUrl,
-    rpcTimeoutMs: positiveNumber(
-      env.LONG_RPC_TIMEOUT_MS,
-      DEFAULT_LONG_TOKEN_SETTINGS.rpcTimeoutMs,
-      "LONG_RPC_TIMEOUT_MS",
-    ),
-    rpcThrottleMs: nonNegativeInteger(
-      env.LONG_RPC_THROTTLE_MS,
-      DEFAULT_LONG_TOKEN_SETTINGS.rpcThrottleMs,
-      "LONG_RPC_THROTTLE_MS",
     ),
   };
 }

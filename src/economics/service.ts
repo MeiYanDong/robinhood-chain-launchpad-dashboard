@@ -159,7 +159,12 @@ function latestComparisonDate(metrics: DailyMetric[], fallback: string): string 
   const datesFor = (platformId: EconomicsPlatformId) =>
     new Set(
       metrics
-        .filter((metric) => metric.platformId === platformId && metric.metric === "volume_usd")
+        .filter(
+          (metric) =>
+            metric.platformId === platformId &&
+            metric.metric === "volume_usd" &&
+            usableDailyMetric(metric),
+        )
         .map((metric) => metric.date),
     );
   const datesByPlatform = ECONOMICS_PLATFORMS.map(datesFor);
@@ -173,6 +178,46 @@ function latestComparisonDate(metrics: DailyMetric[], fallback: string): string 
     .sort()
     .reverse();
   return available[0] ?? fallback;
+}
+
+function latestVolumeDate(metrics: DailyMetric[], platformId: EconomicsPlatformId): string | null {
+  return (
+    metrics
+      .filter(
+        (metric) =>
+          metric.platformId === platformId &&
+          metric.metric === "volume_usd" &&
+          usableDailyMetric(metric),
+      )
+      .map((metric) => metric.date)
+      .sort()
+      .at(-1) ?? null
+  );
+}
+
+function closedDayLagWarning(
+  metrics: DailyMetric[],
+  lastClosed: string,
+  comparisonDate: string,
+): string | null {
+  const dates = ECONOMICS_PLATFORMS.map((platformId) => ({
+    platformId,
+    name: platformName(platformId),
+    date: latestVolumeDate(metrics, platformId),
+  }));
+  const current = dates.filter((item) => item.date === lastClosed);
+  const lagging = dates.filter((item) => item.date !== lastClosed);
+  if (lagging.length === 0) return null;
+
+  const parts: string[] = [];
+  if (current.length > 0) {
+    parts.push(`${current.map((item) => item.name).join("、")} 已更新到 ${lastClosed}`);
+  }
+  for (const item of lagging) {
+    parts.push(item.date ? `${item.name} 仍为 ${item.date}` : `${item.name} 暂无可用日数据`);
+  }
+  parts.push(`同日对比截至 ${comparisonDate}`);
+  return `${parts.join("；")}。`;
 }
 
 function rankingEntry(
@@ -321,7 +366,7 @@ function longLeaderRow(response: LongLeaderboardResponse): TokenEconomicsRow {
     ? null
     : (response.rankings.market_cap_usd.entries[0] ?? null);
   if (!leader) {
-    const missing = unknownValue("当前没有通过 LongLauncher 归属验证的市值龙头。 ");
+    const missing = unknownValue("当前没有通过 Long 官方资产索引归属验证的市值龙头。 ");
     return {
       platformId: "long",
       platformName: "Long",
@@ -349,7 +394,7 @@ function longLeaderRow(response: LongLeaderboardResponse): TokenEconomicsRow {
       ? value({
           value: entry.value,
           quality: "third_party",
-          source: "gmgn.marketRank.longxyz+long.launcherEvents",
+          source: "gmgn.marketRank.longxyz+long.officialGraphql.assetMembership",
           asOf: entry.observedAt,
         })
       : unknownValue(missingNote);
@@ -367,7 +412,7 @@ function longLeaderRow(response: LongLeaderboardResponse): TokenEconomicsRow {
         ? value({
             value: leader.priceUsd,
             quality: "third_party",
-            source: "gmgn.marketRank.longxyz+long.launcherEvents",
+            source: "gmgn.marketRank.longxyz+long.officialGraphql.assetMembership",
             asOf: leader.observedAt,
             note: "GMGN Long 活跃代币榜直接报告的当前美元价格。",
           })
@@ -735,12 +780,13 @@ export class EconomicsService {
       ...platforms.map((platform) => platformSource(platform.platformId, platform, generatedAt)),
     ];
     const lagging = targetDate !== lastClosed;
+    const lagWarning = closedDayLagWarning(metrics, lastClosed, targetDate);
     const status =
       sourceHealth.some((source) => source.status !== "ok") || !share.ready || lagging
         ? "partial"
         : "success";
     const warnings = [
-      ...(lagging ? [`闭合日来源最新共同日期为 ${targetDate}。`] : []),
+      ...(lagWarning ? [lagWarning] : []),
       ...(!share.ready ? ["三平台同日成交量未齐，市场份额暂不计算。"] : []),
       ...platforms
         .filter((row) => row.volumeUsd.validation === "suspect")

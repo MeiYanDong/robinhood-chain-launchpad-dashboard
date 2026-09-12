@@ -1,8 +1,13 @@
 [Unit]
-Description=Refresh Robinhood Chain Launchpad at 15:10 Asia/Shanghai
+Description=Refresh Robinhood Chain Launchpad and retry lagging closed-day sources
 
 [Timer]
 OnCalendar=*-*-* 07:10:00 UTC
+OnCalendar=*-*-* 09:10:00 UTC
+OnCalendar=*-*-* 12:10:00 UTC
+OnCalendar=*-*-* 15:10:00 UTC
+OnCalendar=*-*-* 18:10:00 UTC
+OnCalendar=*-*-* 21:10:00 UTC
 Persistent=true
 AccuracySec=1m
 Unit=robinhood-chain-launchpad-refresh.service

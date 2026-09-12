@@ -1,8 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { buildPairRankings } from "../pair/rank.js";
+import { collectLongAssetMembership, type LongAssetMembershipResult } from "../collectors/long.js";
 import type { PairTokenSnapshot } from "../pair/types.js";
-import type { TokenMembershipRecord } from "../token-radar/database.js";
 import { finiteNumber, isRecord } from "../utils/http.js";
 import type { LongTokenSettings } from "./config.js";
 import type { LongCollectionBatch } from "./types.js";
@@ -10,8 +9,7 @@ import type { LongCollectionBatch } from "./types.js";
 const execFileAsync = promisify(execFile);
 const ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
 const GMGN_SOURCE = "gmgn.marketRank.longxyz";
-const LAUNCHER_SOURCE = "long.launcherEvents";
-const LAUNCH_CREATED_TOPIC = "0xadc6f1f726f7c710f77ec06adc75f3bb964e5be19581b072c67f7b9b4039267b";
+const MEMBERSHIP_SOURCE = "long.officialGraphql.assetMembership";
 
 interface RankFetchResult {
   payload: unknown;
@@ -21,9 +19,8 @@ interface RankFetchResult {
 
 export interface LongCollectorDependencies {
   fetchRank?: () => Promise<RankFetchResult>;
-  verifyMembership?: (address: string) => Promise<TokenMembershipRecord>;
+  fetchMembership?: (addresses: string[]) => Promise<LongAssetMembershipResult>;
   now?: () => Date;
-  pause?: (milliseconds: number) => Promise<void>;
 }
 
 function boundedString(value: unknown, fallback: string, maxLength: number): string {
@@ -160,96 +157,21 @@ async function defaultRankFetcher(settings: LongTokenSettings): Promise<RankFetc
   };
 }
 
-function paddedAddressTopic(address: string): string {
-  return `0x${address.slice(2).padStart(64, "0")}`;
-}
-
-async function defaultMembershipVerifier(
-  settings: LongTokenSettings,
-  address: string,
-  pause: (milliseconds: number) => Promise<void>,
-): Promise<TokenMembershipRecord> {
-  let lastFailure = "unknown";
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      const response = await fetch(settings.rpcUrl, {
-        method: "POST",
-        headers: { accept: "application/json", "content-type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "eth_getLogs",
-          params: [
-            {
-              address: settings.launcherAddress,
-              fromBlock: settings.launcherStartBlock,
-              toBlock: "latest",
-              topics: [LAUNCH_CREATED_TOPIC, null, paddedAddressTopic(address)],
-            },
-          ],
-        }),
-        signal: AbortSignal.timeout(settings.rpcTimeoutMs),
-      });
-      if (!response.ok) throw new Error(`HTTP_${String(response.status)}`);
-      const payload: unknown = await response.json();
-      if (!isRecord(payload) || !Array.isArray(payload.result)) {
-        const rpcMessage =
-          isRecord(payload) && isRecord(payload.error) ? payload.error.message : null;
-        throw new Error(typeof rpcMessage === "string" ? rpcMessage.slice(0, 80) : "RPC_SHAPE");
-      }
-      const log = payload.result.find(
-        (item): item is Record<string, unknown> =>
-          isRecord(item) &&
-          typeof item.transactionHash === "string" &&
-          typeof item.blockNumber === "string",
-      );
-      if (!log) throw new Error("LAUNCH_EVENT_NOT_FOUND");
-      return {
-        tokenAddress: address,
-        launcherAddress: settings.launcherAddress,
-        verifiedAt: new Date().toISOString(),
-        blockNumber: String(log.blockNumber),
-        transactionHash: String(log.transactionHash),
-      };
-    } catch (error) {
-      lastFailure = error instanceof Error ? error.message : "unknown";
-      if (lastFailure === "LAUNCH_EVENT_NOT_FOUND") break;
-      if (attempt < 2) await pause(750 * (attempt + 1));
-    }
-  }
-  throw new Error(`Long launcher attribution failed: ${lastFailure}`);
-}
-
-function leaderboardAddresses(tokens: PairTokenSnapshot[]): string[] {
-  const rankings = buildPairRankings(tokens);
-  return [
-    ...new Set(
-      Object.values(rankings).flatMap((ranking) => ranking.entries.map((row) => row.address)),
-    ),
-  ].sort();
-}
-
 export class LongTokenCollector {
   private readonly fetchRank: () => Promise<RankFetchResult>;
-  private readonly verifyMembership: (address: string) => Promise<TokenMembershipRecord>;
+  private readonly fetchMembership: (addresses: string[]) => Promise<LongAssetMembershipResult>;
   private readonly now: () => Date;
-  private readonly pause: (milliseconds: number) => Promise<void>;
 
   constructor(
     private readonly settings: LongTokenSettings,
     dependencies: LongCollectorDependencies = {},
   ) {
     this.fetchRank = dependencies.fetchRank ?? (() => defaultRankFetcher(this.settings));
-    this.pause =
-      dependencies.pause ??
-      ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
-    this.verifyMembership =
-      dependencies.verifyMembership ??
-      ((address) => defaultMembershipVerifier(this.settings, address, this.pause));
+    this.fetchMembership = dependencies.fetchMembership ?? collectLongAssetMembership;
     this.now = dependencies.now ?? (() => new Date());
   }
 
-  async collect(verifiedCache: Set<string>): Promise<LongCollectionBatch> {
+  async collect(_verifiedCache: Set<string>): Promise<LongCollectionBatch> {
     const observedAt = this.now().toISOString();
     const rankFetch = await this.fetchRank();
     const rows = parseRankRows(rankFetch.payload);
@@ -270,34 +192,30 @@ export class LongTokenCollector {
     if (tokens.length === 0) throw new Error("GMGN Long ranking returned no valid tokens");
     tokens.sort((left, right) => left.address.localeCompare(right.address));
 
-    const candidates = leaderboardAddresses(tokens);
-    const missing = candidates.filter((address) => !verifiedCache.has(address));
     const verificationStarted = performance.now();
-    const verifiedMembership: TokenMembershipRecord[] = [];
-    for (const [index, address] of missing.entries()) {
-      if (index > 0 && this.settings.rpcThrottleMs > 0) {
-        await this.pause(this.settings.rpcThrottleMs);
-      }
-      const record = await this.verifyMembership(address);
-      if (
-        record.tokenAddress.toLowerCase() !== address ||
-        record.launcherAddress.toLowerCase() !== this.settings.launcherAddress.toLowerCase()
-      ) {
-        throw new Error("Long launcher verifier returned a mismatched token");
-      }
-      verifiedMembership.push(record);
+    const membership = await this.fetchMembership(tokens.map((token) => token.address));
+    const requested = new Set(tokens.map((token) => token.address));
+    const verifiedAddresses = new Set(
+      [...membership.addresses]
+        .map((address) => address.toLowerCase())
+        .filter((address) => requested.has(address)),
+    );
+    const verifiedTokens = tokens.filter((token) => verifiedAddresses.has(token.address));
+    if (verifiedTokens.length === 0) {
+      throw new Error("Long official index returned no matching active tokens");
     }
 
     const warnings: string[] = [];
     if (invalidRows > 0) warnings.push("long_invalid_rows_skipped");
     if (rows.length >= 100) warnings.push("long_active_sample_capped");
-    const eligibleCount = tokens.filter((token) => token.eligible).length;
+    if (verifiedTokens.length < tokens.length) warnings.push("long_unverified_rows_skipped");
+    const eligibleCount = verifiedTokens.filter((token) => token.eligible).length;
     return {
       observedAt,
-      tokens,
-      universeCount: tokens.length,
+      tokens: verifiedTokens,
+      universeCount: verifiedTokens.length,
       eligibleCount,
-      verifiedMembership,
+      verifiedMembership: [],
       warnings,
       sourceHealth: [
         {
@@ -308,11 +226,13 @@ export class LongTokenCollector {
           message: `${tokens.length} active Long token records normalized from the market rank.`,
         },
         {
-          source: LAUNCHER_SOURCE,
+          source: MEMBERSHIP_SOURCE,
           status: "ok",
-          fetchedAt: observedAt,
-          latencyMs: Math.round(performance.now() - verificationStarted),
-          message: `${candidates.length}/${candidates.length} leaderboard candidates match LongLauncher events.`,
+          fetchedAt: membership.fetchedAt,
+          latencyMs: membership.latencyMs || Math.round(performance.now() - verificationStarted),
+          message:
+            `${verifiedTokens.length}/${tokens.length} active records match the official ` +
+            "Long integrator index.",
         },
       ],
     };
