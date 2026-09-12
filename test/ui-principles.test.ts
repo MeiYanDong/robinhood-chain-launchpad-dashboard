@@ -70,6 +70,9 @@ test("launchpad dashboard is split into four task views and defaults to a concis
   assert.match(html, /id="overview-platform-body"/);
   assert.match(html, /id="overview-insight-list"/);
   assert.match(html, /id="overview-trend-chart"/);
+  assert.match(html, /id="overview-trend-body"/);
+  assert.match(html, />7 日逐日数据</);
+  assert.match(html, /data-help-title="日变化怎么计算？"/);
   assert.match(html, /id="overview-volume-date-heading"/);
   assert.match(html, /id="overview-valuation-label"/);
   assert.match(html, /id="valuation-latest-deviation-label"/);
@@ -204,7 +207,13 @@ test("launchpad wording, chart scale, and platform colors share one semantic con
   assert.match(overviewChart, /chartMax = rawMax > 0 \? rawMax \* 1\.08 : 1/);
   assert.match(overviewChart, /Math\.max\(0, value\) \/ Math\.max\(1, chartMax\)/);
   assert.match(overviewChart, /overview-trend-end--\$\{endpoint\.platform\.platformId\}/);
+  assert.match(overviewChart, /renderOverviewTrendTable\(model\)/);
+  assert.match(overviewChart, /dailyChangePresentation\(point\.changePercent\)/);
   assert.doesNotMatch(overviewChart, /Math\.log|logMin|logMax/);
+  assert.match(app, /function overviewTrendModel\(\)/);
+  assert.match(app, /function renderOverviewTrendTable\(model\)/);
+  assert.match(app, /formatUsd\(point\.value, false\)/);
+  assert.match(app, /point\?\.state === "suspect" \? "可疑值未采用" : "当日无数据"/);
   assert.match(app, /`\$\{dayLabel\}交易量`/);
   assert.match(app, /dataset\.label = "三平台交易量占比"/);
   assert.match(app, /gapDirection[\s\S]*"溢价"[\s\S]*"折价"/);
@@ -230,6 +239,12 @@ test("launchpad wording, chart scale, and platform colors share one semantic con
   );
   assert.match(styles, /overview-trend-line--long[\s\S]*stroke: var\(--platform-long\)/);
   assert.match(styles, /overview-trend-line--pair[\s\S]*stroke: var\(--platform-pair\)/);
+  assert.match(styles, /\.overview-trend-table[\s\S]*min-width: 720px/);
+  assert.match(styles, /\.overview-trend-date-cell[\s\S]*position: sticky/);
+  assert.match(styles, /\.overview-trend-delta\.is-up[\s\S]*color: var\(--acid\)/);
+  assert.match(styles, /\.overview-trend-delta\.is-down[\s\S]*color: var\(--coral\)/);
+  assert.match(styles, /\.launchpad-overview \{[\s\S]*min-width: 0;[\s\S]*max-width: 100%;/);
+  assert.match(styles, /\.overview-trend-detail \{[\s\S]*max-width: calc\(100% - 32px\);/);
   assert.match(styles, /content: attr\(data-label\)/);
 });
 

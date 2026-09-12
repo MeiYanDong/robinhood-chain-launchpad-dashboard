@@ -503,7 +503,7 @@ CashCat 停采、云端恢复点、数据库副本瘦身、自动保留策略和
 | --- | --- |
 | `GET /healthz` | 服务与可用缓存状态 |
 | `GET /api/overview?window=1\|7\|30` | 汇总和平台排名 |
-| `GET /api/platform-activity` | Pons、Long、PAIR 日度成交历史、7/30 日活跃倍数与窗口交易量 |
+| `GET /api/platform-activity` | Pons、Long、PAIR 日度成交历史、相邻完整日变化、7/30 日活跃倍数与窗口交易量 |
 | `GET /api/platform-activity/alerts/health` | PAIR 完整日、平台回温及代币价格—成交量共振告警的状态、队列和最近投递；不返回 Webhook |
 | `GET /api/platforms/:id` | 单平台 64 日序列、scope、来源 |
 | `GET /api/coverage` | 指标定义、警告、30 日覆盖矩阵 |

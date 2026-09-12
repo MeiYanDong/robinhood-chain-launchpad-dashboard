@@ -11,9 +11,9 @@
     <title>全链数据｜Robinhood Chain</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css?v=0.11.0" />
-    <link rel="stylesheet" href="./styles-v2.css?v=0.24.2" />
-    <link rel="stylesheet" href="./workbench.css?v=0.24.2" />
-    <script src="./app.js?v=0.24.2" type="module"></script>
+    <link rel="stylesheet" href="./styles-v2.css?v=0.25.0" />
+    <link rel="stylesheet" href="./workbench.css?v=0.25.0" />
+    <script src="./app.js?v=0.25.0" type="module"></script>
   </head>
   <body class="radar-v2">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -908,7 +908,41 @@
               viewBox="0 0 960 250"
             ></svg>
             <p id="overview-trend-empty" hidden>等待可核验的每日交易量。</p>
-            <footer>按 UTC 自然日统计；悬停数据点可查看日期和金额，没有数据的日期留空，不当作 0。</footer>
+            <div class="overview-trend-detail" id="overview-trend-detail">
+              <div class="overview-trend-detail__head">
+                <strong>7 日逐日数据</strong>
+                <span>
+                  日变化
+                  <button
+                    class="metric-help"
+                    type="button"
+                    aria-label="解释平台交易量日变化"
+                    data-help-title="日变化怎么计算？"
+                    data-help="日变化 = 当天完整 UTC 日交易量 ÷ 前一完整 UTC 日交易量 − 1。前一日缺失、数据可疑或交易量为 0 时不计算。"
+                  >?</button>
+                </span>
+              </div>
+              <div class="overview-trend-table-wrap">
+                <table class="overview-trend-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">日期（UTC）</th>
+                      <th scope="col">
+                        <span class="overview-trend-platform" data-platform-id="pons"><i></i>Pons</span>
+                      </th>
+                      <th scope="col">
+                        <span class="overview-trend-platform" data-platform-id="long"><i></i>Long</span>
+                      </th>
+                      <th scope="col">
+                        <span class="overview-trend-platform" data-platform-id="pair"><i></i>PAIR</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody id="overview-trend-body"></tbody>
+                </table>
+              </div>
+            </div>
+            <footer>按 UTC 自然日统计；没有数据的日期留空，不当作 0。</footer>
           </section>
 
           <div class="overview-next-actions" aria-label="继续查看">
