@@ -32,7 +32,7 @@ function batch(
         message: "private market detail",
       },
       {
-        source: "long.launcherEvents",
+        source: "long.officialGraphql.assetMembership",
         status: "ok",
         fetchedAt: observedAt,
         latencyMs: 4,

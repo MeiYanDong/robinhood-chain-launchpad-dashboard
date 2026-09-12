@@ -14,6 +14,7 @@ const staticHandler = createDashboardRequestHandler({
     coverage: () => null,
     sources: () => null,
     refresh: async () => null,
+    refreshIfLagging: async () => null,
   },
 });
 const gateway = createQueryGateway({

@@ -18,7 +18,9 @@ function errorName(error: unknown): string {
 
 function publicSource(source: PairSourceHealth): PairPublicSourceHealth {
   const sourceLabel =
-    source.source === "long.launcherEvents" ? "LongLauncher 链上归属" : "GMGN Long 活跃代币";
+    source.source === "long.officialGraphql.assetMembership"
+      ? "Long 官方代币归属"
+      : "GMGN Long 活跃代币";
   const statusMessage = {
     ok: "数据可用。",
     degraded: "部分数据暂不可用。",
@@ -101,11 +103,9 @@ export class LongTokenService {
   private async refreshNow() {
     const runId = this.database.startRun(this.now().toISOString());
     try {
-      const cache = this.database.getVerifiedAddresses(this.settings.launcherAddress);
-      const batch: LongCollectionBatch = await this.collect(cache);
+      const batch: LongCollectionBatch = await this.collect(new Set());
       if (batch.tokens.length === 0) throw new Error("Long collector returned no token records");
       this.database.writeBatch(runId, batch);
-      this.database.saveVerifiedMembership(batch.verifiedMembership);
       const status: "success" | "partial" = batch.sourceHealth.some(
         (source) => source.status !== "ok",
       )
@@ -239,7 +239,7 @@ export class LongTokenService {
       caveats: [
         "四个指标分别排名，不计算综合分。",
         "活跃样本来自 GMGN 的 longxyz 标签，不代表 Long 历史发射全量。",
-        "每次入榜候选均须命中 LongLauncher 的 LaunchCreated 链上事件。",
+        "每个展示代币均须命中 Long 官方 integrator 资产索引。",
         "缺失值保持未知，不会转换成 0 或用其它指标猜填。",
       ],
       sources: run ? this.database.getSourceHealth(run.id).map(publicSource) : [],

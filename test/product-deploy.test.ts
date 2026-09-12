@@ -32,6 +32,17 @@ test("full-chain daily refresh bypasses the public query cache", async () => {
     new URL("../deploy/robinhood-chain-launchpad-refresh.service", import.meta.url),
     "utf8",
   );
-  assert.match(service, /POST http:\/\/127\.0\.0\.1:4176\/api\/refresh/);
+  assert.match(service, /POST http:\/\/127\.0\.0\.1:4176\/api\/refresh\/catch-up/);
   assert.doesNotMatch(service, /127\.0\.0\.1:4175\/api\/refresh/);
+});
+
+test("closed-day refresh retries are bounded and become no-ops once every platform catches up", async () => {
+  const timer = await readFile(
+    new URL("../deploy/robinhood-chain-launchpad-refresh.timer", import.meta.url),
+    "utf8",
+  );
+  assert.equal(timer.match(/^OnCalendar=/gm)?.length, 6);
+  for (const hour of ["07", "09", "12", "15", "18", "21"]) {
+    assert.match(timer, new RegExp(`OnCalendar=\\*-\\*-\\* ${hour}:10:00 UTC`));
+  }
 });

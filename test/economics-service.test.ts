@@ -447,7 +447,10 @@ test("economics service selects the newest day shared by all three platforms", a
     assert.equal(response.targetDate, "2026-09-01");
     assert.equal(response.shareReady, true);
     assert.equal(response.status, "partial");
-    assert.match(response.warnings[0] ?? "", /2026-09-01/);
+    assert.equal(
+      response.warnings[0],
+      "Pons、PAIR 已更新到 2026-09-02；Long 仍为 2026-09-01；同日对比截至 2026-09-01。",
+    );
 
     setNow("2026-09-03T02:00:00.000Z");
     const stale = service.snapshot();

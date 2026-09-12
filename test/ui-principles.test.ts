@@ -163,6 +163,9 @@ test("economics client keeps unknown, not-applicable, and refresh routes distinc
   assert.match(app, /renderLaunchpadOverview\(\)/);
   assert.match(app, /renderPlatformOperations\(\)/);
   assert.match(app, /renderPlatformActivity\(\)/);
+  assert.match(app, /尚未发布/);
+  assert.match(app, /待更新/);
+  assert.doesNotMatch(app, /三个平台使用同一数据日期/);
   assert.match(app, /renderPairFlow\(\)/);
   assert.match(app, /未知/);
   assert.match(app, /不适用/);

@@ -33,26 +33,23 @@ gmgn market trending --chain robinhood --interval 24h --limit 100 \
 
 ## Long 归属核验
 
-GMGN 标签负责发现活跃样本，但不能单独充当官方发射归属证明。每次四榜 Top 5 的地址并集必须在
-Robinhood Chain 官方 RPC 中命中 LongLauncher 的 `LaunchCreated` 事件：
+GMGN 标签负责发现活跃样本，但不能单独充当官方发射归属证明。采集器会把本轮全部地址提交给
+Long 官方 GraphQL `Asset` 索引，并同时限定：
 
-- LongLauncher：`0x22e99278308b393ea1260859b181ad7e78f5eeed`；
-- 起始区块：`8636038`；
-- `LaunchCreated` topic0：
-  `0xadc6f1f726f7c710f77ec06adc75f3bb964e5be19581b072c67f7b9b4039267b`；
-- token 地址位于 `topics[2]`。
+- `chain_id = 4663`；
+- `integrator_address = 0x92d435c96e63c43e12d6d0ab28f6b0b04072f765`；
+- `asset_address` 必须等于候选代币地址。
 
-任一新入榜候选无法完成核验时，本轮失败并继续提供上次成功快照，不发布未经核验的新榜。已核验归属是
-不可变事实，结果写入独立 SQLite 表；后续刷新不重复请求，降低公共 RPC 限流风险。
+只有官方索引返回的地址才进入本地四榜。GMGN 错标或尚未被官方索引确认的行会被跳过；官方 GraphQL
+本身不可用时，本轮失败并继续提供上次成功快照。该口径不绑定单一 Launcher 合约，因此 Long 更换
+发射路由后不会把新版本代币误判成非 Long，也不再用大区间 `eth_getLogs` 触发公共 RPC 限流。
 
-LongLauncher 合约源码与事件可在
-[Robinhood Chain Blockscout](https://robinhoodchain.blockscout.com/address/0x22e99278308B393ea1260859B181AD7E78f5eeED?tab=contract)
-复核；官方 RPC 连接信息见
-[Robinhood Chain 文档](https://docs.robinhood.com/chain/connecting/)。
+官方 GraphQL 同时是平台日交易量用于核验 Long 资产归属的来源；代币榜与平台经营因此共用同一
+integrator 边界，但市场价格、市值、流动性和持币地址仍来自 GMGN，二者不会混写。
 
 ## 调度与失败语义
 
 - `robinhood-chain-long-refresh.timer`：每小时第 05、20、35、50 分钟更新实时榜；
 - `robinhood-chain-long-daily.timer`：每天 `00:12 UTC` 固化截至北京时间 08:00 的日报；
-- GMGN 返回异常、榜单为空、地址重复或候选链上核验失败时，本轮标为 `failed`；
+- GMGN 返回异常、榜单为空、地址重复或官方归属源失败时，本轮标为 `failed`；
 - 公网允许限速后的只读手动刷新，但日报生成路由仅供本机 systemd 调用。

@@ -27,6 +27,7 @@ export interface DashboardHttpApi {
   coverage(): unknown;
   sources(): unknown;
   refresh(): Promise<unknown>;
+  refreshIfLagging(): Promise<unknown>;
 }
 
 export interface PairTokenHttpApi {
@@ -743,6 +744,10 @@ export function createDashboardRequestHandler(
 
       if (request.method === "POST" && pathname === "/api/refresh") {
         sendJson(response, 200, await options.dashboard.refresh());
+        return;
+      }
+      if (request.method === "POST" && pathname === "/api/refresh/catch-up") {
+        sendJson(response, 200, await options.dashboard.refreshIfLagging());
         return;
       }
 

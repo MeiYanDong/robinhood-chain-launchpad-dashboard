@@ -950,7 +950,7 @@ function buildSources(input: IntelligenceBuildInput): IntelligenceSource[] {
       temporalScope: "rolling_24h",
       observedAt: longSnapshot?.observedAt ?? null,
       stale: longSnapshot?.stale ?? true,
-      note: "经 LongLauncher 链上事件验证的 GMGN 活跃样本。",
+      note: "经 Long 官方 integrator 资产索引验证的 GMGN 活跃样本。",
     },
   ];
 }
@@ -988,7 +988,7 @@ export function buildIntelligence(input: IntelligenceBuildInput): IntelligenceRe
       buildCohort(
         "long_launches",
         "Long 发射代币",
-        "仅使用已通过 LongLauncher 事件归属验证的活跃样本。",
+        "仅使用已通过 Long 官方 integrator 资产索引归属验证的活跃样本。",
         input.long,
         new Set<string>(),
       ),

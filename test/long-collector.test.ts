@@ -4,7 +4,7 @@ import { DEFAULT_LONG_TOKEN_SETTINGS } from "../src/long-tokens/config.js";
 import { LongTokenCollector } from "../src/long-tokens/collector.js";
 
 const now = new Date("2026-09-01T12:00:00.000Z");
-const settings = { ...DEFAULT_LONG_TOKEN_SETTINGS, rpcThrottleMs: 0 };
+const settings = { ...DEFAULT_LONG_TOKEN_SETTINGS };
 
 function address(id: number): string {
   return `0x${String(id).padStart(40, "0")}`;
@@ -35,21 +35,18 @@ function rankFetch(rows: unknown[]) {
   });
 }
 
-function membership(tokenAddress: string) {
+function membership(addresses: string[]) {
   return {
-    tokenAddress,
-    launcherAddress: settings.launcherAddress,
-    verifiedAt: now.toISOString(),
-    blockNumber: "0x900000",
-    transactionHash: `0x${"a".repeat(64)}`,
+    addresses: new Set(addresses),
+    fetchedAt: now.toISOString(),
+    latencyMs: 4,
   };
 }
 
-test("Long collector builds an economic active sample and verifies every Top 5 candidate", async () => {
+test("Long collector builds an economic active sample verified by the official integrator index", async () => {
   const verified: string[] = [];
   const collector = new LongTokenCollector(settings, {
     now: () => now,
-    pause: async () => undefined,
     fetchRank: rankFetch([
       row(1, 60_000),
       row(2, 50_000),
@@ -59,9 +56,9 @@ test("Long collector builds an economic active sample and verifies every Top 5 c
       row(6, 5_000),
       row(7, 70_000, { launchpad_platform: "another-platform" }),
     ]),
-    verifyMembership: async (tokenAddress) => {
-      verified.push(tokenAddress);
-      return membership(tokenAddress);
+    fetchMembership: async (addresses) => {
+      verified.push(...addresses);
+      return membership(addresses);
     },
   });
 
@@ -69,8 +66,8 @@ test("Long collector builds an economic active sample and verifies every Top 5 c
 
   assert.equal(batch.universeCount, 6);
   assert.equal(batch.eligibleCount, 5);
-  assert.deepEqual(verified, [1, 2, 3, 4, 5].map(address));
-  assert.equal(batch.verifiedMembership.length, 5);
+  assert.deepEqual(verified, [1, 2, 3, 4, 5, 6].map(address));
+  assert.equal(batch.verifiedMembership.length, 0);
   assert.equal(batch.tokens[0]?.tokenUrl, `https://app.long.xyz/tokens/${address(1)}`);
   assert.equal(batch.tokens[0]?.priceUsd, 0.6);
   assert.equal(batch.tokens[0]?.holderCount, 60_000);
@@ -79,26 +76,36 @@ test("Long collector builds an economic active sample and verifies every Top 5 c
   assert.ok(batch.sourceHealth.every((source) => source.status === "ok"));
 });
 
-test("Long collector reuses immutable launcher membership cache", async () => {
+test("Long collector drops third-party rows absent from the official integrator index", async () => {
   let verifierCalls = 0;
-  const rows = [row(1, 60_000), row(2, 50_000), row(3, 40_000), row(4, 30_000), row(5, 20_000)];
+  const rows = [
+    row(1, 60_000),
+    row(2, 50_000),
+    row(3, 40_000),
+    row(4, 30_000),
+    row(5, 20_000),
+    row(6, 70_000),
+  ];
   const collector = new LongTokenCollector(settings, {
     now: () => now,
     fetchRank: rankFetch(rows),
-    verifyMembership: async (tokenAddress) => {
+    fetchMembership: async () => {
       verifierCalls += 1;
-      return membership(tokenAddress);
+      return membership([address(1), address(2), address(3), address(4), address(5)]);
     },
   });
 
-  const batch = await collector.collect(new Set(rows.map((item) => String(item.address))));
+  const batch = await collector.collect(new Set());
 
-  assert.equal(verifierCalls, 0);
+  assert.equal(verifierCalls, 1);
   assert.deepEqual(batch.verifiedMembership, []);
-  assert.match(batch.sourceHealth[1]?.message ?? "", /5\/5/);
+  assert.equal(batch.universeCount, 5);
+  assert.ok(batch.tokens.every((token) => token.address !== address(6)));
+  assert.deepEqual(batch.warnings, ["long_unverified_rows_skipped"]);
+  assert.match(batch.sourceHealth[1]?.message ?? "", /5\/6/);
 });
 
-test("Long collector fails closed on malformed ranks and mismatched launcher receipts", async () => {
+test("Long collector fails closed on malformed ranks and empty official membership", async () => {
   const malformed = new LongTokenCollector(settings, {
     fetchRank: async () => ({
       payload: { code: 0, data: {} },
@@ -111,7 +118,7 @@ test("Long collector fails closed on malformed ranks and mismatched launcher rec
   const mismatch = new LongTokenCollector(settings, {
     now: () => now,
     fetchRank: rankFetch([row(1, 60_000)]),
-    verifyMembership: async () => membership(address(2)),
+    fetchMembership: async () => membership([address(2)]),
   });
-  await assert.rejects(mismatch.collect(new Set()), /mismatched token/);
+  await assert.rejects(mismatch.collect(new Set()), /no matching active tokens/);
 });

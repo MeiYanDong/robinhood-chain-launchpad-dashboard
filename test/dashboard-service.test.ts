@@ -92,6 +92,49 @@ test("concurrent refresh calls share one collector promise and one run", async (
   });
 });
 
+test("closed-day catch-up refreshes missing platforms and skips once all three are current", async () => {
+  await withDatabase(async (database) => {
+    let calls = 0;
+    const targetDate = "2026-08-29";
+    const completeBatch: CollectionBatch = {
+      ...batch(),
+      platforms: PLATFORM_REGISTRY.filter((platform) =>
+        ["pons", "pair", "long"].includes(platform.id),
+      ),
+      metrics: (["pons", "pair", "long"] as const).map((platformId, index) => ({
+        platformId,
+        metric: "volume_usd",
+        date: targetDate,
+        value: 100 + index,
+        source: `${platformId}.official.dailyVolume`,
+        quality: "reported",
+        scope: "fixture scope",
+        derivation: null,
+        collectedAt,
+      })),
+    };
+    const service = new DashboardService(database, 15, {
+      collect: async () => {
+        calls += 1;
+        return completeBatch;
+      },
+      now: () => new Date("2026-08-30T12:00:00.000Z"),
+    });
+
+    const first = await service.refreshIfLagging();
+    assert.equal(first.action, "refreshed");
+    assert.deepEqual(first.laggingBefore, ["pons", "pair", "long"]);
+    assert.deepEqual(first.laggingAfter, []);
+    assert.equal(first.refresh?.targetDate, targetDate);
+
+    const second = await service.refreshIfLagging();
+    assert.equal(second.action, "skipped");
+    assert.deepEqual(second.laggingBefore, []);
+    assert.equal(second.refresh, null);
+    assert.equal(calls, 1);
+  });
+});
+
 test("a post-refresh alert hook runs after persistence without breaking metric delivery", async () => {
   await withDatabase(async (database) => {
     const events: Array<{ event: string; context: Record<string, unknown> }> = [];
