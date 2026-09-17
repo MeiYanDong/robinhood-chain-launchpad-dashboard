@@ -1,4 +1,10 @@
-import { fetchJson, finiteNumber, isRecord, type FetchedJson } from "../utils/http.js";
+import {
+  fetchJson,
+  fetchJsonBrowser,
+  finiteNumber,
+  isRecord,
+  type FetchedJson,
+} from "../utils/http.js";
 import {
   decodeAggregate3,
   decodeOraclePrice,
@@ -558,7 +564,10 @@ export class PairFlowCollector {
     private readonly settings: PairFlowSettings,
     dependencies: PairFlowCollectorDependencies = {},
   ) {
-    const fetchPage = dependencies.fetchPage ?? ((url: string) => fetchJson(url, { retries: 1 }));
+    const fetchPage =
+      dependencies.fetchPage ??
+      ((url: string) =>
+        fetchJsonBrowser(url, { retries: 1, timeoutMs: this.settings.requestTimeoutMs }));
     const fetcher = dependencies.fetcher ?? fetch;
     this.fetchPairToken =
       dependencies.fetchPairToken ??
@@ -598,8 +607,9 @@ export class PairFlowCollector {
     this.fetchTransactionDetail =
       dependencies.fetchTransactionDetail ??
       (async (hash) => {
-        const fetched = await fetchJson(`${this.settings.explorerApiBaseUrl}/tx/${hash}`, {
+        const fetched = await fetchJsonBrowser(`${this.settings.explorerApiBaseUrl}/tx/${hash}`, {
           retries: 1,
+          timeoutMs: this.settings.requestTimeoutMs,
         });
         return parseTransactionDetail(fetched.payload, fetched.fetchedAt);
       });

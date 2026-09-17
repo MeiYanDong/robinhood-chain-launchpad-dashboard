@@ -87,10 +87,7 @@ function percent(value: string | undefined, fallback: number, name: string): num
 export function pairFlowSettingsFromEnv(env: NodeJS.ProcessEnv = process.env): PairFlowSettings {
   return {
     ...DEFAULT_PAIR_FLOW_SETTINGS,
-    rpcUrl:
-      env.PAIR_FLOW_RPC_URL?.trim() ||
-      env.ECONOMICS_RPC_URL?.trim() ||
-      DEFAULT_PAIR_FLOW_SETTINGS.rpcUrl,
+    rpcUrl: env.PAIR_FLOW_PUBLIC_RPC_URL?.trim() || DEFAULT_PAIR_FLOW_SETTINGS.rpcUrl,
     requestTimeoutMs: positiveInteger(
       env.PAIR_FLOW_REQUEST_TIMEOUT_MS,
       DEFAULT_PAIR_FLOW_SETTINGS.requestTimeoutMs,

@@ -23,6 +23,7 @@ export interface EconomicsCollectorDependencies {
   fetchPairToken?: () => Promise<EconomicsSourceResult<ProtocolTokenMarketObservation>>;
   fetchPonsToken?: () => Promise<EconomicsSourceResult<ProtocolTokenMarketObservation>>;
   fetchPonsPriceHistory?: () => Promise<EconomicsSourceResult<TokenDailyCandle[]>>;
+  fetchPairPriceHistory?: () => Promise<EconomicsSourceResult<TokenDailyCandle[]>>;
   fetchTokenSupplies?: () => Promise<EconomicsSourceResult<TokenSupplyObservation[]>>;
   now?: () => Date;
 }
@@ -259,9 +260,10 @@ async function defaultPonsTokenFetcher(
   };
 }
 
-async function defaultPonsPriceHistoryFetcher(
+async function defaultTokenPriceHistoryFetcher(
   settings: EconomicsSettings,
   now: Date,
+  tokenAddress: string,
 ): Promise<EconomicsSourceResult<TokenDailyCandle[]>> {
   const started = performance.now();
   const inheritedNodeOptions = process.env.NODE_OPTIONS ?? "";
@@ -278,7 +280,7 @@ async function defaultPonsPriceHistoryFetcher(
       "--chain",
       "robinhood",
       "--address",
-      settings.ponsTokenAddress,
+      tokenAddress,
       "--resolution",
       "1d",
       "--from",
@@ -295,11 +297,7 @@ async function defaultPonsPriceHistoryFetcher(
   );
   const fetchedAt = new Date().toISOString();
   return {
-    value: parseTokenDailyCandles(
-      JSON.parse(stdout) as unknown,
-      settings.ponsTokenAddress,
-      fetchedAt,
-    ),
+    value: parseTokenDailyCandles(JSON.parse(stdout) as unknown, tokenAddress, fetchedAt),
     fetchedAt,
     latencyMs: Math.round(performance.now() - started),
   };
@@ -368,7 +366,7 @@ export async function fetchTokenSuppliesFromRpc(
   }
   // Batch rejection must not discard a working single-call endpoint. Pin every
   // fallback eth_call to one block, and check the chain before accepting it.
-  for (const rpcUrl of [...new Set([settings.rpcUrl, ...(settings.rpcFallbackUrls ?? [])])]) {
+  for (const rpcUrl of [settings.rpcUrl]) {
     try {
       const request = async (method: string, params: unknown[], id: number) => {
         const response = await fetcher(rpcUrl, {
@@ -452,6 +450,7 @@ export class EconomicsCollector {
     EconomicsSourceResult<TokenSupplyObservation[]>
   >;
   private readonly fetchPonsPriceHistory: () => Promise<EconomicsSourceResult<TokenDailyCandle[]>>;
+  private readonly fetchPairPriceHistory: () => Promise<EconomicsSourceResult<TokenDailyCandle[]>>;
   private readonly now: () => Date;
 
   constructor(
@@ -466,12 +465,21 @@ export class EconomicsCollector {
       dependencies.fetchTokenSupplies ?? (() => defaultSupplyFetcher(this.settings));
     this.fetchPonsPriceHistory =
       dependencies.fetchPonsPriceHistory ??
-      (() => defaultPonsPriceHistoryFetcher(this.settings, this.now()));
+      (() =>
+        defaultTokenPriceHistoryFetcher(this.settings, this.now(), this.settings.ponsTokenAddress));
+    this.fetchPairPriceHistory =
+      dependencies.fetchPairPriceHistory ??
+      (() =>
+        defaultTokenPriceHistoryFetcher(this.settings, this.now(), this.settings.pairTokenAddress));
     this.now = dependencies.now ?? (() => new Date());
   }
 
   collectPonsPriceHistory(): Promise<EconomicsSourceResult<TokenDailyCandle[]>> {
     return this.fetchPonsPriceHistory();
+  }
+
+  collectPairPriceHistory(): Promise<EconomicsSourceResult<TokenDailyCandle[]>> {
+    return this.fetchPairPriceHistory();
   }
 
   async collect(): Promise<EconomicsCollectionBatch> {

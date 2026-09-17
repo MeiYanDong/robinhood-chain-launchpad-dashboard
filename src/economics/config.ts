@@ -6,7 +6,6 @@ export interface EconomicsSettings {
   ponsTokenUrl: string;
   pairTokenUrl: string;
   rpcUrl: string;
-  rpcFallbackUrls?: string[];
   gmgnBinary: string;
   gmgnTimeoutMs: number;
   priceHistoryDays: number;
@@ -14,6 +13,10 @@ export interface EconomicsSettings {
   requestTimeoutMs: number;
   refreshTtlMinutes: number;
   staleAfterMinutes: number;
+  blockscoutApiUrl: string;
+  ponsBuybackWallet: string;
+  burnHistoryLimit: number;
+  burnHistoryTtlMinutes: number;
 }
 
 export const DEFAULT_ECONOMICS_SETTINGS: EconomicsSettings = {
@@ -31,6 +34,10 @@ export const DEFAULT_ECONOMICS_SETTINGS: EconomicsSettings = {
   requestTimeoutMs: 20_000,
   refreshTtlMinutes: 15,
   staleAfterMinutes: 45,
+  blockscoutApiUrl: "https://robinhoodchain.blockscout.com/api/",
+  ponsBuybackWallet: "0x5795d227dcc305afe212bef18e81b111def7c324",
+  burnHistoryLimit: 10_000,
+  burnHistoryTtlMinutes: 60,
 };
 
 function positiveNumber(value: string | undefined, fallback: number, name: string): number {
@@ -43,15 +50,9 @@ function positiveNumber(value: string | undefined, fallback: number, name: strin
 export function economicsSettingsFromEnv(env: NodeJS.ProcessEnv = process.env): EconomicsSettings {
   return {
     ...DEFAULT_ECONOMICS_SETTINGS,
-    rpcUrl: env.ECONOMICS_RPC_URL?.trim() || DEFAULT_ECONOMICS_SETTINGS.rpcUrl,
-    rpcFallbackUrls: [
-      ...new Set(
-        (env.ECONOMICS_RPC_FALLBACK_URLS ?? "")
-          .split(",")
-          .map((url) => url.trim())
-          .filter(Boolean),
-      ),
-    ].slice(0, 2),
+    // Economics history is intentionally public-data only. Do not inherit the
+    // credential-bearing paid RPC used by latency-sensitive monitors.
+    rpcUrl: env.ECONOMICS_PUBLIC_RPC_URL?.trim() || DEFAULT_ECONOMICS_SETTINGS.rpcUrl,
     gmgnBinary: env.ECONOMICS_GMGN_BIN?.trim() || DEFAULT_ECONOMICS_SETTINGS.gmgnBinary,
     gmgnTimeoutMs: positiveNumber(
       env.ECONOMICS_GMGN_TIMEOUT_MS,
@@ -82,6 +83,16 @@ export function economicsSettingsFromEnv(env: NodeJS.ProcessEnv = process.env): 
       env.ECONOMICS_STALE_AFTER_MINUTES,
       DEFAULT_ECONOMICS_SETTINGS.staleAfterMinutes,
       "ECONOMICS_STALE_AFTER_MINUTES",
+    ),
+    burnHistoryLimit: positiveNumber(
+      env.ECONOMICS_BURN_HISTORY_LIMIT,
+      DEFAULT_ECONOMICS_SETTINGS.burnHistoryLimit,
+      "ECONOMICS_BURN_HISTORY_LIMIT",
+    ),
+    burnHistoryTtlMinutes: positiveNumber(
+      env.ECONOMICS_BURN_HISTORY_TTL_MINUTES,
+      DEFAULT_ECONOMICS_SETTINGS.burnHistoryTtlMinutes,
+      "ECONOMICS_BURN_HISTORY_TTL_MINUTES",
     ),
   };
 }

@@ -63,6 +63,88 @@ export interface TokenDailyCandle {
   quality: "third_party";
 }
 
+export interface ProtocolBurnTransfer {
+  tokenAddress: string;
+  txHash: string;
+  blockNumber: number;
+  timestamp: string;
+  from: string;
+  amountTokens: number;
+  inferredBuyback: boolean;
+}
+
+export interface ProtocolBurnDay {
+  tokenAddress: string;
+  date: string;
+  burnedTokens: number;
+  inferredBuybackTokens: number;
+  burnEventCount: number;
+  inferredBuybackEventCount: number;
+  complete: boolean;
+  observedAt: string;
+  source: "blockscout.account.tokentx";
+}
+
+export interface ProtocolBurnCoverage {
+  tokenAddress: string;
+  observedAt: string;
+  coverageStartAt: string | null;
+  rowCount: number;
+  completeHistory: boolean;
+  source: "blockscout.account.tokentx";
+}
+
+export interface ProtocolBurnHistoryObservation {
+  observedAt: string;
+  days: ProtocolBurnDay[];
+  coverage: ProtocolBurnCoverage[];
+  failedTokenAddresses?: string[];
+}
+
+export interface ProtocolTokenDailyFlow {
+  volumeUsd: number | null;
+  closeUsd: number | null;
+  burnedTokens: number | null;
+  burnedPercentOfInitialSupply: number | null;
+  cumulativeBurnedTokens: number | null;
+  cumulativeBurnedPercent: number | null;
+  burnEventCount: number | null;
+  attributedBuybackTokens: number | null;
+  attributedBuybackResultValueUsd: number | null;
+  attributedBuybackIntensityPercent: number | null;
+  attributedBuybackEventCount: number | null;
+  burnComplete: boolean;
+  buybackEvidence: "onchain_attributed" | "behavior_inferred" | "unknown";
+}
+
+export interface ProtocolTokenHistoryPoint {
+  date: string;
+  state: "closed" | "forming";
+  pons: ProtocolTokenDailyFlow;
+  pair: ProtocolTokenDailyFlow;
+}
+
+export interface ProtocolTokenHistoryResponse {
+  service: "rhc-protocol-token-history";
+  generatedAt: string;
+  windowDays: number;
+  startDate: string;
+  endDate: string;
+  points: ProtocolTokenHistoryPoint[];
+  coverage: {
+    pons: ProtocolBurnCoverage | null;
+    pair: ProtocolBurnCoverage | null;
+  };
+  definitions: {
+    tokenVolume: string;
+    burn: string;
+    attributedBuyback: string;
+    resultValue: string;
+    intensity: string;
+  };
+  warnings: string[];
+}
+
 export interface TokenSupplyObservation {
   address: string;
   decimals: number;
@@ -248,6 +330,7 @@ export interface PairRelativeValuationDailyPoint {
   date: string;
   state: "closed" | "forming";
   pons: TokenDailyCandle | null;
+  pair: TokenDailyCandle | null;
   pairActual: DailyOhlc | null;
   pairSevenDayReference: DailyOhlc | null;
   pairLatestDayReference: DailyOhlc | null;

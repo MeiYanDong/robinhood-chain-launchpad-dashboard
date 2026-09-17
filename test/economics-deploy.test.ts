@@ -18,6 +18,14 @@ test("economics production config pins the market CLI and separates public from 
     applicationService,
     /ECONOMICS_GMGN_BIN=\/opt\/robinhood-chain-launchpad\/current\/node_modules\/\.bin\/gmgn-cli/,
   );
+  assert.match(
+    applicationService,
+    /ECONOMICS_PUBLIC_RPC_URL=https:\/\/rpc\.mainnet\.chain\.robinhood\.com/,
+  );
+  assert.match(
+    applicationService,
+    /PAIR_FLOW_PUBLIC_RPC_URL=https:\/\/rpc\.mainnet\.chain\.robinhood\.com/,
+  );
   assert.match(nginx, /location = \/api\/economics\/refresh[\s\S]*limit_req/);
   assert.match(nginx, /location = \/api\/economics\/refresh[\s\S]*proxy_read_timeout 180s/);
   assert.match(nginx, /location = \/api\/economics\/rebuild[\s\S]*return 403/);

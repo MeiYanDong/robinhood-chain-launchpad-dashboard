@@ -26,6 +26,7 @@ Environment=PAIR_GMGN_TIMEOUT_MS=8000
 Environment=PAIR_GMGN_BIN=/opt/robinhood-chain-launchpad/current/node_modules/.bin/gmgn-cli
 Environment=PAIR_FLOW_REFRESH_TTL_MINUTES=5
 Environment=PAIR_FLOW_STALE_AFTER_MINUTES=20
+Environment=PAIR_FLOW_PUBLIC_RPC_URL=https://rpc.mainnet.chain.robinhood.com
 Environment=PAIR_V2_GMGN_BIN=/opt/robinhood-chain-launchpad/current/node_modules/.bin/gmgn-cli
 Environment=PAIR_V2_CHAIN_POLL_SECONDS=8
 Environment=PAIR_ALPHA_HOT_MARKET_POLL_SECONDS=15
@@ -66,6 +67,7 @@ Environment=DEV_MONITOR_ALERT_DEVELOPER_COOLDOWN_MINUTES=360
 Environment=DEV_MONITOR_ALERT_DELIVERY_COOLDOWN_MINUTES=20
 Environment=LONG_GMGN_BIN=/opt/robinhood-chain-launchpad/current/node_modules/.bin/gmgn-cli
 Environment=ECONOMICS_GMGN_BIN=/opt/robinhood-chain-launchpad/current/node_modules/.bin/gmgn-cli
+Environment=ECONOMICS_PUBLIC_RPC_URL=https://rpc.mainnet.chain.robinhood.com
 Environment=INTELLIGENCE_CHAIN_RADAR_URL=http://127.0.0.1:4173/api/latest
 Environment=INTELLIGENCE_CASHCAT_STATUS_URL=http://127.0.0.1:8010/api/status
 Environment=INTELLIGENCE_REFRESH_TTL_MINUTES=5
