@@ -7,6 +7,7 @@ import { buildPairFlowLedger, type PairFlowLedgerSummary } from "./ledger.js";
 import type {
   PairFlowCollectionBatch,
   PairFlowEvidenceTier,
+  PairFlowEvent,
   PairFlowEventsQuery,
   PairFlowEventsResponse,
   PairFlowResponse,
@@ -209,6 +210,11 @@ export class PairFlowService {
       },
       items: result.items,
     };
+  }
+
+  storedEvents(): PairFlowEvent[] {
+    return this.database.listEvents({ type: "all", window: "all", limit: 10_000, offset: 0 }, null)
+      .items;
   }
 
   private buildResponse(batch: PairFlowCollectionBatch): PairFlowResponse {

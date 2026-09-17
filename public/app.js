@@ -208,6 +208,10 @@ const state = {
   pairEvents: null,
   pairFlowWindow: "today",
   valuationHistory: null,
+  protocolTokenHistory: null,
+  protocolHistoryDays: 7,
+  protocolFlowMode: "burn",
+  protocolFlowUnit: "tokens",
   economicsSources: null,
   overview: null,
   coverage: null,
@@ -4378,6 +4382,379 @@ function renderPairAlpha() {
   showNotices(notices);
 }
 
+function formatProtocolNumber(value, maximumFractionDigits = 2) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits }).format(value);
+}
+
+function formatProtocolUsd(value) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: value < 10 ? 4 : 0,
+    maximumFractionDigits: value < 10 ? 8 : 2,
+  }).format(value);
+}
+
+function protocolFlowValue(point, platformId, cumulative = false) {
+  const row = point?.[platformId];
+  if (!row) return null;
+  if (state.protocolFlowMode === "burn") {
+    if (state.protocolFlowUnit === "secondary") {
+      return cumulative ? row.cumulativeBurnedPercent : row.burnedPercentOfInitialSupply;
+    }
+    return cumulative ? row.cumulativeBurnedTokens : row.burnedTokens;
+  }
+  if (state.protocolFlowUnit === "secondary") {
+    return row.attributedBuybackResultValueUsd;
+  }
+  return row.attributedBuybackTokens;
+}
+
+function protocolFlowFormat(value) {
+  if (state.protocolFlowMode === "burn" && state.protocolFlowUnit === "secondary") {
+    return formatPercent(value);
+  }
+  if (state.protocolFlowMode === "buyback" && state.protocolFlowUnit === "secondary") {
+    return formatProtocolUsd(value);
+  }
+  return value === null || value === undefined || !Number.isFinite(value)
+    ? "—"
+    : `${formatProtocolNumber(value)} tokens`;
+}
+
+function protocolBuybackCumulative(points, platformId) {
+  let total = 0;
+  let started = false;
+  let complete = true;
+  return points.map((point) => {
+    const value = protocolFlowValue(point, platformId, false);
+    if (!Number.isFinite(value)) {
+      if (started) complete = false;
+      return null;
+    }
+    if (!started) started = true;
+    if (!complete) return null;
+    total += value;
+    return total;
+  });
+}
+
+function renderProtocolVolumeChart(points) {
+  const svg = $("#protocol-volume-chart");
+  const empty = $("#protocol-volume-empty");
+  svg.replaceChildren();
+  const hasData = points.some(
+    (point) => Number.isFinite(point.pons?.volumeUsd) || Number.isFinite(point.pair?.volumeUsd),
+  );
+  svg.hidden = !hasData;
+  empty.hidden = hasData;
+  if (!hasData) return;
+
+  const width = 960;
+  const left = 92;
+  const right = 26;
+  const plotWidth = width - left - right;
+  const platforms = [
+    { id: "pons", label: "PONS", colorClass: "pons", top: 30 },
+    { id: "pair", label: "PAIR", colorClass: "pair", top: 138 },
+  ];
+  const step = plotWidth / Math.max(points.length, 1);
+  const barWidth = Math.max(3, Math.min(22, step * 0.58));
+  for (const platform of platforms) {
+    const values = points
+      .map((point) => point[platform.id]?.volumeUsd)
+      .filter((value) => Number.isFinite(value));
+    const maxValue = values.length > 0 ? Math.max(...values, 1) : 1;
+    const baseline = platform.top + 76;
+    const label = svgElement("text", {
+      x: 16,
+      y: platform.top + 35,
+      class: `protocol-chart-platform protocol-chart-platform--${platform.colorClass}`,
+    });
+    label.textContent = platform.label;
+    const scale = svgElement("text", {
+      x: 16,
+      y: platform.top + 54,
+      class: "protocol-chart-scale",
+    });
+    scale.textContent = values.length > 0 ? `峰值 ${formatUsd(maxValue)}` : "暂无数据";
+    svg.append(
+      label,
+      scale,
+      svgElement("line", {
+        x1: left,
+        x2: width - right,
+        y1: baseline,
+        y2: baseline,
+        class: "protocol-chart-grid",
+      }),
+    );
+    points.forEach((point, index) => {
+      const value = point[platform.id]?.volumeUsd;
+      if (!Number.isFinite(value)) return;
+      const height = Math.max(1, (value / maxValue) * 68);
+      const rect = svgElement("rect", {
+        x: left + step * index + (step - barWidth) / 2,
+        y: baseline - height,
+        width: barWidth,
+        height,
+        rx: 2,
+        class: `protocol-chart-bar protocol-chart-bar--${platform.colorClass}${point.state === "forming" ? " is-forming" : ""}`,
+        tabindex: 0,
+      });
+      const title = svgElement("title");
+      title.textContent = `${platform.label} · ${point.date} · ${formatProtocolUsd(value)}${point.state === "forming" ? " · 进行中" : ""}`;
+      rect.append(title);
+      svg.append(rect);
+    });
+  }
+  const labelIndexes =
+    points.length <= 8 ? points.map((_, index) => index) : [0, points.length - 1];
+  for (const index of labelIndexes) {
+    const point = points[index];
+    if (!point) continue;
+    const label = svgElement("text", {
+      x: left + step * index + step / 2,
+      y: 248,
+      class: "protocol-chart-date",
+      "text-anchor": "middle",
+    });
+    label.textContent = formatUtcDay(point.date);
+    svg.append(label);
+  }
+}
+
+function renderProtocolFlowChart(points) {
+  const svg = $("#protocol-flow-chart");
+  const empty = $("#protocol-flow-empty");
+  svg.replaceChildren();
+  const cumulativeByPlatform = Object.fromEntries(
+    ["pons", "pair"].map((platformId) => [
+      platformId,
+      state.protocolFlowMode === "buyback"
+        ? protocolBuybackCumulative(points, platformId)
+        : points.map((point) => protocolFlowValue(point, platformId, true)),
+    ]),
+  );
+  const hasData = points.some((point) =>
+    ["pons", "pair"].some((platformId) =>
+      Number.isFinite(protocolFlowValue(point, platformId, false)),
+    ),
+  );
+  svg.hidden = !hasData;
+  empty.hidden = hasData;
+  if (!hasData) return cumulativeByPlatform;
+
+  const width = 960;
+  const left = 92;
+  const right = 32;
+  const plotWidth = width - left - right;
+  const step = plotWidth / Math.max(points.length, 1);
+  const barWidth = Math.max(3, Math.min(18, step * 0.48));
+  const platforms = [
+    { id: "pons", label: "PONS", colorClass: "pons", top: 28 },
+    { id: "pair", label: "PAIR", colorClass: "pair", top: 150 },
+  ];
+  for (const platform of platforms) {
+    const daily = points.map((point) => protocolFlowValue(point, platform.id, false));
+    const cumulative = cumulativeByPlatform[platform.id];
+    const dailyValues = daily.filter((value) => Number.isFinite(value));
+    const dailyMax = dailyValues.length > 0 ? Math.max(...dailyValues, 1) : 1;
+    const cumulativeValues = cumulative.filter((value) => Number.isFinite(value));
+    const cumulativeMin = cumulativeValues.length > 0 ? Math.min(...cumulativeValues) : 0;
+    const cumulativeMax = cumulativeValues.length > 0 ? Math.max(...cumulativeValues) : 1;
+    const baseline = platform.top + 82;
+    const label = svgElement("text", {
+      x: 16,
+      y: platform.top + 34,
+      class: `protocol-chart-platform protocol-chart-platform--${platform.colorClass}`,
+    });
+    label.textContent = platform.label;
+    const scale = svgElement("text", {
+      x: 16,
+      y: platform.top + 53,
+      class: "protocol-chart-scale",
+    });
+    scale.textContent =
+      dailyValues.length > 0 ? `每日峰值 ${protocolFlowFormat(dailyMax)}` : "暂无数据";
+    svg.append(
+      label,
+      scale,
+      svgElement("line", {
+        x1: left,
+        x2: width - right,
+        y1: baseline,
+        y2: baseline,
+        class: "protocol-chart-grid",
+      }),
+    );
+    daily.forEach((value, index) => {
+      if (!Number.isFinite(value)) return;
+      const height = Math.max(1, (value / dailyMax) * 54);
+      const rect = svgElement("rect", {
+        x: left + step * index + (step - barWidth) / 2,
+        y: baseline - height,
+        width: barWidth,
+        height,
+        rx: 2,
+        class: `protocol-chart-bar protocol-chart-bar--${platform.colorClass}${points[index]?.state === "forming" ? " is-forming" : ""}`,
+        tabindex: 0,
+      });
+      const title = svgElement("title");
+      title.textContent = `${platform.label} · ${points[index]?.date} · 每日 ${protocolFlowFormat(value)}`;
+      rect.append(title);
+      svg.append(rect);
+    });
+    let path = "";
+    let drawing = false;
+    cumulative.forEach((value, index) => {
+      if (!Number.isFinite(value)) {
+        drawing = false;
+        return;
+      }
+      const x = left + step * index + step / 2;
+      const range = cumulativeMax - cumulativeMin;
+      const y = platform.top + 68 - (range > 0 ? ((value - cumulativeMin) / range) * 58 : 29);
+      path += `${drawing ? "L" : "M"}${x.toFixed(2)},${y.toFixed(2)} `;
+      drawing = true;
+      const dot = svgElement("circle", {
+        cx: x,
+        cy: y,
+        r: 3,
+        class: `protocol-chart-dot protocol-chart-dot--${platform.colorClass}`,
+        tabindex: 0,
+      });
+      const title = svgElement("title");
+      title.textContent = `${platform.label} · ${points[index]?.date} · 累计 ${protocolFlowFormat(value)}`;
+      dot.append(title);
+      svg.append(dot);
+    });
+    if (path) {
+      svg.prepend(
+        svgElement("path", {
+          d: path.trim(),
+          class: `protocol-chart-line protocol-chart-line--${platform.colorClass}`,
+        }),
+      );
+    }
+  }
+  for (const index of points.length <= 8
+    ? points.map((_, index) => index)
+    : [0, points.length - 1]) {
+    const point = points[index];
+    if (!point) continue;
+    const label = svgElement("text", {
+      x: left + step * index + step / 2,
+      y: 292,
+      class: "protocol-chart-date",
+      "text-anchor": "middle",
+    });
+    label.textContent = formatUtcDay(point.date);
+    svg.append(label);
+  }
+  return cumulativeByPlatform;
+}
+
+function renderProtocolTokenHistory() {
+  const payload = state.protocolTokenHistory;
+  const volumeBody = $("#protocol-volume-body");
+  const flowBody = $("#protocol-flow-body");
+  if (!volumeBody || !flowBody) return;
+  volumeBody.replaceChildren();
+  flowBody.replaceChildren();
+  const points = payload?.points ?? [];
+  const latestClosed = [...points].reverse().find((point) => point.state === "closed");
+  $("#protocol-pair-latest-volume").textContent = formatProtocolUsd(latestClosed?.pair?.volumeUsd);
+  $("#protocol-pair-latest-date").textContent = latestClosed
+    ? `${formatUtcDay(latestClosed.date, true)} UTC · GMGN 日线`
+    : "等待 GMGN 日线";
+  const closedPairVolumes = points
+    .filter((point) => point.state === "closed")
+    .map((point) => point.pair?.volumeUsd);
+  $("#protocol-pair-window-label").textContent =
+    `PAIR 近 ${String(payload?.windowDays ?? state.protocolHistoryDays)} 个完整日成交额`;
+  $("#protocol-pair-window-volume").textContent =
+    closedPairVolumes.length > 0 && closedPairVolumes.every(Number.isFinite)
+      ? formatProtocolUsd(closedPairVolumes.reduce((sum, value) => sum + value, 0))
+      : "—";
+  const pairToken = state.economics?.tokens?.find((token) => token.platformId === "pair");
+  const currentBurned = pairToken?.burnedSupply?.value ?? pairToken?.burnedSupply?.rawValue ?? null;
+  const currentBurnedPercent =
+    pairToken?.burnedPercent?.value ?? pairToken?.burnedPercent?.rawValue ?? null;
+  const latestPairBurn = [...points]
+    .reverse()
+    .find((point) => Number.isFinite(point.pair?.cumulativeBurnedTokens));
+  $("#protocol-pair-burned").textContent = Number.isFinite(currentBurned)
+    ? `${formatProtocolNumber(currentBurned)} PAIR`
+    : latestPairBurn
+      ? `${formatProtocolNumber(latestPairBurn.pair.cumulativeBurnedTokens)} PAIR`
+      : "—";
+  $("#protocol-pair-burned-percent").textContent = Number.isFinite(currentBurnedPercent)
+    ? `${formatPercent(currentBurnedPercent)} 初始供应量 · 当前快照`
+    : latestPairBurn
+      ? `${formatPercent(latestPairBurn.pair.cumulativeBurnedPercent)} 初始供应量`
+      : "—";
+
+  renderProtocolVolumeChart(points);
+  for (const point of [...points].reverse()) {
+    const row = element("tr");
+    row.append(
+      element("td", "protocol-date-cell", formatUtcDay(point.date, true)),
+      element("td", "", formatProtocolUsd(point.pons?.volumeUsd)),
+      element("td", "", formatProtocolUsd(point.pair?.volumeUsd)),
+      element("td", "", formatTokenPrice(point.pair?.closeUsd)),
+      element(
+        "td",
+        point.state === "forming" ? "is-forming" : "",
+        point.state === "forming" ? "进行中" : "完整日",
+      ),
+    );
+    volumeBody.append(row);
+  }
+
+  $("#protocol-flow-title").textContent =
+    state.protocolFlowMode === "burn" ? "销毁记录" : "归因回购记录";
+  $("#protocol-secondary-unit").textContent =
+    state.protocolFlowMode === "burn" ? "占初始供应量" : "回购结果估值";
+  $("#protocol-flow-chart").setAttribute(
+    "aria-label",
+    `PONS 与 PAIR 每日及累计${state.protocolFlowMode === "burn" ? "销毁" : "归因回购"}`,
+  );
+  const cumulative = renderProtocolFlowChart(points);
+  for (const [index, point] of [...points].reverse().entries()) {
+    const originalIndex = points.length - index - 1;
+    const row = element("tr");
+    const ponsDaily = protocolFlowValue(point, "pons", false);
+    const pairDaily = protocolFlowValue(point, "pair", false);
+    const ponsCumulative =
+      state.protocolFlowMode === "buyback"
+        ? cumulative.pons[originalIndex]
+        : protocolFlowValue(point, "pons", true);
+    const pairCumulative =
+      state.protocolFlowMode === "buyback"
+        ? cumulative.pair[originalIndex]
+        : protocolFlowValue(point, "pair", true);
+    row.append(
+      element("td", "protocol-date-cell", formatUtcDay(point.date, true)),
+      element("td", "", protocolFlowFormat(ponsDaily)),
+      element("td", "", protocolFlowFormat(ponsCumulative)),
+      element("td", "", protocolFlowFormat(pairDaily)),
+      element("td", "", protocolFlowFormat(pairCumulative)),
+    );
+    flowBody.append(row);
+  }
+  $("#protocol-flow-note").textContent =
+    state.protocolFlowMode === "burn"
+      ? "死亡地址流入按链上转账统计；比例统一除以固定初始供应量，进行中的当天不冒充完整日。"
+      : "只展示可归因记录；结果估值 = 回购代币数量 × 当日收盘价，不等于实际花费。累计从窗口内首个连续可用日开始，出现缺口后停止。";
+  const warning = $("#protocol-history-warning");
+  const warnings = payload?.warnings ?? [];
+  warning.hidden = warnings.length === 0;
+  warning.textContent = warnings.join(" ");
+}
+
 function renderEconomics() {
   if (!state.economics) return;
   $("#economics-empty-state").hidden = true;
@@ -4408,6 +4785,7 @@ function renderEconomics() {
   }
   renderPlatformActivity();
   renderLaunchpadOverview();
+  renderProtocolTokenHistory();
   renderPairFlow();
   renderPairRelativeValuation();
   renderTokenEconomics();
@@ -5325,18 +5703,26 @@ async function loadPairTeamLaunches() {
 
 async function loadEconomics() {
   const intelligencePromise = api("/api/intelligence").catch(() => null);
-  const [economics, platformActivity, valuationHistory, pairFlow, pairVolumeAlerts] =
-    await Promise.all([
-      api("/api/economics"),
-      api("/api/platform-activity"),
-      api("/api/economics/valuation/history").catch(() => null),
-      api("/api/pair/flow").catch(() => null),
-      api("/api/platform-activity/alerts/health").catch(() => null),
-    ]);
+  const [
+    economics,
+    platformActivity,
+    valuationHistory,
+    protocolTokenHistory,
+    pairFlow,
+    pairVolumeAlerts,
+  ] = await Promise.all([
+    api("/api/economics"),
+    api("/api/platform-activity"),
+    api("/api/economics/valuation/history").catch(() => null),
+    api(`/api/economics/token-history?days=${String(state.protocolHistoryDays)}`).catch(() => null),
+    api("/api/pair/flow").catch(() => null),
+    api("/api/platform-activity/alerts/health").catch(() => null),
+  ]);
   state.economics = economics;
   state.platformActivity = platformActivity;
   state.pairVolumeAlerts = pairVolumeAlerts;
   state.valuationHistory = valuationHistory;
+  state.protocolTokenHistory = protocolTokenHistory;
   if (pairFlow) state.pairFlow = pairFlow;
   renderEconomics();
   const intelligence = await intelligencePromise;
@@ -5678,6 +6064,51 @@ function bindEvents() {
       } catch (error) {
         showNotices([`逐笔账本加载失败：${error.message}`], "error");
       }
+    });
+  });
+
+  $$("[data-protocol-window]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const days = Number(button.dataset.protocolWindow);
+      if (![7, 30].includes(days) || days === state.protocolHistoryDays) return;
+      state.protocolHistoryDays = days;
+      $$("[data-protocol-window]").forEach((candidate) => {
+        candidate.classList.toggle("is-active", candidate === button);
+      });
+      try {
+        state.protocolTokenHistory = await api(`/api/economics/token-history?days=${String(days)}`);
+        renderProtocolTokenHistory();
+      } catch (error) {
+        showNotices([`平台币历史加载失败：${error.message}`], "error");
+      }
+    });
+  });
+
+  $$("[data-protocol-flow]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const mode = button.dataset.protocolFlow;
+      if (!["burn", "buyback"].includes(mode) || mode === state.protocolFlowMode) return;
+      state.protocolFlowMode = mode;
+      state.protocolFlowUnit = "tokens";
+      $$("[data-protocol-flow]").forEach((candidate) => {
+        candidate.classList.toggle("is-active", candidate === button);
+      });
+      $$("[data-protocol-unit]").forEach((candidate) => {
+        candidate.classList.toggle("is-active", candidate.dataset.protocolUnit === "tokens");
+      });
+      renderProtocolTokenHistory();
+    });
+  });
+
+  $$("[data-protocol-unit]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const unit = button.dataset.protocolUnit;
+      if (!["tokens", "secondary"].includes(unit) || unit === state.protocolFlowUnit) return;
+      state.protocolFlowUnit = unit;
+      $$("[data-protocol-unit]").forEach((candidate) => {
+        candidate.classList.toggle("is-active", candidate === button);
+      });
+      renderProtocolTokenHistory();
     });
   });
 

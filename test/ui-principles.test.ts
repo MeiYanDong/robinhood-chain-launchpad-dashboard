@@ -71,6 +71,11 @@ test("launchpad dashboard is split into four task views and defaults to a concis
   assert.match(html, /id="overview-insight-list"/);
   assert.match(html, /id="overview-trend-chart"/);
   assert.match(html, /id="overview-trend-body"/);
+  assert.match(html, /id="protocol-volume-chart"/);
+  assert.match(html, /id="protocol-flow-chart"/);
+  assert.match(html, /data-protocol-flow="burn"/);
+  assert.match(html, /data-protocol-flow="buyback"/);
+  assert.match(html, /平台币本身，不等于发射平台所有代币的总交易量/);
   assert.match(html, />7 日逐日数据</);
   assert.match(html, /data-help-title="日变化怎么计算？"/);
   assert.match(html, /id="overview-volume-date-heading"/);
@@ -147,6 +152,7 @@ test("economics client keeps unknown, not-applicable, and refresh routes distinc
   assert.match(app, /api\("\/api\/economics"\)/);
   assert.match(app, /api\("\/api\/platform-activity"\)/);
   assert.match(app, /api\("\/api\/economics\/valuation\/history"\)/);
+  assert.match(app, /\/api\/economics\/token-history\?days=/);
   assert.match(app, /api\("\/api\/pair\/flow"\)/);
   assert.match(app, /api\("\/api\/pair\/flow\/refresh", \{ method: "POST" \}\)/);
   assert.match(app, /api\("\/api\/economics\/refresh", \{ method: "POST" \}\)/);
@@ -161,6 +167,8 @@ test("economics client keeps unknown, not-applicable, and refresh routes distinc
   assert.match(app, /evidence-badge--quiet/);
   assert.match(app, /One or more source results require attention/);
   assert.match(app, /renderLaunchpadOverview\(\)/);
+  assert.match(app, /renderProtocolTokenHistory\(\)/);
+  assert.match(app, /回购结果估值/);
   assert.match(app, /renderPlatformOperations\(\)/);
   assert.match(app, /renderPlatformActivity\(\)/);
   assert.match(app, /尚未发布/);

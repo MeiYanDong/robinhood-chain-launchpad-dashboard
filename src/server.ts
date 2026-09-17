@@ -120,7 +120,7 @@ const economicsCollector = new EconomicsCollector(economicsSettings);
 const economics = new EconomicsService(
   economicsDatabase,
   economicsSettings,
-  { dashboard, pair, long },
+  { dashboard, pair, long, pairFlow },
   economicsCollector,
 );
 const intelligenceSettings = intelligenceSettingsFromEnv();

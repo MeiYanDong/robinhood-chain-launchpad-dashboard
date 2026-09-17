@@ -4,6 +4,9 @@ import { DatabaseSync } from "node:sqlite";
 import type {
   EconomicsResponse,
   PairRelativeValuationHistoryPoint,
+  ProtocolBurnCoverage,
+  ProtocolBurnDay,
+  ProtocolBurnHistoryObservation,
   StoredEconomicsSnapshot,
   TokenDailyCandle,
 } from "./types.js";
@@ -27,6 +30,14 @@ interface CandleRow {
 
 interface TimestampRow {
   fetched_at: string | null;
+}
+
+interface BurnDayRow {
+  payload_json: string;
+}
+
+interface BurnCoverageRow {
+  payload_json: string;
 }
 
 const VALUATION_HISTORY_LIMIT = 2_048;
@@ -75,6 +86,24 @@ export class EconomicsDatabase {
 
       CREATE INDEX IF NOT EXISTS idx_token_daily_candles_date
         ON token_daily_candles(token_address, date DESC);
+
+      CREATE TABLE IF NOT EXISTS protocol_burn_days (
+        token_address TEXT NOT NULL,
+        date TEXT NOT NULL,
+        fetched_at TEXT NOT NULL,
+        complete INTEGER NOT NULL,
+        payload_json TEXT NOT NULL,
+        PRIMARY KEY(token_address, date)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_protocol_burn_days_date
+        ON protocol_burn_days(token_address, date DESC);
+
+      CREATE TABLE IF NOT EXISTS protocol_burn_coverage (
+        token_address TEXT PRIMARY KEY,
+        fetched_at TEXT NOT NULL,
+        payload_json TEXT NOT NULL
+      );
     `);
   }
 
@@ -220,6 +249,86 @@ export class EconomicsDatabase {
         WHERE token_address = ?
       `)
       .get(tokenAddress.toLowerCase()) as TimestampRow | undefined;
+    return row?.fetched_at ?? null;
+  }
+
+  saveProtocolBurnHistory(observation: ProtocolBurnHistoryObservation): void {
+    const dayStatement = this.db.prepare(`
+      INSERT INTO protocol_burn_days(token_address, date, fetched_at, complete, payload_json)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(token_address, date) DO UPDATE SET
+        fetched_at = excluded.fetched_at,
+        complete = excluded.complete,
+        payload_json = excluded.payload_json
+    `);
+    const coverageStatement = this.db.prepare(`
+      INSERT INTO protocol_burn_coverage(token_address, fetched_at, payload_json)
+      VALUES (?, ?, ?)
+      ON CONFLICT(token_address) DO UPDATE SET
+        fetched_at = excluded.fetched_at,
+        payload_json = excluded.payload_json
+    `);
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      for (const day of observation.days) {
+        dayStatement.run(
+          day.tokenAddress.toLowerCase(),
+          day.date,
+          day.observedAt,
+          day.complete ? 1 : 0,
+          JSON.stringify(day),
+        );
+      }
+      for (const coverage of observation.coverage) {
+        coverageStatement.run(
+          coverage.tokenAddress.toLowerCase(),
+          coverage.observedAt,
+          JSON.stringify(coverage),
+        );
+      }
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
+  protocolBurnDays(tokenAddress: string, startDate: string, endDate: string): ProtocolBurnDay[] {
+    const rows = this.db
+      .prepare(`
+        SELECT payload_json
+        FROM protocol_burn_days
+        WHERE token_address = ? AND date >= ? AND date <= ?
+        ORDER BY date ASC
+      `)
+      .all(tokenAddress.toLowerCase(), startDate, endDate) as unknown as BurnDayRow[];
+    return rows.flatMap((row) => {
+      try {
+        const day = JSON.parse(row.payload_json) as ProtocolBurnDay;
+        return day.tokenAddress.toLowerCase() === tokenAddress.toLowerCase() ? [day] : [];
+      } catch {
+        return [];
+      }
+    });
+  }
+
+  protocolBurnCoverage(tokenAddress: string): ProtocolBurnCoverage | null {
+    const row = this.db
+      .prepare("SELECT payload_json FROM protocol_burn_coverage WHERE token_address = ?")
+      .get(tokenAddress.toLowerCase()) as BurnCoverageRow | undefined;
+    if (!row) return null;
+    try {
+      const coverage = JSON.parse(row.payload_json) as ProtocolBurnCoverage;
+      return coverage.tokenAddress.toLowerCase() === tokenAddress.toLowerCase() ? coverage : null;
+    } catch {
+      return null;
+    }
+  }
+
+  protocolBurnHistoryFetchedAt(): string | null {
+    const row = this.db
+      .prepare("SELECT MAX(fetched_at) AS fetched_at FROM protocol_burn_coverage")
+      .get() as TimestampRow | undefined;
     return row?.fetched_at ?? null;
   }
 

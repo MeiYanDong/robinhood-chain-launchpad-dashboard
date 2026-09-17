@@ -38,6 +38,18 @@ PONS 和 PAIR 同时显示两种市值：市场来源市值，以及
 Pons 与 PAIR 在没有逐笔闭环证据时只展示政策和累计销毁，不把二者写成实际回购。Long 没有
 回购机制，相关字段是“不适用”，不是 `$0`。
 
+## 平台币日线与销毁图
+
+这一组数据不再借用发射平台交易量。PONS / PAIR 的日成交额都来自 GMGN 对各自平台币的 1d
+K 线；字段名固定写“平台币成交额”。每日销毁来自公共 Blockscout 对死亡地址的 ERC-20 转账，
+累计销毁以官方公共 RPC 的当前死亡地址余额为锚，再扣除后续日期的销毁量回推。公共来源限流
+时使用 SQLite 缓存并标记缺口，不切换到付费 RPC，也不把缺失日补成 0。
+
+销毁比例统一使用 `当日或累计销毁数量 ÷ 固定初始供应量`。金额不拿当前市值作为历史分母：
+回购的“结果估值”只计算 `归因回购代币数量 × 当日收盘价`；回购强度使用前一完整 UTC 日的
+销毁调整市值。PONS 回购钱包归因属于行为推断，PAIR 只接受资金闭环逐笔账本；两者都不把
+结果估值写成实际花费。
+
 ## PAIR 相对估值
 
 模型同时回答两个不同问题：最近七天的经营常态对应多少，以及最新完整日相对这个常态正在
@@ -73,6 +85,7 @@ PONS 当前价格
 - `GET /api/economics/health`
 - `GET /api/economics/valuation`
 - `GET /api/economics/valuation/history`
+- `GET /api/economics/token-history?days=7|30|90`
 - `GET /api/economics/sources`
 - `POST /api/economics/refresh`
 

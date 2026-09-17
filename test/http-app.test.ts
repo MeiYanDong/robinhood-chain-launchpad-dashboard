@@ -216,6 +216,10 @@ function fakeEconomics(overrides: Partial<EconomicsHttpApi> = {}): EconomicsHttp
     snapshot: () => ({ route: "economics-snapshot" }),
     valuation: () => ({ route: "economics-valuation" }),
     valuationHistory: () => ({ route: "economics-valuation-history" }),
+    protocolTokenHistory: (windowDays = 7) => ({
+      route: "economics-token-history",
+      windowDays,
+    }),
     sources: () => ({ route: "economics-sources" }),
     refresh: async () => ({ route: "economics-rebuild" }),
     refreshAll: async () => ({ route: "economics-refresh" }),
@@ -711,6 +715,13 @@ test("economics HTTP routes expose the comparison snapshot and explicit readines
       assert.deepEqual(await (await fetch(`${baseUrl}/api/economics/valuation/history`)).json(), {
         route: "economics-valuation-history",
       });
+      assert.deepEqual(
+        await (await fetch(`${baseUrl}/api/economics/token-history?days=30`)).json(),
+        {
+          route: "economics-token-history",
+          windowDays: 30,
+        },
+      );
       assert.deepEqual(await (await fetch(`${baseUrl}/api/economics/sources`)).json(), {
         route: "economics-sources",
       });

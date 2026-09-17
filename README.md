@@ -4,7 +4,7 @@
 PAIR Alpha / PAIR V2 / 资金闭环”，共用同一套导航、视觉和“先结论、后数据、再证据”的阅读顺序。
 全链数据保留，但不再作为割裂的独立模板；CashCat 不再是重点资产或一级页面。
 
-仓库代码 `0.20.11` 将完整 UTC 日的全链基本面、发射台经营、Alpha 信号和 PAIR 链上资金流收进
+仓库代码 `0.26.0` 将完整 UTC 日的全链基本面、发射台经营、Alpha 信号和 PAIR 链上资金流收进
 同一个产品壳。完整日、实时快照与滚动 24H 仍严格分开，任何缺失值继续保持未知。全链与
 CashCat 的可维护源码仍位于 [`services/`](services/README.md)，但生产进程、数据库、密钥和
 发布周期保持隔离；CashCat 仅保留历史与兼容读接口。
@@ -163,7 +163,9 @@ GET https://www.ponsfamily.com/api/pons-analytics?v=dune-v2
 GET https://pair.fund/api/stats/protocol
 GET https://pair.fund/api/tokens/0x6b1d...66be
 gmgn token info --chain robinhood --address 0x39db...4571 --raw
+gmgn market kline --chain robinhood --address 0x6b1d...66be --resolution 1d --raw
 POST https://rpc.mainnet.chain.robinhood.com  eth_call
+GET https://robinhoodchain.blockscout.com/api/?module=account&action=tokentx&...
 ```
 
 Pons 与 PAIR 的平台成交量优先读取各自官方 Dune-backed 日序列；Long 继续读取经过
@@ -174,6 +176,12 @@ PONS 与 PAIR 的来源市值和“价格 ×（总供应量 − 销毁地址余�
 只能证明销毁结果，不能自动证明资金来自协议手续费；实际回购必须有资金来源、Swap 和销毁或
 锁仓的逐笔闭环证据。设计和口径见
 [`docs/economics-comparison.md`](docs/economics-comparison.md)。
+
+今日概览另有一组严格分开的“平台币历史”：PONS / PAIR 平台币日成交额读取 GMGN 日线，不能
+写成发射平台全量成交额；每日销毁读取公共 Blockscout 的死亡地址转账，供应量与当前死亡地址
+余额只读 Robinhood Chain 官方公共 RPC。所有历史读取使用小时级 SQLite 缓存并在 429 时降级，
+不会继承环境文件中的付费 RPC。PONS 的回购归因目前按已识别回购钱包行为标注为“推断”，PAIR
+只使用资金闭环逐笔账本；“回购结果估值”是代币数量乘当日收盘价，不冒充实际花费。
 
 PAIR 资金闭环模块进一步把两条币流拆开：PAIR 从 Locker 直接进入团队地址后销毁，和协议
 报价资产（包括 SPY）进入团队地址、经 Swap 换成 PAIR、再进入死亡地址。转账按区块与日志顺序建立 FIFO 批次账本，
@@ -450,6 +458,7 @@ Pons、Long、PAIR 最近 7 个完整 UTC 日的逐日交易量、日变化、�
 | `PAIR_GMGN_BIN` | `gmgn-cli` | GMGN CLI 可执行文件路径；生产 unit 指向项目内固定版本 |
 | `PAIR_FLOW_REFRESH_TTL_MINUTES` | `5` | PAIR 资金闭环快照与逐笔事件最短刷新间隔 |
 | `PAIR_FLOW_STALE_AFTER_MINUTES` | `20` | PAIR 资金闭环快照过期阈值 |
+| `PAIR_FLOW_PUBLIC_RPC_URL` | Robinhood Chain 官方公共 RPC | PAIR 资金闭环只读链上调用；不会回退到付费 RPC 变量 |
 | `PAIR_V2_RPC_URL` | Robinhood Chain 官方 RPC | PAIR V2 只读事件与 bucket 查询；可由 `PAIR_FLOW_RPC_URL` 兜底 |
 | `PAIR_V2_CHAIN_POLL_SECONDS` | `8` | 服务进程内链上确认事件轮询间隔 |
 | `PAIR_ALPHA_HOT_MARKET_POLL_SECONDS` | `15` | PAIR Alpha 活跃候选的短周期池行情更新间隔 |
@@ -494,8 +503,9 @@ Pons、Long、PAIR 最近 7 个完整 UTC 日的逐日交易量、日变化、�
 | `LONG_ACTIVE_DEPTH_FLOOR_USD` | `1000` | Long 入榜最低流动性 |
 | `LONG_REFRESH_TTL_MINUTES` | `15` | Long 实时榜自动刷新 TTL |
 | `LONG_GMGN_BIN` | `gmgn-cli` | Long 活跃样本使用的固定 GMGN CLI 路径 |
-| `ECONOMICS_GMGN_BIN` | `gmgn-cli` | PONS 市场数据使用的固定 GMGN CLI 路径 |
-| `ECONOMICS_RPC_URL` | Robinhood Chain 官方 RPC | PONS/PAIR 供应量与累计销毁余额读取 |
+| `ECONOMICS_GMGN_BIN` | `gmgn-cli` | PONS / PAIR 平台币市场数据与日线使用的固定 GMGN CLI 路径 |
+| `ECONOMICS_PUBLIC_RPC_URL` | Robinhood Chain 官方公共 RPC | PONS/PAIR 供应量与累计销毁余额读取；付费 RPC 变量会被忽略 |
+| `ECONOMICS_BURN_HISTORY_TTL_MINUTES` | `60` | 公共 Blockscout 销毁转账缓存间隔 |
 | `ECONOMICS_REFRESH_TTL_MINUTES` | `15` | 三强对比快照刷新 TTL |
 | `ECONOMICS_STALE_AFTER_MINUTES` | `45` | 三强对比快照过期阈值 |
 | `GMGN_API_KEY` | 无，生产必填 | GMGN 只读代币信息 API Key；通过受保护的 systemd 环境文件注入 |
@@ -539,6 +549,7 @@ Pons、Long、PAIR 最近 7 个完整 UTC 日的逐日交易量、日变化、�
 | `POST /api/long/reports/generate` | 内网定时任务固化 Long 日报；Nginx 不对公网开放 |
 | `GET /api/economics/health` | 三强对比模块及最近快照状态 |
 | `GET /api/economics` | Pons、Long、PAIR 代币价值、平台经营与回购核验 |
+| `GET /api/economics/token-history?days=7\|30\|90` | PONS/PAIR 平台币日成交、每日与累计销毁、归因回购；不是发射平台总成交 |
 | `GET /api/economics/sources` | 口径定义、限制与来源状态 |
 | `POST /api/economics/refresh` | 刷新平台、代币与链上来源后重建三强对比 |
 

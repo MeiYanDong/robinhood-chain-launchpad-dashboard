@@ -178,11 +178,12 @@ test("economics collector publishes partial observations without leaking upstrea
 
 test("economics environment settings stay bounded and reject invalid refresh intervals", () => {
   const parsed = economicsSettingsFromEnv({
-    ECONOMICS_RPC_URL: "https://rpc.example",
+    ECONOMICS_RPC_URL: "https://paid-rpc.example/secret",
+    ECONOMICS_PUBLIC_RPC_URL: "https://public-rpc.example",
     ECONOMICS_REFRESH_TTL_MINUTES: "5",
     ECONOMICS_STALE_AFTER_MINUTES: "20",
   });
-  assert.equal(parsed.rpcUrl, "https://rpc.example");
+  assert.equal(parsed.rpcUrl, "https://public-rpc.example");
   assert.equal(parsed.refreshTtlMinutes, 5);
   assert.equal(parsed.staleAfterMinutes, 20);
   assert.equal(parsed.priceHistoryTtlMinutes, 60);

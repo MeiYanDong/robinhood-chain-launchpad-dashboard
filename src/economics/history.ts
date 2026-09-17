@@ -44,6 +44,7 @@ function ohlc(values: number[]): DailyOhlc | null {
 export function aggregateValuationDaily(input: {
   points: PairRelativeValuationHistoryPoint[];
   ponsCandles: TokenDailyCandle[];
+  pairCandles?: TokenDailyCandle[];
   startDate: string;
   endDate: string;
 }): PairRelativeValuationDailyPoint[] {
@@ -60,20 +61,38 @@ export function aggregateValuationDaily(input: {
       .filter((candle) => candle.date >= input.startDate && candle.date <= input.endDate)
       .map((candle) => [candle.date, candle]),
   );
-  const dates = [...new Set([...pointsByDate.keys(), ...candlesByDate.keys()])].sort();
+  const pairCandlesByDate = new Map(
+    (input.pairCandles ?? [])
+      .filter((candle) => candle.date >= input.startDate && candle.date <= input.endDate)
+      .map((candle) => [candle.date, candle]),
+  );
+  const dates = [
+    ...new Set([...pointsByDate.keys(), ...candlesByDate.keys(), ...pairCandlesByDate.keys()]),
+  ].sort();
   return dates.map((date) => {
     const points = (pointsByDate.get(date) ?? []).sort((left, right) =>
       left.observedAt.localeCompare(right.observedAt),
     );
     return {
       date,
-      state: candlesByDate.get(date)?.state ?? (date === input.endDate ? "forming" : "closed"),
+      state:
+        candlesByDate.get(date)?.state ??
+        pairCandlesByDate.get(date)?.state ??
+        (date === input.endDate ? "forming" : "closed"),
       pons: candlesByDate.get(date) ?? null,
-      pairActual: ohlc(
-        points
-          .map((point) => point.actualPriceUsd)
-          .filter((value): value is number => finite(value)),
-      ),
+      pair: pairCandlesByDate.get(date) ?? null,
+      pairActual: pairCandlesByDate.has(date)
+        ? {
+            openUsd: pairCandlesByDate.get(date)?.openUsd ?? 0,
+            highUsd: pairCandlesByDate.get(date)?.highUsd ?? 0,
+            lowUsd: pairCandlesByDate.get(date)?.lowUsd ?? 0,
+            closeUsd: pairCandlesByDate.get(date)?.closeUsd ?? 0,
+          }
+        : ohlc(
+            points
+              .map((point) => point.actualPriceUsd)
+              .filter((value): value is number => finite(value)),
+          ),
       pairSevenDayReference: ohlc(
         points.map(sevenDayReference).filter((value): value is number => finite(value)),
       ),

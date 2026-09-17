@@ -1,12 +1,14 @@
 import { assessDailyMetrics, usableDailyMetric } from "../domain/data-quality.js";
 import type { DailyMetric, MetricName } from "../domain/types.js";
 import type { LongLeaderboardResponse } from "../long-tokens/types.js";
+import type { PairFlowEvent, PairFlowResponse } from "../pair-flow/types.js";
 import type { PairLeaderboardResponse, PairRankingEntry } from "../pair/types.js";
 import { lastClosedUtcDate, shiftUtcDate } from "../utils/time.js";
 import type { EconomicsSettings } from "./config.js";
 import type { EconomicsCollector } from "./collector.js";
 import type { EconomicsDatabase } from "./database.js";
 import { aggregateValuationDaily } from "./history.js";
+import { collectProtocolBurnHistory } from "./protocol-flow.js";
 import type {
   BuybackPolicy,
   BuybackSummaryRow,
@@ -18,6 +20,9 @@ import type {
   EvidenceValue,
   PairRelativeValuationHistoryResponse,
   PlatformEconomicsRow,
+  ProtocolBurnHistoryObservation,
+  ProtocolTokenDailyFlow,
+  ProtocolTokenHistoryResponse,
   ProtocolTokenMarketObservation,
   TokenEconomicsRow,
   TokenDailyCandle,
@@ -53,12 +58,20 @@ export interface EconomicsLongProvider {
   refresh(): Promise<unknown>;
 }
 
+export interface EconomicsPairFlowProvider {
+  storedEvents(): PairFlowEvent[];
+  snapshot(): PairFlowResponse | null;
+}
+
 export interface EconomicsServiceDependencies {
   dashboard: EconomicsDashboardProvider;
   pair: EconomicsPairProvider;
   long: EconomicsLongProvider;
+  pairFlow?: EconomicsPairFlowProvider;
   collect?: EconomicsCollector["collect"];
   collectPonsPriceHistory?: EconomicsCollector["collectPonsPriceHistory"];
+  collectPairPriceHistory?: EconomicsCollector["collectPairPriceHistory"];
+  collectProtocolBurnHistory?: () => Promise<ProtocolBurnHistoryObservation>;
   now?: () => Date;
   warn?: (event: string, context: Record<string, unknown>) => void;
 }
@@ -594,19 +607,28 @@ export class EconomicsService {
   private refreshPromise: Promise<EconomicsResponse> | null = null;
   private readonly collect: EconomicsCollector["collect"];
   private readonly collectPonsPriceHistory: EconomicsCollector["collectPonsPriceHistory"];
+  private readonly collectPairPriceHistory: EconomicsCollector["collectPairPriceHistory"];
+  private readonly collectBurnHistory: () => Promise<ProtocolBurnHistoryObservation>;
   private readonly now: () => Date;
   private readonly warn: (event: string, context: Record<string, unknown>) => void;
 
   constructor(
     private readonly database: EconomicsDatabase,
     private readonly settings: EconomicsSettings,
-    private readonly providers: Pick<EconomicsServiceDependencies, "dashboard" | "pair" | "long">,
+    private readonly providers: Pick<
+      EconomicsServiceDependencies,
+      "dashboard" | "pair" | "long" | "pairFlow"
+    >,
     collector: EconomicsCollector,
     dependencies: Omit<EconomicsServiceDependencies, "dashboard" | "pair" | "long"> = {},
   ) {
     this.collect = dependencies.collect ?? collector.collect.bind(collector);
     this.collectPonsPriceHistory =
       dependencies.collectPonsPriceHistory ?? collector.collectPonsPriceHistory.bind(collector);
+    this.collectPairPriceHistory =
+      dependencies.collectPairPriceHistory ?? collector.collectPairPriceHistory.bind(collector);
+    this.collectBurnHistory =
+      dependencies.collectProtocolBurnHistory ?? (() => collectProtocolBurnHistory(this.settings));
     this.now = dependencies.now ?? (() => new Date());
     this.warn = dependencies.warn ?? ((event, context) => console.warn(event, context));
   }
@@ -654,24 +676,47 @@ export class EconomicsService {
     // GMGN applies an IP-wide rate limit. Keep spot and K-line reads serial,
     // while the hourly K-line cache prevents redundant history requests.
     const batch = await this.collect();
-    const priceHistoryHealth = await this.refreshPonsPriceHistory(now);
+    const ponsPriceHistoryHealth = await this.refreshTokenPriceHistory(now, {
+      tokenAddress: this.settings.ponsTokenAddress,
+      source: "gmgn.ponsPriceHistory",
+      label: "GMGN PONS 日线",
+      url: this.settings.ponsTokenUrl,
+      collect: this.collectPonsPriceHistory,
+    });
+    const pairPriceHistoryHealth = await this.refreshTokenPriceHistory(now, {
+      tokenAddress: this.settings.pairTokenAddress,
+      source: "gmgn.pairPriceHistory",
+      label: "GMGN PAIR 平台币日线",
+      url: this.settings.pairTokenUrl,
+      collect: this.collectPairPriceHistory,
+    });
+    const burnHistoryHealth = await this.refreshProtocolBurnHistory(now);
+    const addedHealth = [ponsPriceHistoryHealth, pairPriceHistoryHealth, burnHistoryHealth];
     const response = this.buildResponse({
       ...batch,
-      sourceHealth: [...batch.sourceHealth, priceHistoryHealth],
-      warnings:
-        priceHistoryHealth.status === "ok"
-          ? batch.warnings
-          : [...batch.warnings, "gmgn.ponsPriceHistory_unavailable"],
+      sourceHealth: [...batch.sourceHealth, ...addedHealth],
+      warnings: [
+        ...batch.warnings,
+        ...addedHealth
+          .filter((health) => health.status !== "ok")
+          .map((health) => `${health.source}_unavailable`),
+      ],
     });
     this.database.save(response);
     return response;
   }
 
-  private async refreshPonsPriceHistory(now: Date): Promise<EconomicsSourceHealth> {
-    const source = "gmgn.ponsPriceHistory";
-    const label = "GMGN PONS 日线";
-    const url = this.settings.ponsTokenUrl;
-    const cachedAt = this.database.tokenDailyCandlesFetchedAt(this.settings.ponsTokenAddress);
+  private async refreshTokenPriceHistory(
+    now: Date,
+    input: {
+      tokenAddress: string;
+      source: string;
+      label: string;
+      url: string;
+      collect: () => ReturnType<EconomicsCollector["collectPonsPriceHistory"]>;
+    },
+  ): Promise<EconomicsSourceHealth> {
+    const cachedAt = this.database.tokenDailyCandlesFetchedAt(input.tokenAddress);
     const cachedAge = cachedAt ? now.valueOf() - Date.parse(cachedAt) : Number.POSITIVE_INFINITY;
     if (
       cachedAt &&
@@ -680,38 +725,103 @@ export class EconomicsService {
       cachedAge < this.settings.priceHistoryTtlMinutes * 60_000
     ) {
       return {
-        source,
-        label,
+        source: input.source,
+        label: input.label,
         status: "ok",
         fetchedAt: cachedAt,
         message: "小时级日线缓存可用。",
-        url,
+        url: input.url,
       };
     }
     try {
-      const result = await this.collectPonsPriceHistory();
-      this.database.upsertTokenDailyCandles(this.settings.ponsTokenAddress, result.value);
+      const result = await input.collect();
+      this.database.upsertTokenDailyCandles(input.tokenAddress, result.value);
       return {
-        source,
-        label,
+        source: input.source,
+        label: input.label,
         status: "ok",
         fetchedAt: result.fetchedAt,
         message: `${result.value.length} 个日线价格点可用。`,
-        url,
+        url: input.url,
       };
     } catch (error) {
-      const cached = this.database.tokenDailyCandles(this.settings.ponsTokenAddress, 1);
-      this.warn("pons_price_history_refresh_failed", {
+      const cached = this.database.tokenDailyCandles(input.tokenAddress, 1);
+      this.warn("token_price_history_refresh_failed", {
+        source: input.source,
         errorName: error instanceof Error ? error.name : "UnknownError",
         cached: cached.length > 0,
       });
       return {
-        source,
-        label,
+        source: input.source,
+        label: input.label,
         status: cached.length > 0 ? "degraded" : "failed",
         fetchedAt: cachedAt ?? now.toISOString(),
         message: cached.length > 0 ? "刷新失败，继续使用已保存日线。" : "日线暂不可用。",
-        url,
+        url: input.url,
+      };
+    }
+  }
+
+  private async refreshProtocolBurnHistory(now: Date): Promise<EconomicsSourceHealth> {
+    const source = "blockscout.protocolBurnHistory";
+    const cachedAt = this.database.protocolBurnHistoryFetchedAt();
+    const cachedAge = cachedAt ? now.valueOf() - Date.parse(cachedAt) : Number.POSITIVE_INFINITY;
+    const cachedCoverage = [
+      this.database.protocolBurnCoverage(this.settings.ponsTokenAddress),
+      this.database.protocolBurnCoverage(this.settings.pairTokenAddress),
+    ];
+    const cacheComplete = cachedCoverage.every((coverage) => {
+      if (!coverage) return false;
+      const age = now.valueOf() - Date.parse(coverage.observedAt);
+      return (
+        Number.isFinite(age) && age >= -60_000 && age < this.settings.burnHistoryTtlMinutes * 60_000
+      );
+    });
+    if (
+      cachedAt &&
+      Number.isFinite(cachedAge) &&
+      cachedAge >= -60_000 &&
+      cachedAge < this.settings.burnHistoryTtlMinutes * 60_000
+    ) {
+      return {
+        source,
+        label: "Blockscout 销毁转账",
+        status: cacheComplete ? "ok" : "degraded",
+        fetchedAt: cachedAt,
+        message: cacheComplete ? "小时级销毁记录缓存可用。" : "仅部分代币缓存仍在有效期内。",
+        url: this.settings.blockscoutApiUrl,
+      };
+    }
+    try {
+      const observation = await this.collectBurnHistory();
+      this.database.saveProtocolBurnHistory(observation);
+      const partial = (observation.failedTokenAddresses?.length ?? 0) > 0;
+      return {
+        source,
+        label: "Blockscout 销毁转账",
+        status: partial ? "degraded" : "ok",
+        fetchedAt: observation.observedAt,
+        message: partial
+          ? "部分代币刷新失败，已保存其余公共记录。"
+          : `${observation.days.length} 个代币日记录可用。`,
+        url: this.settings.blockscoutApiUrl,
+      };
+    } catch (error) {
+      const hasCache = Boolean(
+        this.database.protocolBurnCoverage(this.settings.ponsTokenAddress) ||
+          this.database.protocolBurnCoverage(this.settings.pairTokenAddress),
+      );
+      this.warn("protocol_burn_history_refresh_failed", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        cached: hasCache,
+      });
+      return {
+        source,
+        label: "Blockscout 销毁转账",
+        status: hasCache ? "degraded" : "failed",
+        fetchedAt: cachedAt ?? now.toISOString(),
+        message: hasCache ? "刷新失败，继续使用已保存记录。" : "销毁记录暂不可用。",
+        url: this.settings.blockscoutApiUrl,
       };
     }
   }
@@ -914,6 +1024,7 @@ export class EconomicsService {
       daily: aggregateValuationDaily({
         points,
         ponsCandles: this.ponsPriceHistory(),
+        pairCandles: this.pairPriceHistory(),
         startDate,
         endDate,
       }),
@@ -925,6 +1036,223 @@ export class EconomicsService {
       this.settings.ponsTokenAddress,
       Math.ceil(this.settings.priceHistoryDays),
     );
+  }
+
+  pairPriceHistory(): TokenDailyCandle[] {
+    return this.database.tokenDailyCandles(
+      this.settings.pairTokenAddress,
+      Math.ceil(this.settings.priceHistoryDays),
+    );
+  }
+
+  protocolTokenHistory(windowDays = 7): ProtocolTokenHistoryResponse {
+    const days = Math.max(1, Math.min(90, Math.trunc(windowDays)));
+    const now = this.now();
+    const currentDate = now.toISOString().slice(0, 10);
+    const endDate = lastClosedUtcDate(now);
+    const startDate = shiftUtcDate(endDate, -(days - 1));
+    const dates = Array.from({ length: days }, (_, index) => shiftUtcDate(startDate, index));
+    const calculationDates = [...dates];
+    for (let date = shiftUtcDate(endDate, 1); date <= currentDate; date = shiftUtcDate(date, 1)) {
+      calculationDates.push(date);
+    }
+    const ponsCandles = new Map(this.ponsPriceHistory().map((candle) => [candle.date, candle]));
+    const pairCandles = new Map(this.pairPriceHistory().map((candle) => [candle.date, candle]));
+    const ponsBurnDays = new Map(
+      this.database
+        .protocolBurnDays(this.settings.ponsTokenAddress, startDate, currentDate)
+        .map((day) => [day.date, day]),
+    );
+    const pairBurnDays = new Map(
+      this.database
+        .protocolBurnDays(this.settings.pairTokenAddress, startDate, currentDate)
+        .map((day) => [day.date, day]),
+    );
+    const ponsCoverage = this.database.protocolBurnCoverage(this.settings.ponsTokenAddress);
+    const pairCoverage = this.database.protocolBurnCoverage(this.settings.pairTokenAddress);
+    const latest = this.database.latest()?.payload ?? null;
+    const tokenAnchor = (platformId: "pons" | "pair") => {
+      const token = latest?.tokens.find((candidate) => candidate.platformId === platformId);
+      const totalSupply = token?.totalSupply.value ?? token?.totalSupply.rawValue ?? null;
+      const burnedSupply = token?.burnedSupply.value ?? token?.burnedSupply.rawValue ?? null;
+      return {
+        totalSupply: Number.isFinite(totalSupply) ? totalSupply : null,
+        burnedSupply: Number.isFinite(burnedSupply) ? burnedSupply : null,
+      };
+    };
+    const ponsAnchor = tokenAnchor("pons");
+    const pairAnchor = tokenAnchor("pair");
+    const pairFlowSnapshot = this.providers.pairFlow?.snapshot() ?? null;
+    const pairBuybackEvents =
+      this.providers.pairFlow
+        ?.storedEvents()
+        .filter((event) => event.type === "buyback" && event.transactionStatus !== "failed") ?? [];
+    const pairBuybacksByDate = new Map<string, { tokens: number; count: number }>();
+    for (const event of pairBuybackEvents) {
+      const date = event.timestamp.slice(0, 10);
+      const aggregate = pairBuybacksByDate.get(date) ?? { tokens: 0, count: 0 };
+      aggregate.tokens += event.pairAmount;
+      aggregate.count += 1;
+      pairBuybacksByDate.set(date, aggregate);
+    }
+    const pairBuybackCoverageStart =
+      pairFlowSnapshot?.attribution.historyStartAt.slice(0, 10) ?? null;
+    const pairBuybackComplete = pairFlowSnapshot?.attribution.complete === true;
+
+    const coveredBurn = (
+      date: string,
+      coverage: typeof ponsCoverage,
+      day: ReturnType<typeof ponsBurnDays.get>,
+    ) => {
+      if (!coverage?.coverageStartAt || date > coverage.observedAt.slice(0, 10)) return false;
+      if (coverage.completeHistory) return true;
+      if (!day) return false;
+      const coverageDate = coverage.coverageStartAt.slice(0, 10);
+      return date > coverageDate || (date === coverageDate && day.complete);
+    };
+
+    const buildFlows = (platformId: "pons" | "pair") => {
+      const candles = platformId === "pons" ? ponsCandles : pairCandles;
+      const burnDays = platformId === "pons" ? ponsBurnDays : pairBurnDays;
+      const coverage = platformId === "pons" ? ponsCoverage : pairCoverage;
+      const anchor = platformId === "pons" ? ponsAnchor : pairAnchor;
+      const daily = calculationDates.map((date) => {
+        const candle = candles.get(date) ?? null;
+        const burnDay = burnDays.get(date);
+        const burnCovered = coveredBurn(date, coverage, burnDay);
+        const pairBuybackCovered = Boolean(
+          pairBuybackComplete && pairBuybackCoverageStart && date >= pairBuybackCoverageStart,
+        );
+        const pairBuyback = pairBuybacksByDate.get(date) ?? { tokens: 0, count: 0 };
+        const buybackTokens =
+          platformId === "pons"
+            ? burnCovered
+              ? (burnDay?.inferredBuybackTokens ?? 0)
+              : null
+            : pairBuybackCovered
+              ? pairBuyback.tokens
+              : null;
+        const buybackCount =
+          platformId === "pons"
+            ? burnCovered
+              ? (burnDay?.inferredBuybackEventCount ?? 0)
+              : null
+            : pairBuybackCovered
+              ? pairBuyback.count
+              : null;
+        return {
+          date,
+          candle,
+          burnDay,
+          burnCovered,
+          buybackTokens,
+          buybackCount,
+        };
+      });
+      let laterBurns = 0;
+      let laterBurnsComplete = true;
+      const cumulative = new Map<string, number | null>();
+      for (const row of [...daily].reverse()) {
+        cumulative.set(
+          row.date,
+          anchor.burnedSupply !== null && laterBurnsComplete
+            ? Math.max(0, anchor.burnedSupply - laterBurns)
+            : null,
+        );
+        if (!row.burnCovered) laterBurnsComplete = false;
+        else laterBurns += row.burnDay?.burnedTokens ?? 0;
+      }
+      return daily.map((row, index): ProtocolTokenDailyFlow => {
+        const burnedTokens = row.burnCovered ? (row.burnDay?.burnedTokens ?? 0) : null;
+        const cumulativeBurnedTokens = cumulative.get(row.date) ?? null;
+        const totalSupply = anchor.totalSupply;
+        const closeUsd = row.candle?.closeUsd ?? null;
+        const resultValue =
+          row.buybackTokens !== null && closeUsd !== null ? row.buybackTokens * closeUsd : null;
+        const previous = index > 0 ? daily[index - 1] : null;
+        const previousCumulative = previous ? (cumulative.get(previous.date) ?? null) : null;
+        const previousMarketCap =
+          previous?.candle?.closeUsd !== undefined &&
+          totalSupply !== null &&
+          previousCumulative !== null
+            ? previous.candle.closeUsd * Math.max(0, totalSupply - previousCumulative)
+            : null;
+        return {
+          volumeUsd: row.candle?.volumeUsd ?? null,
+          closeUsd,
+          burnedTokens,
+          burnedPercentOfInitialSupply:
+            burnedTokens !== null && totalSupply !== null && totalSupply > 0
+              ? (burnedTokens / totalSupply) * 100
+              : null,
+          cumulativeBurnedTokens,
+          cumulativeBurnedPercent:
+            cumulativeBurnedTokens !== null && totalSupply !== null && totalSupply > 0
+              ? (cumulativeBurnedTokens / totalSupply) * 100
+              : null,
+          burnEventCount: row.burnCovered ? (row.burnDay?.burnEventCount ?? 0) : null,
+          attributedBuybackTokens: row.buybackTokens,
+          attributedBuybackResultValueUsd: resultValue,
+          attributedBuybackIntensityPercent:
+            resultValue !== null && previousMarketCap !== null && previousMarketCap > 0
+              ? (resultValue / previousMarketCap) * 100
+              : null,
+          attributedBuybackEventCount: row.buybackCount,
+          burnComplete: row.burnCovered && row.date <= endDate,
+          buybackEvidence:
+            row.buybackTokens === null
+              ? "unknown"
+              : platformId === "pons"
+                ? "behavior_inferred"
+                : "onchain_attributed",
+        };
+      });
+    };
+
+    const ponsFlows = buildFlows("pons");
+    const pairFlows = buildFlows("pair");
+    const pons = new Map(calculationDates.map((date, index) => [date, ponsFlows[index]]));
+    const pair = new Map(calculationDates.map((date, index) => [date, pairFlows[index]]));
+    const coversWindow = (coverage: typeof ponsCoverage) =>
+      Boolean(
+        coverage?.coverageStartAt &&
+          coverage.observedAt.slice(0, 10) >= endDate &&
+          (coverage.completeHistory || coverage.coverageStartAt.slice(0, 10) < startDate),
+      );
+    const warnings: string[] = [];
+    if (!coversWindow(ponsCoverage)) {
+      warnings.push("PONS 销毁记录未覆盖所选窗口的全部日期；缺口保持未知。");
+    }
+    if (!coversWindow(pairCoverage)) {
+      warnings.push("PAIR 销毁记录未覆盖所选窗口的全部日期；缺口保持未知。");
+    }
+    if (!pairBuybackComplete) {
+      warnings.push("PAIR 回购逐笔账本尚未证明历史覆盖完整；未覆盖日期保持未知。");
+    }
+    return {
+      service: "rhc-protocol-token-history",
+      generatedAt: now.toISOString(),
+      windowDays: days,
+      startDate,
+      endDate,
+      points: dates.map((date) => ({
+        date,
+        state: "closed",
+        pons: pons.get(date) as ProtocolTokenDailyFlow,
+        pair: pair.get(date) as ProtocolTokenDailyFlow,
+      })),
+      coverage: { pons: ponsCoverage, pair: pairCoverage },
+      definitions: {
+        tokenVolume:
+          "GMGN 统计的 PONS 或 PAIR 平台币自身日成交额；不是对应发射平台所有代币的成交额。",
+        burn: "转入 0x000000000000000000000000000000000000dEaD 的代币数量。",
+        attributedBuyback:
+          "PONS 按已识别回购钱包转入死亡地址归因；PAIR 按资金闭环逐笔账本中的市场买入归因。",
+        resultValue: "归因回购代币数量 × 当日收盘价，仅表示回购结果的估值，不等于链上实际花费。",
+        intensity: "当日回购结果估值 ÷ 前一 UTC 日收盘价对应的销毁调整市值。",
+      },
+      warnings,
+    };
   }
 
   sources() {

@@ -305,6 +305,32 @@ async function withService(
         fetchedAt: now.toISOString(),
         latencyMs: 1,
       }),
+      collectPairPriceHistory: async () => ({
+        value: [
+          {
+            tokenAddress: settings.pairTokenAddress,
+            date: "2026-09-02",
+            openedAt: "2026-09-02T00:00:00.000Z",
+            openUsd: 0.09,
+            highUsd: 0.11,
+            lowUsd: 0.08,
+            closeUsd: 0.1,
+            volumeUsd: 500,
+            amountTokens: 5_000,
+            state: "closed",
+            observedAt: now.toISOString(),
+            source: "gmgn.tokenKline",
+            quality: "third_party",
+          },
+        ],
+        fetchedAt: now.toISOString(),
+        latencyMs: 1,
+      }),
+      collectProtocolBurnHistory: async () => ({
+        observedAt: now.toISOString(),
+        days: [],
+        coverage: [],
+      }),
       warn: () => undefined,
     },
   );
@@ -416,6 +442,73 @@ test("economics service calculates and persists separate seven-day and latest-da
     );
     assert.equal(service.valuationHistory().points.length, 1);
     assert.equal(service.valuationHistory().daily[0]?.pons?.closeUsd, 0.2);
+    assert.equal(service.valuationHistory().daily[0]?.pair?.closeUsd, 0.1);
+
+    database.saveProtocolBurnHistory({
+      observedAt: "2026-09-03T01:00:00.000Z",
+      days: [
+        {
+          tokenAddress: settings.ponsTokenAddress,
+          date: "2026-09-02",
+          burnedTokens: 3,
+          inferredBuybackTokens: 2,
+          burnEventCount: 2,
+          inferredBuybackEventCount: 1,
+          complete: true,
+          observedAt: "2026-09-03T01:00:00.000Z",
+          source: "blockscout.account.tokentx",
+        },
+        {
+          tokenAddress: settings.ponsTokenAddress,
+          date: "2026-09-03",
+          burnedTokens: 1,
+          inferredBuybackTokens: 1,
+          burnEventCount: 1,
+          inferredBuybackEventCount: 1,
+          complete: true,
+          observedAt: "2026-09-03T01:00:00.000Z",
+          source: "blockscout.account.tokentx",
+        },
+        {
+          tokenAddress: settings.pairTokenAddress,
+          date: "2026-09-02",
+          burnedTokens: 5,
+          inferredBuybackTokens: 0,
+          burnEventCount: 1,
+          inferredBuybackEventCount: 0,
+          complete: true,
+          observedAt: "2026-09-03T01:00:00.000Z",
+          source: "blockscout.account.tokentx",
+        },
+        {
+          tokenAddress: settings.pairTokenAddress,
+          date: "2026-09-03",
+          burnedTokens: 2,
+          inferredBuybackTokens: 0,
+          burnEventCount: 1,
+          inferredBuybackEventCount: 0,
+          complete: true,
+          observedAt: "2026-09-03T01:00:00.000Z",
+          source: "blockscout.account.tokentx",
+        },
+      ],
+      coverage: [settings.ponsTokenAddress, settings.pairTokenAddress].map((tokenAddress) => ({
+        tokenAddress,
+        observedAt: "2026-09-03T01:00:00.000Z",
+        coverageStartAt: "2026-09-02T00:00:00.000Z",
+        rowCount: 4,
+        completeHistory: true,
+        source: "blockscout.account.tokentx" as const,
+      })),
+    });
+    const tokenHistory = service.protocolTokenHistory(7);
+    assert.equal(tokenHistory.endDate, "2026-09-02");
+    assert.equal(tokenHistory.points.length, 7);
+    assert.equal(tokenHistory.points.at(-1)?.pair.volumeUsd, 500);
+    assert.equal(tokenHistory.points.at(-1)?.pair.burnedTokens, 5);
+    assert.equal(tokenHistory.points.at(-1)?.pair.cumulativeBurnedTokens, 198);
+    assert.equal(tokenHistory.points.at(-1)?.pons.attributedBuybackTokens, 2);
+    assert.match(tokenHistory.definitions.tokenVolume, /不是对应发射平台/);
 
     setNow("2026-09-03T01:31:00.000Z");
     const expiredPrice = service.snapshot();

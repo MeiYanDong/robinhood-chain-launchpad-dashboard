@@ -11,9 +11,9 @@
     <title>全链数据｜Robinhood Chain</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css?v=0.11.0" />
-    <link rel="stylesheet" href="./styles-v2.css?v=0.25.2" />
-    <link rel="stylesheet" href="./workbench.css?v=0.25.2" />
-    <script src="./app.js?v=0.25.2" type="module"></script>
+    <link rel="stylesheet" href="./styles-v2.css?v=0.26.0" />
+    <link rel="stylesheet" href="./workbench.css?v=0.26.0" />
+    <script src="./app.js?v=0.26.0" type="module"></script>
   </head>
   <body class="radar-v2">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -943,6 +943,112 @@
               </div>
             </div>
             <footer>按 UTC 自然日统计；没有数据的日期留空，不当作 0。</footer>
+          </section>
+
+          <section class="protocol-history" aria-labelledby="protocol-history-title">
+            <header class="protocol-history__head">
+              <div>
+                <span>平台币链上账本</span>
+                <h2 id="protocol-history-title">PAIR 与 PONS：成交、回购、销毁</h2>
+                <p>这里统计平台币本身，不等于发射平台所有代币的总交易量。</p>
+              </div>
+              <div class="protocol-history__switch" aria-label="平台币历史周期">
+                <button class="is-active" type="button" data-protocol-window="7">7 日</button>
+                <button type="button" data-protocol-window="30">30 日</button>
+              </div>
+            </header>
+
+            <div class="protocol-history__summary" aria-label="PAIR 平台币成交摘要">
+              <article>
+                <span>PAIR 最近完整日成交额</span>
+                <strong id="protocol-pair-latest-volume">—</strong>
+                <small id="protocol-pair-latest-date">等待 GMGN 日线</small>
+              </article>
+              <article>
+                <span id="protocol-pair-window-label">PAIR 近 7 个完整日成交额</span>
+                <strong id="protocol-pair-window-volume">—</strong>
+                <small>平台币成交，不是平台总成交</small>
+              </article>
+              <article>
+                <span>PAIR 累计销毁</span>
+                <strong id="protocol-pair-burned">—</strong>
+                <small id="protocol-pair-burned-percent">按固定初始供应量计算</small>
+              </article>
+            </div>
+
+            <article class="protocol-history__panel" aria-labelledby="protocol-volume-title">
+              <header>
+                <div>
+                  <span>平台币成交额</span>
+                  <h3 id="protocol-volume-title">每日成交量</h3>
+                </div>
+                <small>PONS 与 PAIR 各用自己的刻度，具体金额见下表。</small>
+              </header>
+              <svg
+                id="protocol-volume-chart"
+                role="img"
+                aria-label="PONS 与 PAIR 平台币每日成交量"
+                viewBox="0 0 960 260"
+              ></svg>
+              <p class="protocol-history__empty" id="protocol-volume-empty" hidden>平台币日线尚未就绪。</p>
+              <div class="protocol-history__table-wrap">
+                <table class="protocol-history__table">
+                  <thead>
+                    <tr>
+                      <th>日期（UTC）</th>
+                      <th>PONS 成交额</th>
+                      <th>PAIR 成交额</th>
+                      <th>PAIR 收盘价</th>
+                      <th>状态</th>
+                    </tr>
+                  </thead>
+                  <tbody id="protocol-volume-body"></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="protocol-history__panel" aria-labelledby="protocol-flow-title">
+              <header class="protocol-history__flow-head">
+                <div>
+                  <span>柱状 = 每日 · 曲线 = 累计</span>
+                  <h3 id="protocol-flow-title">销毁记录</h3>
+                </div>
+                <div class="protocol-history__controls">
+                  <div aria-label="资金流类型">
+                    <button class="is-active" type="button" data-protocol-flow="burn">销毁</button>
+                    <button type="button" data-protocol-flow="buyback">归因回购</button>
+                  </div>
+                  <div aria-label="资金流单位">
+                    <button class="is-active" type="button" data-protocol-unit="tokens">代币数量</button>
+                    <button type="button" data-protocol-unit="secondary" id="protocol-secondary-unit">占初始供应量</button>
+                  </div>
+                </div>
+              </header>
+              <svg
+                id="protocol-flow-chart"
+                role="img"
+                aria-label="PONS 与 PAIR 每日及累计销毁"
+                viewBox="0 0 960 300"
+              ></svg>
+              <p class="protocol-history__empty" id="protocol-flow-empty" hidden>销毁与回购记录尚未就绪。</p>
+              <div class="protocol-history__table-wrap">
+                <table class="protocol-history__table protocol-history__table--flow">
+                  <thead>
+                    <tr>
+                      <th>日期（UTC）</th>
+                      <th>PONS 每日</th>
+                      <th>PONS 累计</th>
+                      <th>PAIR 每日</th>
+                      <th>PAIR 累计</th>
+                    </tr>
+                  </thead>
+                  <tbody id="protocol-flow-body"></tbody>
+                </table>
+              </div>
+              <footer id="protocol-flow-note">死亡地址流入按链上转账统计；当天未结束时显示进行中。</footer>
+            </article>
+
+            <p class="protocol-history__warning" id="protocol-history-warning" hidden></p>
           </section>
 
           <div class="overview-next-actions" aria-label="继续查看">

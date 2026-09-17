@@ -69,6 +69,7 @@ export interface EconomicsHttpApi {
   snapshot(): unknown | null;
   valuation(): unknown | null;
   valuationHistory(): unknown;
+  protocolTokenHistory(windowDays?: number): unknown;
   sources(): unknown;
   refresh(): Promise<unknown>;
   refreshAll(): Promise<unknown>;
@@ -445,6 +446,12 @@ export function createDashboardRequestHandler(
         }
         if (request.method === "GET" && pathname === "/api/economics/valuation/history") {
           sendJson(response, 200, options.economics.valuationHistory());
+          return;
+        }
+        if (request.method === "GET" && pathname === "/api/economics/token-history") {
+          const requestedDays = Number.parseInt(url.searchParams.get("days") ?? "7", 10);
+          const windowDays = [7, 30, 90].includes(requestedDays) ? requestedDays : 7;
+          sendJson(response, 200, options.economics.protocolTokenHistory(windowDays));
           return;
         }
         if (request.method === "GET" && pathname === "/api/economics/valuation") {
